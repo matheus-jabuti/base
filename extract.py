@@ -30,6 +30,9 @@ def clear_output_folder(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for item in output_dir.iterdir():
+        if item.name == ".gitkeep" and item.is_file():
+            continue
+
         if item.is_dir():
             shutil.rmtree(item)
         else:
