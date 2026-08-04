@@ -64,6 +64,36 @@ def normalize_name(value: object) -> str | None:
     return name.lower().title()
 
 
+def normalize_header(value: object) -> str:
+    return str(value).strip().lower()
+
+
+def find_phone_name_columns(header: tuple[object, ...]) -> tuple[int, int, int, int]:
+    """Localiza os índices de telefone/nome para amigável e contencioso.
+
+    Assume que as duas primeiras ocorrências de "telefone"/"nome" no cabeçalho
+    correspondem ao bloco amigável, e as duas seguintes ao bloco contencioso.
+    """
+    phone_cols: list[int] = []
+    name_cols: list[int] = []
+
+    for idx, cell in enumerate(header):
+        norm = normalize_header(cell)
+        if norm == "telefone":
+            phone_cols.append(idx)
+        elif norm == "nome":
+            name_cols.append(idx)
+
+    if len(phone_cols) < 2 or len(name_cols) < 2:
+        found = ", ".join(str(cell) for cell in header)
+        raise ValueError(
+            f"Cabeçalho inválido. Esperado telefone/nome para amigável e contencioso. "
+            f"Cabeçalho encontrado: {found}"
+        )
+
+    return phone_cols[0], name_cols[0], phone_cols[1], name_cols[1]
+
+
 def extract_rows(sheet, phone_col: int, name_col: int) -> list[tuple[str, str]]:
     rows: list[tuple[str, str]] = []
 
@@ -104,8 +134,13 @@ def process_excel(excel_path: Path, output_dir: Path) -> None:
 
             sheet = workbook[actual_sheet_name]
 
-            amigavel_rows = extract_rows(sheet, phone_col=0, name_col=1)
-            contencioso_rows = extract_rows(sheet, phone_col=5, name_col=6)
+            header_row = next(sheet.iter_rows(min_row=2, max_row=2, values_only=True), ())
+            amigavel_phone_col, amigavel_name_col, contencioso_phone_col, contencioso_name_col = find_phone_name_columns(
+                header_row
+            )
+
+            amigavel_rows = extract_rows(sheet, phone_col=amigavel_phone_col, name_col=amigavel_name_col)
+            contencioso_rows = extract_rows(sheet, phone_col=contencioso_phone_col, name_col=contencioso_name_col)
 
             write_csv(output_dir / outputs["amigavel"], amigavel_rows)
             write_csv(output_dir / outputs["contencioso"], contencioso_rows)
