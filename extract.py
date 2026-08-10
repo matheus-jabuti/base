@@ -10,15 +10,34 @@ from openpyxl import load_workbook
 INPUT_DIR = Path(__file__).resolve().parent / "in"
 OUTPUT_DIR = Path(__file__).resolve().parent / "out"
 
-SHEET_CONFIG = {
-    "tempa": {
-        "amigavel": "amigavel_A.csv",
-        "contencioso": "contencioso_A.csv",
-    },
-    "tempb": {
-        "amigavel": "amigavel_B.csv",
-        "contencioso": "contencioso_B.csv",
-    },
+# Abas da planilha de entrada que contem os contatos a disparar.
+SOURCE_SHEETS = ("tempa", "tempb")
+
+# Cada grupo vira um CSV de saida. O contencioso nao e separado por rating.
+GROUP_ABW = "abw"
+GROUP_C = "c"
+GROUP_DEZ = "dez"
+GROUP_SEM_RATING = "sem_rating"
+GROUP_CONTENCIOSO = "contencioso"
+
+OUTPUT_FILES = {
+    GROUP_ABW: "amigavel_ABW.csv",
+    GROUP_C: "amigavel_C.csv",
+    GROUP_DEZ: "amigavel_DEZ.csv",
+    GROUP_SEM_RATING: "amigavel_sem_rating.csv",
+    GROUP_CONTENCIOSO: "contencioso.csv",
+}
+
+# O rating vem como "A", "B", "C", "D", "E" ou prefixado ("Z_REDUCAO",
+# "W_FPD_COM_PL", ...). A primeira letra define o grupo.
+RATING_GROUPS = {
+    "A": GROUP_ABW,
+    "B": GROUP_ABW,
+    "W": GROUP_ABW,
+    "C": GROUP_C,
+    "D": GROUP_DEZ,
+    "E": GROUP_DEZ,
+    "Z": GROUP_DEZ,
 }
 
 
@@ -68,46 +87,86 @@ def normalize_header(value: object) -> str:
     return str(value).strip().lower()
 
 
-def find_phone_name_columns(header: tuple[object, ...]) -> tuple[int, int, int, int]:
-    """Localiza os índices de telefone/nome para amigável e contencioso.
+def resolve_group(tipo: object, rating: object) -> str:
+    """Define em qual CSV a linha entra.
 
-    Assume que as duas primeiras ocorrências de "telefone"/"nome" no cabeçalho
-    correspondem ao bloco amigável, e as duas seguintes ao bloco contencioso.
+    Contencioso ignora o rating. Amigavel usa a primeira letra do rating;
+    sem rating vai para o CSV proprio.
     """
-    phone_cols: list[int] = []
-    name_cols: list[int] = []
+    if tipo is not None and "contencioso" in str(tipo).strip().lower():
+        return GROUP_CONTENCIOSO
 
-    for idx, cell in enumerate(header):
-        norm = normalize_header(cell)
-        if norm == "telefone":
-            phone_cols.append(idx)
-        elif norm == "nome":
-            name_cols.append(idx)
+    if rating is None:
+        return GROUP_SEM_RATING
 
-    if len(phone_cols) < 2 or len(name_cols) < 2:
+    rating_text = str(rating).strip().upper()
+    if not rating_text:
+        return GROUP_SEM_RATING
+
+    group = RATING_GROUPS.get(rating_text[0])
+    if group is None:
+        raise ValueError(f"Rating desconhecido: '{rating}'.")
+
+    return group
+
+
+def find_blocks(header: tuple[object, ...]) -> list[dict[str, int]]:
+    """Localiza os blocos de contatos do cabecalho.
+
+    Cada bloco comeca em uma coluna "telefone" e usa as colunas "nome",
+    "tipo" e "rating" seguintes, antes do proximo "telefone".
+    """
+    normalized = [normalize_header(cell) for cell in header]
+    phone_cols = [idx for idx, name in enumerate(normalized) if name == "telefone"]
+
+    if not phone_cols:
         found = ", ".join(str(cell) for cell in header)
-        raise ValueError(
-            f"Cabeçalho inválido. Esperado telefone/nome para amigável e contencioso. "
-            f"Cabeçalho encontrado: {found}"
-        )
+        raise ValueError(f"Cabecalho invalido: nenhuma coluna 'telefone'. Cabecalho encontrado: {found}")
 
-    return phone_cols[0], name_cols[0], phone_cols[1], name_cols[1]
+    blocks: list[dict[str, int]] = []
+
+    for position, phone_col in enumerate(phone_cols):
+        end = phone_cols[position + 1] if position + 1 < len(phone_cols) else len(normalized)
+        block = {"telefone": phone_col}
+
+        for column in ("nome", "tipo", "rating"):
+            for idx in range(phone_col + 1, end):
+                if normalized[idx] == column:
+                    block[column] = idx
+                    break
+
+        missing = [column for column in ("nome", "tipo", "rating") if column not in block]
+        if missing:
+            raise ValueError(
+                f"Bloco iniciado na coluna {phone_col + 1} sem as colunas: {', '.join(missing)}."
+            )
+
+        blocks.append(block)
+
+    return blocks
 
 
-def extract_rows(sheet, phone_col: int, name_col: int) -> list[tuple[str, str]]:
-    rows: list[tuple[str, str]] = []
+def collect_rows(sheet) -> list[tuple[str, str, str]]:
+    """Le a aba e devolve (grupo, telefone, nome) de todos os blocos."""
+    header_row = next(sheet.iter_rows(min_row=2, max_row=2, values_only=True), ())
+    blocks = find_blocks(header_row)
+
+    collected: list[tuple[str, str, str]] = []
 
     for row in sheet.iter_rows(min_row=3, values_only=True):
-        phone_raw = row[phone_col] if phone_col < len(row) else None
-        name_raw = row[name_col] if name_col < len(row) else None
+        for block in blocks:
+            phone = normalize_phone(row[block["telefone"]] if block["telefone"] < len(row) else None)
+            name = normalize_name(row[block["nome"]] if block["nome"] < len(row) else None)
 
-        phone = normalize_phone(phone_raw)
-        name = normalize_name(name_raw)
+            if not phone or not name:
+                continue
 
-        if phone and name:
-            rows.append((phone, name))
+            tipo = row[block["tipo"]] if block["tipo"] < len(row) else None
+            rating = row[block["rating"]] if block["rating"] < len(row) else None
 
-    return rows
+            collected.append((resolve_group(tipo, rating), phone, name))
+
+    return collected
 
 
 def write_csv(file_path: Path, data: Iterable[tuple[str, str]]) -> None:
@@ -117,13 +176,16 @@ def write_csv(file_path: Path, data: Iterable[tuple[str, str]]) -> None:
         writer.writerows(data)
 
 
-def process_excel(excel_path: Path, output_dir: Path) -> None:
+def process_excel(excel_path: Path, output_dir: Path) -> dict[str, int]:
     workbook = load_workbook(excel_path, read_only=True, data_only=True)
 
     try:
         sheet_lookup = {normalize_sheet_name(name): name for name in workbook.sheetnames}
 
-        for sheet_name, outputs in SHEET_CONFIG.items():
+        groups: dict[str, list[tuple[str, str]]] = {group: [] for group in OUTPUT_FILES}
+        seen_phones: set[str] = set()
+
+        for sheet_name in SOURCE_SHEETS:
             actual_sheet_name = sheet_lookup.get(normalize_sheet_name(sheet_name))
             if actual_sheet_name is None:
                 available = ", ".join(workbook.sheetnames)
@@ -132,18 +194,19 @@ def process_excel(excel_path: Path, output_dir: Path) -> None:
                     f"Planilhas disponiveis: {available}."
                 )
 
-            sheet = workbook[actual_sheet_name]
+            for group, phone, name in collect_rows(workbook[actual_sheet_name]):
+                # TempA e TempB sao unificadas: o mesmo telefone nao pode
+                # receber dois disparos.
+                if phone in seen_phones:
+                    continue
 
-            header_row = next(sheet.iter_rows(min_row=2, max_row=2, values_only=True), ())
-            amigavel_phone_col, amigavel_name_col, contencioso_phone_col, contencioso_name_col = find_phone_name_columns(
-                header_row
-            )
+                seen_phones.add(phone)
+                groups[group].append((phone, name))
 
-            amigavel_rows = extract_rows(sheet, phone_col=amigavel_phone_col, name_col=amigavel_name_col)
-            contencioso_rows = extract_rows(sheet, phone_col=contencioso_phone_col, name_col=contencioso_name_col)
+        for group, rows in groups.items():
+            write_csv(output_dir / OUTPUT_FILES[group], rows)
 
-            write_csv(output_dir / outputs["amigavel"], amigavel_rows)
-            write_csv(output_dir / outputs["contencioso"], contencioso_rows)
+        return {group: len(rows) for group, rows in groups.items()}
     finally:
         workbook.close()
 
@@ -169,16 +232,20 @@ def main() -> int:
 
     clear_output_folder(OUTPUT_DIR)
 
+    totals: dict[str, int] = {group: 0 for group in OUTPUT_FILES}
+
     for excel_file in excel_files:
-        process_excel(excel_file, OUTPUT_DIR)
+        counts = process_excel(excel_file, OUTPUT_DIR)
+        for group, count in counts.items():
+            totals[group] += count
 
     for excel_file in excel_files:
         excel_file.unlink(missing_ok=True)
 
     print("Extracao concluida com sucesso.")
     print("Arquivos gerados:")
-    for name in ["amigavel_A.csv", "amigavel_B.csv", "contencioso_A.csv", "contencioso_B.csv"]:
-        print(f"- {name}")
+    for group, file_name in OUTPUT_FILES.items():
+        print(f"- {file_name} ({totals[group]} contatos)")
 
     print("Excels removidos de base/in.")
     return 0
