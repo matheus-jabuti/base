@@ -1,113 +1,38 @@
+"""Gera os CSVs de disparo a partir de um Excel ja montado.
+
+Caminho manual: quando a planilha TempA/TempB chega pronta, coloque o
+arquivo em in/ e rode este script. Para gerar tudo direto do banco, use
+gerar_base.py.
+"""
+
 from __future__ import annotations
 
-import csv
-import shutil
+import argparse
+from datetime import date, datetime
 from pathlib import Path
-from typing import Iterable
 
 from openpyxl import load_workbook
 
-INPUT_DIR = Path(__file__).resolve().parent / "in"
-OUTPUT_DIR = Path(__file__).resolve().parent / "out"
+import config
+from contatos import (
+    Registro,
+    ResultadoContatos,
+    clear_output_folder,
+    coletar_contatos,
+    escrever_copy,
+    escrever_grupos,
+    imprimir_resumo,
+    normalize_header,
+    normalize_sheet_name,
+)
+
+INPUT_DIR = config.INPUT_DIR
+OUTPUT_DIR = config.OUTPUT_DIR
 
 # Abas da planilha de entrada que contem os contatos a disparar.
 SOURCE_SHEETS = ("tempa", "tempb")
 
-# Cada grupo vira um CSV de saida. O contencioso nao e separado por rating.
-GROUP_ABW = "abw"
-GROUP_C = "c"
-GROUP_DEZ = "dez"
-GROUP_SEM_RATING = "sem_rating"
-GROUP_CONTENCIOSO = "contencioso"
-
-OUTPUT_FILES = {
-    GROUP_ABW: "amigavel_ABW.csv",
-    GROUP_C: "amigavel_C.csv",
-    GROUP_DEZ: "amigavel_DEZ.csv",
-    GROUP_SEM_RATING: "amigavel_sem_rating.csv",
-    GROUP_CONTENCIOSO: "contencioso.csv",
-}
-
-# O rating vem como "A", "B", "C", "D", "E" ou prefixado ("Z_REDUCAO",
-# "W_FPD_COM_PL", ...). A primeira letra define o grupo.
-RATING_GROUPS = {
-    "A": GROUP_ABW,
-    "B": GROUP_ABW,
-    "W": GROUP_ABW,
-    "C": GROUP_C,
-    "D": GROUP_DEZ,
-    "E": GROUP_DEZ,
-    "Z": GROUP_DEZ,
-}
-
-
-def normalize_sheet_name(name: object) -> str:
-    return str(name).strip().lower()
-
-
-def clear_output_folder(output_dir: Path) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    for item in output_dir.iterdir():
-        if item.name == ".gitkeep" and item.is_file():
-            continue
-
-        if item.is_dir():
-            shutil.rmtree(item)
-        else:
-            item.unlink()
-
-
-def normalize_phone(value: object) -> str | None:
-    if value is None:
-        return None
-
-    if isinstance(value, int):
-        return str(value)
-
-    if isinstance(value, float):
-        return str(int(value)) if value.is_integer() else "".join(ch for ch in str(value) if ch.isdigit())
-
-    digits = "".join(ch for ch in str(value).strip() if ch.isdigit())
-    return digits or None
-
-
-def normalize_name(value: object) -> str | None:
-    if value is None:
-        return None
-
-    name = " ".join(str(value).split())
-    if not name:
-        return None
-
-    return name.lower().title()
-
-
-def normalize_header(value: object) -> str:
-    return str(value).strip().lower()
-
-
-def resolve_group(tipo: object, rating: object) -> str:
-    """Define em qual CSV a linha entra.
-
-    Contencioso ignora o rating. Amigavel usa a primeira letra do rating;
-    sem rating vai para o CSV proprio.
-    """
-    if tipo is not None and "contencioso" in str(tipo).strip().lower():
-        return GROUP_CONTENCIOSO
-
-    if rating is None:
-        return GROUP_SEM_RATING
-
-    rating_text = str(rating).strip().upper()
-    if not rating_text:
-        return GROUP_SEM_RATING
-
-    group = RATING_GROUPS.get(rating_text[0])
-    if group is None:
-        raise ValueError(f"Rating desconhecido: '{rating}'.")
-
-    return group
+BLOCK_COLUMNS = ("nome", "tipo", "rating")
 
 
 def find_blocks(header: tuple[object, ...]) -> list[dict[str, int]]:
@@ -129,13 +54,13 @@ def find_blocks(header: tuple[object, ...]) -> list[dict[str, int]]:
         end = phone_cols[position + 1] if position + 1 < len(phone_cols) else len(normalized)
         block = {"telefone": phone_col}
 
-        for column in ("nome", "tipo", "rating"):
+        for column in BLOCK_COLUMNS:
             for idx in range(phone_col + 1, end):
                 if normalized[idx] == column:
                     block[column] = idx
                     break
 
-        missing = [column for column in ("nome", "tipo", "rating") if column not in block]
+        missing = [column for column in BLOCK_COLUMNS if column not in block]
         if missing:
             raise ValueError(
                 f"Bloco iniciado na coluna {phone_col + 1} sem as colunas: {', '.join(missing)}."
@@ -146,44 +71,41 @@ def find_blocks(header: tuple[object, ...]) -> list[dict[str, int]]:
     return blocks
 
 
-def collect_rows(sheet) -> list[tuple[str, str, str]]:
-    """Le a aba e devolve (grupo, telefone, nome) de todos os blocos."""
+def collect_rows(sheet) -> list[Registro]:
+    """Le a aba e devolve os registros brutos de todos os blocos."""
     header_row = next(sheet.iter_rows(min_row=2, max_row=2, values_only=True), ())
     blocks = find_blocks(header_row)
 
-    collected: list[tuple[str, str, str]] = []
+    collected: list[Registro] = []
 
     for row in sheet.iter_rows(min_row=3, values_only=True):
         for block in blocks:
-            phone = normalize_phone(row[block["telefone"]] if block["telefone"] < len(row) else None)
-            name = normalize_name(row[block["nome"]] if block["nome"] < len(row) else None)
+            valores = {
+                nome: row[indice] if indice < len(row) else None
+                for nome, indice in block.items()
+            }
 
-            if not phone or not name:
+            if valores["telefone"] is None and valores["nome"] is None:
                 continue
 
-            tipo = row[block["tipo"]] if block["tipo"] < len(row) else None
-            rating = row[block["rating"]] if block["rating"] < len(row) else None
-
-            collected.append((resolve_group(tipo, rating), phone, name))
+            collected.append(
+                Registro(
+                    telefone=valores["telefone"],
+                    nome=valores["nome"],
+                    tipo=valores["tipo"],
+                    rating=valores["rating"],
+                )
+            )
 
     return collected
 
 
-def write_csv(file_path: Path, data: Iterable[tuple[str, str]]) -> None:
-    with file_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["phonenumber", "name"])
-        writer.writerows(data)
-
-
-def process_excel(excel_path: Path, output_dir: Path) -> dict[str, int]:
+def ler_excel(excel_path: Path) -> list[Registro]:
     workbook = load_workbook(excel_path, read_only=True, data_only=True)
 
     try:
         sheet_lookup = {normalize_sheet_name(name): name for name in workbook.sheetnames}
-
-        groups: dict[str, list[tuple[str, str]]] = {group: [] for group in OUTPUT_FILES}
-        seen_phones: set[str] = set()
+        registros: list[Registro] = []
 
         for sheet_name in SOURCE_SHEETS:
             actual_sheet_name = sheet_lookup.get(normalize_sheet_name(sheet_name))
@@ -194,19 +116,9 @@ def process_excel(excel_path: Path, output_dir: Path) -> dict[str, int]:
                     f"Planilhas disponiveis: {available}."
                 )
 
-            for group, phone, name in collect_rows(workbook[actual_sheet_name]):
-                # TempA e TempB sao unificadas: o mesmo telefone nao pode
-                # receber dois disparos.
-                if phone in seen_phones:
-                    continue
+            registros.extend(collect_rows(workbook[actual_sheet_name]))
 
-                seen_phones.add(phone)
-                groups[group].append((phone, name))
-
-        for group, rows in groups.items():
-            write_csv(output_dir / OUTPUT_FILES[group], rows)
-
-        return {group: len(rows) for group, rows in groups.items()}
+        return registros
     finally:
         workbook.close()
 
@@ -221,33 +133,57 @@ def find_input_excels(input_dir: Path) -> list[Path]:
     return sorted(files)
 
 
-def main() -> int:
+def extrair(excel_files: list[Path], hora: str, com_copy: bool, data_disparo: date) -> ResultadoContatos:
+    registros: list[Registro] = []
+    for excel_file in excel_files:
+        registros.extend(ler_excel(excel_file))
+
+    # TempA e TempB sao unificadas e deduplicadas: o mesmo telefone nao pode
+    # receber dois disparos.
+    resultado = coletar_contatos(registros)
+
+    clear_output_folder(OUTPUT_DIR)
+    escrever_grupos(OUTPUT_DIR, resultado.grupos)
+
+    print("Extracao concluida com sucesso.")
+    imprimir_resumo(resultado)
+
+    if com_copy:
+        escrever_copy(config.COPY_FILE, resultado.grupos, data_disparo, hora)
+        print(f"Copy das campanhas em {config.COPY_FILE.name}.")
+
+    return resultado
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Converte os Excels de in/ nos CSVs de disparo.")
+    parser.add_argument("--hora", help="Hora do disparo usada no copy.md (padrao: hora atual, ex.: 17H).")
+    parser.add_argument("--sem-copy", action="store_true", help="Nao reescreve o copy.md.")
+    parser.add_argument("--manter-excel", action="store_true", help="Nao apaga os Excels de in/ ao final.")
+
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     excel_files = find_input_excels(INPUT_DIR)
     if not excel_files:
-        print("Nenhum Excel encontrado em base/in.")
+        print("Nenhum Excel encontrado em in/.")
         return 1
 
-    clear_output_folder(OUTPUT_DIR)
+    hora = args.hora or f"{datetime.now():%H}H"
+    extrair(excel_files, hora=hora, com_copy=not args.sem_copy, data_disparo=date.today())
 
-    totals: dict[str, int] = {group: 0 for group in OUTPUT_FILES}
+    if not args.manter_excel:
+        for excel_file in excel_files:
+            excel_file.unlink(missing_ok=True)
 
-    for excel_file in excel_files:
-        counts = process_excel(excel_file, OUTPUT_DIR)
-        for group, count in counts.items():
-            totals[group] += count
+        print("Excels removidos de in/.")
 
-    for excel_file in excel_files:
-        excel_file.unlink(missing_ok=True)
-
-    print("Extracao concluida com sucesso.")
-    print("Arquivos gerados:")
-    for group, file_name in OUTPUT_FILES.items():
-        print(f"- {file_name} ({totals[group]} contatos)")
-
-    print("Excels removidos de base/in.")
     return 0
 
 
