@@ -19,14 +19,14 @@ from typing import Iterable, NamedTuple
 GROUP_ABW = "abw"
 GROUP_C = "c"
 GROUP_DEZ = "dez"
-GROUP_SEM_RATING = "sem_rating"
+GROUP_NA_RATING = "sem_rating"
 GROUP_CONTENCIOSO = "contencioso"
 
 OUTPUT_FILES = {
     GROUP_ABW: "amigavel_ABW.csv",
     GROUP_C: "amigavel_C.csv",
     GROUP_DEZ: "amigavel_DEZ.csv",
-    GROUP_SEM_RATING: "amigavel_sem_rating.csv",
+    GROUP_NA_RATING: "amigavel_na_rating.csv",
     GROUP_CONTENCIOSO: "contencioso.csv",
 }
 
@@ -35,7 +35,7 @@ CAMPAIGN_LABELS = {
     GROUP_ABW: "Disparo amigavel A/B/W",
     GROUP_C: "Disparo amigavel C",
     GROUP_DEZ: "Disparo amigavel D/E/Z",
-    GROUP_SEM_RATING: "Disparo amigavel N/A Rating",
+    GROUP_NA_RATING: "Disparo amigavel N/A Rating",
     GROUP_CONTENCIOSO: "Disparo contencioso",
 }
 
@@ -153,7 +153,7 @@ def resolve_group(tipo: object, rating: object) -> str:
     if eh_contencioso(tipo):
         return GROUP_CONTENCIOSO
 
-    return rating_group(rating) or GROUP_SEM_RATING
+    return rating_group(rating) or GROUP_NA_RATING
 
 
 def coletar_contatos(registros: Iterable[Registro]) -> ResultadoContatos:
