@@ -1,0 +1,81 @@
+data,hora_alvo,tipo,nome,modo,hora_execucao,status,detalhe
+12/08/2026,11H15,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 11H15,-,2026-08-12T14:13:11.382Z,erro,locator.click: Timeout 30000ms exceeded. Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo amigavel A\/B\/W - 12\/08\/2026 - 11H15 - \(\d+ registros\)$/ })[22m 
+12/08/2026,11H15,amigavel_c,Disparo amigavel C - 12/08/2026 - 11H15,-,2026-08-12T14:13:44.111Z,erro,locator.click: Target page  context or browser has been closed Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo amigavel C - 12\/08\/2026 - 11H15 - \(\d+ registros\)$/ })[22m 
+12/08/2026,11H15,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 11H15,-,2026-08-12T14:13:44.112Z,erro,page.goto: Target page  context or browser has been closed
+12/08/2026,11H15,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 11H15,-,2026-08-12T14:13:44.117Z,erro,page.goto: Target page  context or browser has been closed
+12/08/2026,11H15,contencioso,Disparo contencioso - 12/08/2026 - 11H15,-,2026-08-12T14:13:44.121Z,erro,page.goto: Target page  context or browser has been closed
+12/08/2026,11H55,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 11H55,-,2026-08-12T14:52:59.944Z,erro,locator.click: Timeout 30000ms exceeded. Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo amigavel A\/B\/W - 12\/08\/2026 - 11H55 - \(\d+ registros\)$/ })[22m 
+12/08/2026,11H55,amigavel_c,Disparo amigavel C - 12/08/2026 - 11H55,-,2026-08-12T14:53:35.920Z,erro,locator.click: Timeout 30000ms exceeded. Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo amigavel C - 12\/08\/2026 - 11H55 - \(\d+ registros\)$/ })[22m 
+12/08/2026,11H55,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 11H55,-,2026-08-12T14:54:12.338Z,erro,locator.click: Timeout 30000ms exceeded. Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo amigavel D\/E\/Z - 12\/08\/2026 - 11H55 - \(\d+ registros\)$/ })[22m 
+12/08/2026,11H55,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 11H55,-,2026-08-12T14:54:48.335Z,erro,locator.click: Timeout 30000ms exceeded. Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo amigavel N\/A Rating - 12\/08\/2026 - 11H55 - \(\d+ registros\)$/ })[22m 
+12/08/2026,11H55,contencioso,Disparo contencioso - 12/08/2026 - 11H55,-,2026-08-12T14:55:24.661Z,erro,locator.click: Timeout 30000ms exceeded. Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo contencioso - 12\/08\/2026 - 11H55 - \(\d+ registros\)$/ })[22m 
+12/08/2026,12H20,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 12H20,imediato,2026-08-12T15:19:08.831Z,ok,
+12/08/2026,12H20,amigavel_c,Disparo amigavel C - 12/08/2026 - 12H20,imediato,2026-08-12T15:19:19.104Z,ok,
+12/08/2026,12H20,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 12H20,imediato,2026-08-12T15:19:28.654Z,ok,
+12/08/2026,12H20,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 12H20,imediato,2026-08-12T15:19:38.540Z,ok,
+12/08/2026,12H20,contencioso,Disparo contencioso - 12/08/2026 - 12H20,imediato,2026-08-12T15:19:47.956Z,ok,
+12/08/2026,12H36,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 12H36,agendado,2026-08-12T15:33:53.615Z,ok,
+12/08/2026,12H36,amigavel_c,Disparo amigavel C - 12/08/2026 - 12H36,-,2026-08-12T15:34:18.219Z,erro,page.waitForURL: Timeout 15000ms exceeded. =========================== logs =========================== waiting for navigation until "load" ============================================================
+12/08/2026,12H36,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 12H36,-,2026-08-12T15:34:42.184Z,erro,page.waitForURL: Timeout 15000ms exceeded. =========================== logs =========================== waiting for navigation until "load" ============================================================
+12/08/2026,12H36,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 12H36,-,2026-08-12T15:35:06.767Z,erro,page.waitForURL: Timeout 15000ms exceeded. =========================== logs =========================== waiting for navigation until "load" ============================================================
+12/08/2026,12H36,contencioso,Disparo contencioso - 12/08/2026 - 12H36,-,2026-08-12T15:35:50.585Z,erro,page.waitForURL: Timeout 15000ms exceeded. =========================== logs =========================== waiting for navigation until "load" ============================================================
+12/08/2026,13H30,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 13H30,agendado,2026-08-12T16:14:35.247Z,ok,
+12/08/2026,13H30,amigavel_c,Disparo amigavel C - 12/08/2026 - 13H30,agendado,2026-08-12T16:14:59.884Z,ok,
+12/08/2026,13H30,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 13H30,agendado,2026-08-12T16:15:24.253Z,ok,
+12/08/2026,13H30,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 13H30,agendado,2026-08-12T16:15:48.631Z,ok,
+12/08/2026,13H30,contencioso,Disparo contencioso - 12/08/2026 - 13H30,agendado,2026-08-12T16:16:11.069Z,ok,
+12/08/2026,15H15,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 15H15,-,2026-08-12T18:14:40.881Z,erro,Nem redirecionou pra listagem de Transmissões nem mostrou toast de sucesso.
+12/08/2026,15H15,amigavel_c,Disparo amigavel C - 12/08/2026 - 15H15,-,2026-08-12T18:15:05.276Z,erro,Nem redirecionou pra listagem de Transmissões nem mostrou toast de sucesso.
+12/08/2026,15H15,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 15H15,-,2026-08-12T18:15:30.779Z,erro,Nem redirecionou pra listagem de Transmissões nem mostrou toast de sucesso.
+12/08/2026,15H15,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 15H15,-,2026-08-12T18:15:55.330Z,erro,Nem redirecionou pra listagem de Transmissões nem mostrou toast de sucesso.
+12/08/2026,15H15,contencioso,Disparo contencioso - 12/08/2026 - 15H15,-,2026-08-12T18:18:07.182Z,erro,Lista/Campanha/Template não ficaram selecionáveis após 6 tentativas: locator.click: Timeout 10000ms exceeded. Call log: [2m  - waiting for getByRole('option'  { name: /^Disparo contencioso - 12\/08\/2026 - 15H15 - \(\d+ registros\)$/ })[22m 
+12/08/2026,15H35,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 15H35,imediato,2026-08-12T18:36:00.889Z,ok,
+12/08/2026,15H35,amigavel_c,Disparo amigavel C - 12/08/2026 - 15H35,imediato,2026-08-12T18:36:11.303Z,ok,
+12/08/2026,15H35,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 15H35,imediato,2026-08-12T18:36:22.344Z,ok,
+12/08/2026,15H35,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 15H35,imediato,2026-08-12T18:36:33.121Z,ok,
+12/08/2026,15H35,contencioso,Disparo contencioso - 12/08/2026 - 15H35,imediato,2026-08-12T18:36:43.581Z,ok,
+12/08/2026,16H10,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 16H10,agendado,2026-08-12T18:37:31.923Z,ok,
+12/08/2026,16H10,amigavel_c,Disparo amigavel C - 12/08/2026 - 16H10,agendado,2026-08-12T18:38:01.451Z,ok,
+12/08/2026,16H10,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 16H10,agendado,2026-08-12T18:38:30.882Z,ok,
+12/08/2026,16H10,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 16H10,agendado,2026-08-12T18:39:00.341Z,ok,
+12/08/2026,16H10,contencioso,Disparo contencioso - 12/08/2026 - 16H10,agendado,2026-08-12T18:39:29.670Z,ok,
+12/08/2026,18H45,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 18H45,-,2026-08-12T21:25:27.891Z,erro,ENOENT: no such file or directory  stat 'C:\Users\MatheusPalmieri\jabuti\auto\bases\amigavel_ABW.csv'
+12/08/2026,18H45,amigavel_c,Disparo amigavel C - 12/08/2026 - 18H45,-,2026-08-12T21:25:29.616Z,erro,ENOENT: no such file or directory  stat 'C:\Users\MatheusPalmieri\jabuti\auto\bases\amigavel_C.csv'
+12/08/2026,18H45,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 18H45,-,2026-08-12T21:25:31.332Z,erro,ENOENT: no such file or directory  stat 'C:\Users\MatheusPalmieri\jabuti\auto\bases\amigavel_DEZ.csv'
+12/08/2026,18H45,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 18H45,-,2026-08-12T21:25:33.319Z,erro,ENOENT: no such file or directory  stat 'C:\Users\MatheusPalmieri\jabuti\auto\bases\amigavel_na_rating.csv'
+12/08/2026,18H45,contencioso,Disparo contencioso - 12/08/2026 - 18H45,-,2026-08-12T21:25:35.184Z,erro,ENOENT: no such file or directory  stat 'C:\Users\MatheusPalmieri\jabuti\auto\bases\contencioso.csv'
+12/08/2026,18H45,amigavel_abw,Disparo amigavel A/B/W - 12/08/2026 - 18H45,agendado,2026-08-12T21:27:11.346Z,ok,
+12/08/2026,18H45,amigavel_c,Disparo amigavel C - 12/08/2026 - 18H45,agendado,2026-08-12T21:27:45.732Z,ok,
+12/08/2026,18H45,amigavel_dez,Disparo amigavel D/E/Z - 12/08/2026 - 18H45,agendado,2026-08-12T21:28:15.743Z,ok,
+12/08/2026,18H45,amigavel_na_rating,Disparo amigavel N/A Rating - 12/08/2026 - 18H45,agendado,2026-08-12T21:28:45.760Z,ok,
+12/08/2026,18H45,contencioso,Disparo contencioso - 12/08/2026 - 18H45,agendado,2026-08-12T21:29:17.276Z,ok,
+13/08/2026,10H30,amigavel_abw,Disparo amigavel A/B/W - 13/08/2026 - 10H30,-,2026-08-13T13:10:34.708Z,erro,page.waitForTimeout: Target page  context or browser has been closed
+13/08/2026,10H30,amigavel_c,Disparo amigavel C - 13/08/2026 - 10H30,-,2026-08-13T13:10:34.712Z,erro,page.goto: Target page  context or browser has been closed
+13/08/2026,10H30,amigavel_dez,Disparo amigavel D/E/Z - 13/08/2026 - 10H30,-,2026-08-13T13:10:34.714Z,erro,page.goto: Target page  context or browser has been closed
+13/08/2026,10H30,amigavel_na_rating,Disparo amigavel N/A Rating - 13/08/2026 - 10H30,-,2026-08-13T13:10:34.715Z,erro,page.goto: Target page  context or browser has been closed
+13/08/2026,10H30,contencioso,Disparo contencioso - 13/08/2026 - 10H30,-,2026-08-13T13:10:34.716Z,erro,page.goto: Target page  context or browser has been closed
+13/08/2026,10H30,amigavel_abw,Disparo amigavel A/B/W - 13/08/2026 - 10H30,agendado,2026-08-13T13:12:10.987Z,ok,
+13/08/2026,10H30,amigavel_c,Disparo amigavel C - 13/08/2026 - 10H30,agendado,2026-08-13T13:12:40.778Z,ok,
+13/08/2026,10H30,amigavel_dez,Disparo amigavel D/E/Z - 13/08/2026 - 10H30,agendado,2026-08-13T13:13:10.363Z,ok,
+13/08/2026,10H30,amigavel_na_rating,Disparo amigavel N/A Rating - 13/08/2026 - 10H30,agendado,2026-08-13T13:13:40.195Z,ok,
+13/08/2026,10H30,contencioso,Disparo contencioso - 13/08/2026 - 10H30,agendado,2026-08-13T13:14:10.084Z,ok,
+13/08/2026,13H00,amigavel_abw,Disparo amigavel A/B/W - 13/08/2026 - 13H00,agendado,2026-08-13T15:57:50.209Z,ok,
+13/08/2026,13H00,amigavel_c,Disparo amigavel C - 13/08/2026 - 13H00,agendado,2026-08-13T15:58:19.776Z,ok,
+13/08/2026,13H00,amigavel_dez,Disparo amigavel D/E/Z - 13/08/2026 - 13H00,imediato,2026-08-13T15:58:30.743Z,ok,
+13/08/2026,13H00,amigavel_na_rating,Disparo amigavel N/A Rating - 13/08/2026 - 13H00,imediato,2026-08-13T15:58:41.111Z,ok,
+13/08/2026,13H00,contencioso,Disparo contencioso - 13/08/2026 - 13H00,-,2026-08-13T15:59:40.558Z,erro,page.waitForTimeout: Target page  context or browser has been closed
+13/08/2026,18H00,amigavel_abw,Disparo amigavel A/B/W - 13/08/2026 - 18H00,agendado,2026-08-13T20:53:16.594Z,ok,
+13/08/2026,18H00,amigavel_c,Disparo amigavel C - 13/08/2026 - 18H00,agendado,2026-08-13T20:53:46.271Z,ok,
+13/08/2026,18H00,amigavel_dez,Disparo amigavel D/E/Z - 13/08/2026 - 18H00,agendado,2026-08-13T20:54:16.336Z,ok,
+13/08/2026,18H00,amigavel_na_rating,Disparo amigavel N/A Rating - 13/08/2026 - 18H00,agendado,2026-08-13T20:54:45.868Z,ok,
+13/08/2026,18H00,contencioso,Disparo contencioso - 13/08/2026 - 18H00,agendado,2026-08-13T20:55:15.558Z,ok,
+14/08/2026,08H15,amigavel_abw,Disparo amigavel A/B/W - 14/08/2026 - 08H15,imediato,2026-08-14T12:58:57.130Z,ok,
+14/08/2026,08H15,amigavel_c,Disparo amigavel C - 14/08/2026 - 08H15,imediato,2026-08-14T12:59:08.090Z,ok,
+14/08/2026,08H15,amigavel_dez,Disparo amigavel D/E/Z - 14/08/2026 - 08H15,imediato,2026-08-14T12:59:19.237Z,ok,
+14/08/2026,08H15,amigavel_na_rating,Disparo amigavel N/A Rating - 14/08/2026 - 08H15,imediato,2026-08-14T12:59:31.009Z,ok,
+14/08/2026,08H15,contencioso,Disparo contencioso - 14/08/2026 - 08H15,imediato,2026-08-14T12:59:42.039Z,ok,
+14/08/2026,12H45,amigavel_abw,Disparo amigavel A/B/W - 14/08/2026 - 12H45,imediato,2026-08-14T19:06:40.541Z,ok,
+14/08/2026,12H45,amigavel_c,Disparo amigavel C - 14/08/2026 - 12H45,imediato,2026-08-14T19:06:52.064Z,ok,
+14/08/2026,12H45,amigavel_dez,Disparo amigavel D/E/Z - 14/08/2026 - 12H45,imediato,2026-08-14T19:07:03.848Z,ok,
+14/08/2026,12H45,amigavel_na_rating,Disparo amigavel N/A Rating - 14/08/2026 - 12H45,imediato,2026-08-14T19:07:15.075Z,ok,
+14/08/2026,12H45,contencioso,Disparo contencioso - 14/08/2026 - 12H45,imediato,2026-08-14T19:07:26.117Z,ok,
