@@ -111,6 +111,25 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--apagado); text-t
 .faixa.producao { border-color: rgba(224, 80, 60, .3); background: rgba(224, 80, 60, .09); color: #ffb2a7; }
 .faixa.teste { border-color: rgba(91, 140, 255, .3); background: rgba(91, 140, 255, .09); color: #a8c2ff; }
 
+.faixa.vpn { display: flex; align-items: center; gap: 10px; }
+.faixa.vpn > span:nth-child(2) { flex: 1; min-width: 0; }
+.faixa.vpn button { flex: none; padding: 4px 10px; font-size: 12px; }
+
+.faixa.vpn .ponto {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--borda-forte);
+  border-radius: 50%;
+}
+
+.faixa.checando { border-color: var(--borda); background: var(--fundo-alto); color: var(--apagado); }
+.faixa.checando .ponto { border-color: var(--acento); border-top-color: transparent; animation: girar .8s linear infinite; }
+.faixa.vpn.ok { border-color: rgba(62, 207, 142, .3); background: rgba(62, 207, 142, .08); color: #86e3ba; }
+.faixa.vpn.ok .ponto { border-color: var(--ok); background: var(--ok); }
+.faixa.vpn.erro { border-color: rgba(255, 107, 94, .32); background: rgba(255, 107, 94, .08); color: #ffa79e; }
+.faixa.vpn.erro .ponto { border-color: var(--erro); background: var(--erro); }
+
 /* ---------------- lista de tipos ---------------- */
 
 .tipos { margin: 0; padding: 0; list-style: none; }

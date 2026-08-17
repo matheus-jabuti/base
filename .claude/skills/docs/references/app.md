@@ -76,6 +76,11 @@ essa escolha existe; a tela só manda o nome do modo.
   decide é o `dispatch.js`. Se o buffer mudar lá, mude aqui junto.
 - Horário inicial: agora + 15 minutos. Período inicial: `/api/periodo-padrao`.
 - Modo teste troca a faixa de aviso e recarrega as contagens da outra pasta.
+- **Faixa de VPN** (`#faixa-vpn`, acima da faixa de modo): `verificarVpn()` roda no boot e chama
+  `GET /api/vpn` até `VPN_TENTATIVAS` (3) vezes, com `VPN_ESPERA_MS` (1500ms) entre elas, **parando na
+  primeira que responder `ok`** — quem conecta de primeira vê o verde direto. Esgotadas as tentativas,
+  a faixa fica vermelha com o motivo por banco e o botão "Verificar de novo", que repete o ciclo. É só
+  aviso: o bloqueio de verdade continua sendo o passo `vpn` do `executar()`, no backend.
 
 ## Ao mexer aqui
 

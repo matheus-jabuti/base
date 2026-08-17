@@ -6,6 +6,10 @@ const estado = {
   rodando: false,
 };
 
+// A VPN as vezes demora a subir; tenta de novo antes de acusar erro.
+const VPN_TENTATIVAS = 3;
+const VPN_ESPERA_MS = 1500;
+
 const ETAPAS = {
   lista: 'criando lista',
   campanha: 'criando campanha',
@@ -21,6 +25,43 @@ const rotulo = (nome) => {
   const curto = nome.replace(/^Disparo /, '');
   return curto.charAt(0).toUpperCase() + curto.slice(1);
 };
+
+/* ------------------------------------------------ vpn */
+
+function pintarVpn(situacao, texto, comBotao) {
+  const faixa = $('faixa-vpn');
+  faixa.hidden = false;
+  faixa.className = `faixa vpn ${situacao}`;
+  $('vpn-texto').textContent = texto;
+  $('btn-vpn').hidden = !comBotao;
+}
+
+// Confere a VPN ao abrir a tela: ate 3 tentativas, parando na primeira que der certo.
+async function verificarVpn() {
+  let motivo = '';
+
+  for (let tentativa = 1; tentativa <= VPN_TENTATIVAS; tentativa++) {
+    pintarVpn('checando', `Conferindo a VPN — tentativa ${tentativa} de ${VPN_TENTATIVAS}...`, false);
+
+    try {
+      const resposta = await fetch('/api/vpn').then((r) => r.json());
+
+      if (resposta.ok) {
+        pintarVpn('ok', `VPN conectada — ${plural(resposta.conexoes.length, 'banco respondendo', 'bancos respondendo')}.`, false);
+        return true;
+      }
+
+      motivo = resposta.conexoes.filter((c) => !c.ok).map((c) => `${c.nome}: ${c.erro}`).join(' · ');
+    } catch (erro) {
+      motivo = String(erro);
+    }
+
+    if (tentativa < VPN_TENTATIVAS) await new Promise((pronto) => setTimeout(pronto, VPN_ESPERA_MS));
+  }
+
+  pintarVpn('erro', `VPN fora do ar depois de ${VPN_TENTATIVAS} tentativas. Conecte a VPN da empresa antes de disparar. ${motivo}`, true);
+  return false;
+}
 
 /* ------------------------------------------------ menu */
 
@@ -320,6 +361,7 @@ async function iniciar() {
     botao.onclick = () => !estado.rodando && trocarModo(botao.dataset.modo);
   }
 
+  $('btn-vpn').onclick = verificarVpn;
   $('btn-todos').onclick = aplicarEmTodos;
   $('btn-disparar').onclick = disparar;
   $('btn-voltar').onclick = () => { trocarView('menu'); carregarBases(); };
@@ -328,6 +370,7 @@ async function iniciar() {
 
   trocarModo('producao');
   carregarHistorico();
+  verificarVpn();
 }
 
 iniciar();
