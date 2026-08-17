@@ -107,7 +107,40 @@ no build step. Template editing writes back only `template_prefix`/`template_num
 - Update `README.md` (operator-facing, Portuguese) and `auto/CLAUDE.md` when flow, commands, or
   output files change.
 
+## Git — commit every change
+
+**Every change ends in a commit in this repo.** Finishing a task means the working tree is clean:
+edit → verify → `git add` the files you touched → commit. Don't batch unrelated work into one commit,
+and don't leave changes uncommitted "for the user to review" — the commit is the review unit.
+
+- Commit message: Conventional Commits, **em português**, imperative, one line.
+  `<tipo>(<escopo>): <descrição>`
+- Types: `feat`, `fix`, `refactor`, `chore`, `docs`.
+- Scope = where the change actually landed: `geracao` (root Python + `sql/`), `auto`, `app`, `docs`
+  (`.claude/`, `README.md`). Omit the scope when the change spans several with no clear owner.
+- Body only when the "why" isn't obvious from the subject. Keep it short, in Portuguese.
+- End the message with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+
+```
+feat(app): adiciona botao de aplicar template em todas as bases
+fix(geracao): trata rating desconhecido sem interromper a geracao
+docs: documenta o protocolo [ETAPA] em contratos.md
+```
+
+Rules that don't bend:
+
+- **Never commit `.env`, CSVs de cliente, `out/`, `relatorio/`, `copy.md`, logs.** All gitignored —
+  keep it that way, and never `git add -f` past it.
+- `git add` the specific paths you changed, never `git add -A` — untracked data files live alongside.
+- **Push, branch and PR only when the user asks.** Committing is automatic; publishing is not.
+- Don't amend or rewrite a commit that already exists — add a new one.
+
 ## Reference
+
+**Load the `docs` skill (`.claude/skills/docs/`) before changing anything here** — it holds the full
+documentation of the harness (architecture, generation, dispatch, UI, cross-boundary contracts,
+standards, runbook) plus the rule table for keeping docs in sync with code. Updating it is part of
+finishing a task, not optional cleanup.
 
 - `README.md` — operator manual: eligibility rules, CLI flags, output table.
 - `auto/CLAUDE.md` — dispatch architecture, known gaps, bugs found in real runs.

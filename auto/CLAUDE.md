@@ -102,3 +102,7 @@ screenshot in `scripts/out/` before guessing.
 
 - Always use the `caveman` and `ponytail` skills for every task in this repo.
 - Always update docs (`CLAUDE.md`, `.claude/docs/README.md`) when scope, architecture, or commands change.
+- Repo-wide documentation lives in the `docs` skill at `../.claude/skills/docs/` — `references/disparo.md`
+  covers this folder's architecture, and `references/contratos.md` covers what `dispatch.js` shares with
+  the Python pipeline and the UI (`[ETAPA]` protocol, CSV set, exit codes). Update those too when the
+  change crosses that boundary.
