@@ -79,11 +79,12 @@ Não refatore por conta própria. Duplicação existente é aceita quando é del
 os dois cálculos de agendado × imediato) — está documentada em `contratos.md` como par a manter em
 sincronia. Se precisar generalizar algo, pergunte antes.
 
-## Git — commit a cada alteração
+## Git — commit e push a cada alteração
 
-**Toda alteração termina em commit.** Tarefa concluída é árvore de trabalho limpa: editar → conferir →
-`git add` dos arquivos tocados → commit. Não acumule trabalho não relacionado num commit só, e não
-deixe mudança pendente "para o usuário revisar" — o commit é a unidade de revisão.
+**Toda alteração termina em commit enviado pro `origin`.** Tarefa concluída é árvore de trabalho limpa
+e branch em dia: editar → conferir → `git add` dos arquivos tocados → commit → `git push`. Não acumule
+trabalho não relacionado num commit só, e não deixe mudança pendente "para o usuário revisar" — o
+commit é a unidade de revisão.
 
 - Mensagem: Conventional Commits, **em português**, imperativo, uma linha:
   `<tipo>(<escopo>): <descrição>`.
@@ -106,8 +107,10 @@ Regras que não dobram:
 - `git add` dos caminhos específicos, nunca `git add -A`: há arquivo de dado não versionado ao lado.
 - Fora do versionamento e assim deve continuar: `.env`, `in/`, `out/`, `relatorio/`, `copy.md`,
   `auto/node_modules/`, `auto/logs/`, `auto/scripts/out/`. `auto/bases/` **é** versionado de propósito.
-- **Push, branch e PR só quando o usuário pedir.** Commit é automático; publicar não é.
-- Não emendar (`--amend`) nem reescrever commit existente — faça um novo.
+- **Push na branch atual logo após o commit** (`git push`, com `-u` na primeira vez que a branch não
+  tem upstream). Criar branch e abrir PR continua dependendo de pedido do usuário.
+- Nunca `--force`. Não emendar (`--amend`) nem reescrever commit existente — faça um novo.
+- Push recusado por non-fast-forward significa que alguém empurrou antes: puxe/rebase e avise, nunca force.
 
 ## Documentação
 

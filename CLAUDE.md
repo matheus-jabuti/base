@@ -107,11 +107,12 @@ no build step. Template editing writes back only `template_prefix`/`template_num
 - Update `README.md` (operator-facing, Portuguese) and `auto/CLAUDE.md` when flow, commands, or
   output files change.
 
-## Git — commit every change
+## Git — commit and push every change
 
-**Every change ends in a commit in this repo.** Finishing a task means the working tree is clean:
-edit → verify → `git add` the files you touched → commit. Don't batch unrelated work into one commit,
-and don't leave changes uncommitted "for the user to review" — the commit is the review unit.
+**Every change ends in a commit pushed to `origin` in this repo.** Finishing a task means the working
+tree is clean and the branch is in sync: edit → verify → `git add` the files you touched → commit →
+`git push`. Don't batch unrelated work into one commit, and don't leave changes uncommitted "for the
+user to review" — the commit is the review unit.
 
 - Commit message: Conventional Commits, **em português**, imperative, one line.
   `<tipo>(<escopo>): <descrição>`
@@ -132,8 +133,10 @@ Rules that don't bend:
 - **Never commit `.env`, CSVs de cliente, `out/`, `relatorio/`, `copy.md`, logs.** All gitignored —
   keep it that way, and never `git add -f` past it.
 - `git add` the specific paths you changed, never `git add -A` — untracked data files live alongside.
-- **Push, branch and PR only when the user asks.** Committing is automatic; publishing is not.
-- Don't amend or rewrite a commit that already exists — add a new one.
+- **Push to the current branch after committing** (`git push`, `-u` the first time a branch has no
+  upstream). Creating branches and opening PRs still needs the user to ask.
+- Never force-push, and don't amend or rewrite a commit that already exists — add a new one.
+- Push failing on a non-fast-forward means someone else pushed: pull/rebase and report, never `--force`.
 
 ## Reference
 
