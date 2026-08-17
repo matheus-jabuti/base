@@ -2,31 +2,36 @@
   {
     "key": "amigavel_abw",
     "nome": "Disparo amigavel A/B/W",
-    "csv": "bases/amigavel_ABW.csv",
-    "template": "WPP_A_E_B_07"
+    "csv": "amigavel_ABW.csv",
+    "template_prefix": "WPP_A_E_B",
+    "template_numero": "01"
   },
   {
     "key": "amigavel_c",
     "nome": "Disparo amigavel C",
-    "csv": "bases/amigavel_C.csv",
-    "template": "WPP_rating_c_07"
+    "csv": "amigavel_C.csv",
+    "template_prefix": "WPP_rating_c",
+    "template_numero": "01"
   },
   {
     "key": "amigavel_dez",
     "nome": "Disparo amigavel D/E/Z",
-    "csv": "bases/amigavel_DEZ.csv",
-    "template": "WPP_A_E_B_07"
+    "csv": "amigavel_DEZ.csv",
+    "template_prefix": "WPP_A_E_B",
+    "template_numero": "01"
   },
   {
     "key": "amigavel_na_rating",
     "nome": "Disparo amigavel N/A Rating",
-    "csv": "bases/amigavel_na_rating.csv",
-    "template": "WPP_A_E_B_07"
+    "csv": "amigavel_na_rating.csv",
+    "template_prefix": "WPP_A_E_B",
+    "template_numero": "01"
   },
   {
     "key": "contencioso",
     "nome": "Disparo contencioso",
-    "csv": "bases/contencioso.csv",
-    "template": "WPP_contencioso_04"
+    "csv": "contencioso.csv",
+    "template_prefix": "WPP_contencioso",
+    "template_numero": "05"
   }
 ]

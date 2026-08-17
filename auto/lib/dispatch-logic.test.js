@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { parseHora, buildDispatchName, listOptionRegex, targetDateTime, decideMode, formatDateISO } = require('./dispatch-logic');
+const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, targetDateTime, decideMode, formatDateISO } = require('./dispatch-logic');
 
 const { hh, mm } = parseHora('09:30');
 assert.strictEqual(hh, 9);
@@ -21,6 +21,13 @@ assert.ok(optRe.test(`${nomeContencioso} - (284 registros)`));
 assert.ok(optRe.test(`${nomeContencioso} - (1 registro)`));
 assert.ok(!optRe.test(`${nomeContencioso} - 15H16 - (1 registros)`)); // outro horário não casa
 assert.ok(!optRe.test(nomeContencioso));
+
+assert.strictEqual(buildTemplateName('WPP_A_E_B', '08'), 'WPP_A_E_B_08');
+assert.strictEqual(buildTemplateName('WPP_contencioso', 4), 'WPP_contencioso_04'); // completa com zero
+assert.strictEqual(buildTemplateName('WPP_rating_c', '123'), 'WPP_rating_c_123'); // acima de 99 nao trunca
+assert.throws(() => buildTemplateName('', '08'));
+assert.throws(() => buildTemplateName('WPP_A_E_B', ''));
+assert.throws(() => buildTemplateName('WPP_A_E_B', '8a'));
 
 const target = targetDateTime(date, hh, mm);
 assert.strictEqual(decideMode(target, new Date(target.getTime() + 10 * 60 * 1000)), 'imediato');

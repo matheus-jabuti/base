@@ -8,14 +8,19 @@ const {
   formatDateISO,
   parseHora,
   buildDispatchName,
+  buildTemplateName,
   listOptionRegex,
   targetDateTime,
   decideMode,
 } = require('./lib/dispatch-logic');
 
-const AUTH_PATH = 'scripts/out/auth.json';
-const LOG_PATH = 'logs/disparos.csv';
-const CONFIG_PATH = 'config/dispatches.json';
+// Caminhos ancorados no arquivo, nao no cwd: a tela roda o dispatch como
+// subprocesso e o cwd nem sempre e auto/.
+const ROOT = __dirname;
+const AUTH_PATH = path.join(ROOT, 'scripts/out/auth.json');
+const LOG_PATH = path.join(ROOT, 'logs/disparos.csv');
+const CONFIG_PATH = path.join(ROOT, 'config/dispatches.json');
+const DEFAULT_BASES_DIR = path.resolve(ROOT, '../out');
 const LOGIN_URL = 'https://auth.jabuti.ai/sign-in';
 const DASHBOARD_URL = 'https://dashboard.jabuti.ai/meta/campaigns/manage';
 const EMAIL = process.env.JABUTI_EMAIL || 'auto-porto@jabuti.ai';
@@ -27,8 +32,48 @@ function ask(question) {
   return new Promise((resolve) => rl.question(question, (ans) => { rl.close(); resolve(ans); }));
 }
 
+function parseArgs(argv) {
+  const args = { hora: null, basesDir: DEFAULT_BASES_DIR };
+
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--hora') args.hora = argv[++i];
+    else if (argv[i] === '--bases-dir') args.basesDir = path.resolve(argv[++i] || '');
+    else throw new Error(`Argumento desconhecido: "${argv[i]}". Use --hora HH:MM [--bases-dir <pasta>].`);
+  }
+
+  return args;
+}
+
+// Conta as linhas de contato antes de abrir o browser: se um CSV vier vazio ou
+// faltando, e melhor descobrir aqui do que no meio do disparo.
+function contarContatos(csvPath) {
+  const linhas = fs.readFileSync(csvPath, 'utf8').split('\n').filter((l) => l.trim());
+  return Math.max(linhas.length - 1, 0);
+}
+
+function resolverBases(configs, basesDir) {
+  if (!fs.existsSync(basesDir)) {
+    throw new Error(`Pasta de bases nao encontrada: ${basesDir}`);
+  }
+
+  return configs.map((cfg) => {
+    const csv = path.join(basesDir, cfg.csv);
+    if (!fs.existsSync(csv)) throw new Error(`CSV nao encontrado: ${csv}`);
+
+    return { ...cfg, csv, contatos: contarContatos(csv), template: buildTemplateName(cfg.template_prefix, cfg.template_numero) };
+  });
+}
+
+// A tela acompanha o disparo pelo stdout deste processo. Uma linha [ETAPA] com
+// JSON e o suficiente: quem roda no terminal continua lendo, e o server so
+// precisa dar JSON.parse no resto da linha.
+function progresso(dados) {
+  console.log(`[ETAPA] ${JSON.stringify(dados)}`);
+}
+
 function ensureLogFile() {
   fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true });
+  fs.mkdirSync(path.dirname(AUTH_PATH), { recursive: true });
   if (!fs.existsSync(LOG_PATH)) {
     fs.writeFileSync(LOG_PATH, 'data,hora_alvo,tipo,nome,modo,hora_execucao,status,detalhe\n');
   }
@@ -161,7 +206,7 @@ async function confirmBroadcastCreated(page, nome) {
   }
 }
 
-async function createBroadcast(page, { nome, template, target }) {
+async function createBroadcast(page, { key, nome, template, target }) {
   const ATTEMPTS = 6;
   const PAUSE_MS = 10000;
   let lastErr;
@@ -172,6 +217,7 @@ async function createBroadcast(page, { nome, template, target }) {
       break;
     } catch (err) {
       lastErr = err;
+      progresso({ evento: 'base', key, status: 'rodando', etapa: 'transmissao', detalhe: `aguardando indexação (${i + 1}/${ATTEMPTS})` });
       console.log(`[retry] "${nome}" ainda não selecionável (tentativa ${i + 1}/${ATTEMPTS}), aguardando...`);
       if (i < ATTEMPTS - 1) await page.waitForTimeout(PAUSE_MS);
     }
@@ -202,30 +248,63 @@ async function createBroadcast(page, { nome, template, target }) {
 
 async function main() {
   ensureLogFile();
-  const configs = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  const args = parseArgs(process.argv.slice(2));
+  const configs = resolverBases(JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')), args.basesDir);
 
-  const horaInput = await ask('Horário do disparo (HH:MM): ');
+  const horaInput = args.hora || (await ask('Horário do disparo (HH:MM): '));
   const { hh, mm } = parseHora(horaInput);
   const today = new Date();
+
+  console.log(`Bases: ${args.basesDir}`);
+  for (const cfg of configs) {
+    console.log(`  ${cfg.nome} -> ${cfg.contatos} contatos, template ${cfg.template}`);
+  }
+
   const target = targetDateTime(today, hh, mm);
   const horaAlvoLabel = `${pad2(hh)}H${pad2(mm)}`;
 
+  progresso({
+    evento: 'plano',
+    bases: configs.map((cfg) => ({ key: cfg.key, nome: cfg.nome, contatos: cfg.contatos, template: cfg.template })),
+  });
+
+  let erros = 0;
   const browser = await chromium.launch({ headless: true });
   try {
+    progresso({ evento: 'login', status: 'rodando' });
     const { context, page } = await ensureLoggedIn(browser);
+    progresso({ evento: 'login', status: 'ok' });
     page.on('dialog', (d) => d.accept());
 
     for (const cfg of configs) {
       const nome = buildDispatchName(cfg.nome, today, hh, mm);
+
+      // Lista vazia nao passa na validacao do CSV no dashboard: pula e registra.
+      if (!cfg.contatos) {
+        logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: cfg.key, nome, modo: '-', status: 'pulado', detalhe: 'CSV sem contatos' });
+        progresso({ evento: 'base', key: cfg.key, status: 'pulado', detalhe: 'CSV sem contatos' });
+        console.log(`[PULADO] ${nome}: CSV sem contatos`);
+        continue;
+      }
+
       try {
+        progresso({ evento: 'base', key: cfg.key, status: 'rodando', etapa: 'lista' });
         await createList(page, nome, cfg.csv);
+
+        progresso({ evento: 'base', key: cfg.key, status: 'rodando', etapa: 'campanha' });
         await createCampaign(page, nome);
-        const modo = await createBroadcast(page, { nome, template: cfg.template, target });
+
+        progresso({ evento: 'base', key: cfg.key, status: 'rodando', etapa: 'transmissao' });
+        const modo = await createBroadcast(page, { key: cfg.key, nome, template: cfg.template, target });
+
         await context.storageState({ path: AUTH_PATH });
         logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: cfg.key, nome, modo, status: 'ok' });
+        progresso({ evento: 'base', key: cfg.key, status: 'ok', modo });
         console.log(`[OK] ${nome} -> ${modo}`);
       } catch (err) {
-        const shotPath = `scripts/out/erro-${cfg.key}-${Date.now()}.png`;
+        erros++;
+        progresso({ evento: 'base', key: cfg.key, status: 'erro', detalhe: err.message });
+        const shotPath = path.join(ROOT, `scripts/out/erro-${cfg.key}-${Date.now()}.png`);
         await page.screenshot({ path: shotPath, fullPage: true }).catch(() => {});
         logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: cfg.key, nome, modo: '-', status: 'erro', detalhe: err.message });
         console.error(`[ERRO] ${nome}: ${err.message} (screenshot: ${shotPath})`);
@@ -233,6 +312,13 @@ async function main() {
     }
   } finally {
     await browser.close();
+  }
+
+  // Os erros por base sao capturados no loop pra uma falha nao derrubar as outras,
+  // mas o processo precisa sair diferente de zero pra tela saber que deu problema.
+  if (erros) {
+    console.error(`${erros} de ${configs.length} disparos falharam.`);
+    process.exitCode = 1;
   }
 }
 

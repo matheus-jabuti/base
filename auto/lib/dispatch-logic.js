@@ -27,6 +27,21 @@ function buildDispatchName(prefix, date, hh, mm) {
   return `${prefix} - ${formatDateBR(date)} - ${formatHoraLabel(hh, mm)}`;
 }
 
+// O template muda toda rodada, mas só no número final: WPP_A_E_B_07 -> WPP_A_E_B_08.
+// Por isso o prefixo e o número ficam separados no config/dispatches.json — a tela
+// edita o número sem precisar reescrever o nome inteiro e errar a digitação.
+function buildTemplateName(prefix, numero) {
+  const limpo = String(prefix || '').trim();
+  if (!limpo) throw new Error('template_prefix vazio.');
+
+  const digitos = String(numero == null ? '' : numero).trim();
+  if (!/^\d{1,3}$/.test(digitos)) {
+    throw new Error(`template_numero inválido: "${numero}". Use de 1 a 3 dígitos.`);
+  }
+
+  return `${limpo}_${pad2(Number(digitos))}`;
+}
+
 function targetDateTime(baseDate, hh, mm) {
   const d = new Date(baseDate);
   d.setHours(hh, mm, 0, 0);
@@ -56,6 +71,7 @@ module.exports = {
   parseHora,
   formatHoraLabel,
   buildDispatchName,
+  buildTemplateName,
   listOptionRegex,
   targetDateTime,
   decideMode,

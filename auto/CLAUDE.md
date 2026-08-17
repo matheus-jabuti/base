@@ -9,9 +9,12 @@ Working automation exists for one dispatch round: 5 bases dispatched together pe
 `Disparo contencioso`). Earlier one-off exploration scripts live in `scripts/` (kept as reference —
 `explore*.js`, `broadcast-fill*.js`, `rename*.js`, etc. — not part of the run path).
 
-**This drives real WhatsApp dispatches on the live Jabuti/Porto platform.** `bases/*.csv` currently hold
-a single test contact each — safe to run end-to-end for testing. Once real numbers are loaded, running
-`npm run dispatch` sends/schedules for real.
+This folder lives inside the `base` repo, which also holds the Python pipeline that produces the CSVs
+(`../gerar_base.py` → `../out/`) and the web UI that drives both (`../app/`). See `../README.md`.
+
+**This drives real WhatsApp dispatches on the live Jabuti/Porto platform.** By default `dispatch.js`
+reads the real bases from `../out/`. `bases/*.csv` hold a single test contact each and are the
+test-mode source — pass `--bases-dir bases` (or flip "modo teste" in the UI) to run end-to-end safely.
 
 ## Architecture
 
@@ -20,20 +23,30 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
 - `lib/dispatch-logic.js` — pure functions: name formatting, HH:MM parsing, agendado-vs-imediato decision.
   No Playwright, no network — unit-testable in isolation.
 - `lib/dispatch-logic.test.js` — assert-based self-check for the above (`npm test`).
-- `config/dispatches.json` — one entry per base: `key`, `nome` (naming prefix), `csv`, `template`.
-  Edit this file to change which template each base uses, or to add/remove bases — no code change needed.
-- `dispatch.js` — orchestrator. Prompts once for the target time (HH:MM), reuses that time for all 5
-  entries in `config/dispatches.json`, then for each: creates the distribution list (uploads the CSV),
+- `config/dispatches.json` — one entry per base: `key`, `nome` (naming prefix), `csv` (file name only —
+  the folder comes from `--bases-dir`), `template_prefix` and `template_numero`. The template name is
+  built as `<prefix>_<numero>` (`buildTemplateName`), because in practice only the trailing number
+  changes between rounds — the UI edits that number without retyping the whole name. Edit this file to
+  change templates or to add/remove bases — no code change needed.
+- `dispatch.js` — orchestrator. Takes the target time from `--hora HH:MM` (falls back to a terminal
+  prompt when the flag is absent) and the CSV folder from `--bases-dir` (default `../out`), reuses that
+  time for all 5 entries in `config/dispatches.json`, then for each: creates the distribution list (uploads the CSV),
   creates the campaign, creates the broadcast (list + campaign + template), and either schedules it
   (`Agendar Transmissão`) or sends it immediately (`Enviar Transmissão`) depending on whether the target
   time is still more than ~2 minutes away by the time the broadcast form is filled. All three created
   items (list/campaign/broadcast) get description `by automação` so they're identifiable as
   automation-created. Each of the 5 runs independently in a try/catch — one failing doesn't block the
-  rest. Session: reuses `scripts/out/auth.json` if still valid, otherwise logs in with
-  `JABUTI_EMAIL`/`JABUTI_PASSWORD` env vars (falls back to the known test account) and persists the new
-  session.
+  rest — but the process exits non-zero if any of them failed, so the UI can tell. A base whose CSV has
+  zero contacts is skipped (status `pulado`) instead of failing the dashboard's CSV validation. Session:
+  reuses `scripts/out/auth.json` if still valid, otherwise logs in with `JABUTI_EMAIL`/`JABUTI_PASSWORD`
+  env vars (falls back to the known test account) and persists the new session. All paths are resolved
+  from `__dirname`, not the cwd, because the UI spawns this as a subprocess. Progress is reported on
+  stdout as `[ETAPA] {json}` lines (`progresso()`) — events `plano` (the 5 bases about to run), `login`,
+  and `base` (per base: `rodando` with an `etapa` of lista/campanha/transmissao, then `ok`/`erro`/
+  `pulado`). The UI parses those and leaves every other line as free-form log, so adding a new step
+  means emitting one more `progresso()` call.
 - `logs/disparos.csv` — one row appended per base per run: date, target time, key, name, mode
-  (agendado/imediato), execution timestamp, status (ok/erro), detail.
+  (agendado/imediato), execution timestamp, status (ok/erro/pulado), detail. Gitignored.
 
 ## Known gaps (intentionally not built — say if these are actually needed)
 
@@ -43,7 +56,9 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   date+time, so same-day re-runs at a different time won't collide. Add a check if same-time re-runs
   become a real scenario.
 - `config/dispatches.json` templates already replaced with real names (`WPP_A_E_B_07`, `WPP_rating_c_07`,
-  `WPP_contencioso_07`) — no longer placeholders.
+  `WPP_contencioso_04`) — no longer placeholders.
+- No check that the chosen template actually exists on the platform. A wrong number fails late, when
+  `fillBroadcastSelectors` can't find the option — after list and campaign were already created.
 
 ## Bugs found and fixed via real runs (not hypothetical — keep this pattern in mind for new steps)
 

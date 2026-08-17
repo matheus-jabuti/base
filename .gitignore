@@ -12,5 +12,12 @@
 __pycache__/
 *.pyc
 
+# Automacao de disparo (auto/)
+/auto/node_modules/
+/auto/logs/*
+!/auto/logs/.gitkeep
+/auto/scripts/out/
+/auto/old-bases-old/
+
 # Projeto de referencia, nao versionado
 /Base_disparo/
