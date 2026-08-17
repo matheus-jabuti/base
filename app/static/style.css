@@ -205,34 +205,53 @@ h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--apagado); text-t
 
 /* ---------------- lancamento ---------------- */
 
-.lancamento { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.lancamento { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; }
 
-.hora-bloco { display: flex; flex-direction: column; gap: 6px; }
-.hora-bloco label { font-size: 12px; font-weight: 550; color: var(--apagado); }
-
-.hora-bloco input {
-  padding: 9px 12px;
-  border: 1px solid var(--borda-forte);
+.hora-bloco {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 12px;
+  border: 1px solid var(--borda);
   border-radius: var(--raio-p);
   background: var(--fundo-alto);
-  color: var(--texto);
-  font: inherit;
-  font-size: 22px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
 
-.pilula {
-  align-self: flex-start;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: var(--fundo-alto);
-  color: var(--apagado);
-  font-size: 11px;
-  font-weight: 550;
-  letter-spacing: .03em;
-  text-transform: uppercase;
+.hora-topo { display: flex; align-items: center; gap: 8px; }
+.hora-bloco label { font-size: 11px; font-weight: 550; color: var(--apagado); }
+
+.hora-bloco input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--texto);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
 }
+
+.hora-bloco input::-webkit-calendar-picker-indicator { opacity: .45; cursor: pointer; }
+.hora-bloco input::-webkit-calendar-picker-indicator:hover { opacity: .9; }
+.hora-bloco input:focus { outline: 0; }
+.hora-bloco:focus-within { border-color: var(--acento); }
+
+.pilula {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cartao-alto);
+  color: var(--fraco);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pilula.imediato { background: rgba(62, 207, 142, .14); color: #86e3ba; }
 
 .botao-principal {
   flex: 1;
@@ -240,30 +259,35 @@ h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--apagado); text-t
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 13px 20px;
-  border: 0;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 20px;
+  border: 1px solid rgba(255, 255, 255, .1);
   border-radius: var(--raio-p);
-  background: linear-gradient(180deg, var(--acento-forte), var(--acento));
-  color: #08122c;
+  background: linear-gradient(180deg, var(--acento), var(--acento-forte));
+  color: #fff;
   font: inherit;
-  font-size: 15px;
-  font-weight: 660;
+  font-size: 14px;
+  font-weight: 640;
+  letter-spacing: .01em;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(91, 140, 255, .28);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .14) inset, 0 2px 10px rgba(91, 140, 255, .22);
   transition: transform .12s, box-shadow .18s, filter .18s;
 }
 
-.botao-principal:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 0 6px 20px rgba(91, 140, 255, .36); }
-.botao-principal:active:not(:disabled) { transform: translateY(1px); }
-.botao-principal:disabled { background: var(--cartao-alto); color: var(--fraco); box-shadow: none; cursor: not-allowed; }
-.botao-principal small { font-size: 11px; font-weight: 500; opacity: .72; }
+.botao-principal:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 1px 0 rgba(255, 255, 255, .16) inset, 0 4px 16px rgba(91, 140, 255, .3); }
+.botao-principal:active:not(:disabled) { transform: translateY(1px); filter: brightness(.97); }
+.botao-principal:disabled { border-color: var(--borda); background: var(--cartao-alto); color: var(--fraco); box-shadow: none; cursor: not-allowed; }
+.botao-principal small { font-size: 11px; font-weight: 500; opacity: .78; }
 .botao-principal:disabled small { opacity: 1; }
 
 body.modo-producao .botao-principal:not(:disabled) {
-  background: linear-gradient(180deg, #ee6a55, var(--perigo));
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(224, 80, 60, .3);
+  background: linear-gradient(180deg, #e2604c, #c8412e);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .13) inset, 0 2px 10px rgba(200, 65, 46, .26);
+}
+
+body.modo-producao .botao-principal:hover:not(:disabled) {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .15) inset, 0 4px 16px rgba(200, 65, 46, .34);
 }
 
 .botao-fantasma {

@@ -44,9 +44,11 @@
 
       <div class="cartao lancamento">
         <div class="hora-bloco">
-          <label for="hora">Horário do disparo</label>
+          <div class="hora-topo">
+            <label for="hora">Horário do disparo</label>
+            <span class="pilula" id="hora-modo"></span>
+          </div>
           <input type="time" id="hora" step="60">
-          <span class="pilula" id="hora-modo"></span>
         </div>
         <button type="button" class="botao-principal" id="btn-disparar">
           <span>Disparar</span>

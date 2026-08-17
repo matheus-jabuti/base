@@ -172,7 +172,9 @@ function atualizarLancamento() {
   const contatos = total();
   const agenda = agendado();
 
-  $('hora-modo').textContent = agenda === null ? '' : agenda ? 'agendado' : 'envio imediato';
+  const modoHora = $('hora-modo');
+  modoHora.textContent = agenda === null ? '' : agenda ? 'agendado' : 'envio imediato';
+  modoHora.classList.toggle('imediato', agenda === false);
 
   const botao = $('btn-disparar');
   botao.disabled = estado.rodando || !contatos || !$('hora').value;
