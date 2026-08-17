@@ -55,8 +55,9 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
 - No duplicate-name check before creating a list/campaign/broadcast — each run's name already embeds
   date+time, so same-day re-runs at a different time won't collide. Add a check if same-time re-runs
   become a real scenario.
-- `config/dispatches.json` templates already replaced with real names (`WPP_A_E_B_07`, `WPP_rating_c_07`,
-  `WPP_contencioso_04`) — no longer placeholders.
+- `config/dispatches.json` templates already hold real prefixes (`WPP_A_E_B`, `WPP_rating_c`,
+  `WPP_contencioso`) — no longer placeholders. The trailing number changes every round, so read the
+  file for the current value instead of trusting a number written down here.
 - No check that the chosen template actually exists on the platform. A wrong number fails late, when
   `fillBroadcastSelectors` can't find the option — after list and campaign were already created.
 

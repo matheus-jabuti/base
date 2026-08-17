@@ -85,7 +85,7 @@ Os Excels de `in/` sao apagados ao final; use `--manter-excel` para preservar.
 | `out/amigavel_ABW.csv` | Amigavel com rating A, B ou W |
 | `out/amigavel_C.csv` | Amigavel com rating C |
 | `out/amigavel_DEZ.csv` | Amigavel com rating D, E ou Z |
-| `out/amigavel_sem_rating.csv` | Amigavel sem rating (ou rating desconhecido) |
+| `out/amigavel_na_rating.csv` | Amigavel sem rating (ou rating desconhecido) |
 | `out/contencioso.csv` | Contencioso, independente de rating |
 | `copy.md` | Nome de cada campanha, com data e hora |
 | `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx` | Conferencia: Base, Interagiram, Novos, Disparo |
