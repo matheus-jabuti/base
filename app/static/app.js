@@ -81,10 +81,12 @@ function agruparBases() {
   const grupos = [];
 
   for (const base of estado.bases) {
-    let grupo = grupos.find((item) => item.grupo === base.grupo);
+    // Sem o campo grupo (servidor antigo), o prefixo da key ja separa amigavel de contencioso.
+    const chave = base.grupo || base.key.split('_')[0];
+    let grupo = grupos.find((item) => item.grupo === chave);
 
     if (!grupo) {
-      grupo = { grupo: base.grupo, rotulo: GRUPOS[base.grupo] || rotulo(base.nome), bases: [] };
+      grupo = { grupo: chave, rotulo: GRUPOS[chave] || rotulo(base.nome), bases: [] };
       grupos.push(grupo);
     }
 
@@ -150,7 +152,7 @@ function lerTemplates() {
   return estado.bases.map((base) => ({
     key: base.key,
     template_prefix: base.template.replace(/_\d{1,3}$/, ''),
-    template_numero: numeros[base.grupo] || '',
+    template_numero: numeros[base.grupo || base.key.split('_')[0]] || '',
   }));
 }
 
