@@ -138,6 +138,8 @@ def contagens(modo: str) -> list[dict]:
             "key": cfg["key"],
             "nome": cfg["nome"],
             "csv": cfg["csv"],
+            # Bases do mesmo grupo compartilham o numero do template na tela.
+            "grupo": cfg.get("grupo", cfg["key"]),
             "template": f"{cfg['template_prefix']}_{cfg['template_numero']}",
             "contatos": contar_csv(pasta / cfg["csv"]),
             "existe": (pasta / cfg["csv"]).exists(),

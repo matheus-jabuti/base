@@ -10,6 +10,11 @@ const estado = {
 const VPN_TENTATIVAS = 3;
 const VPN_ESPERA_MS = 1500;
 
+const GRUPOS = {
+  amigavel: 'Amigável',
+  contencioso: 'Contencioso',
+};
+
 const ETAPAS = {
   lista: 'criando lista',
   campanha: 'criando campanha',
@@ -70,13 +75,33 @@ async function carregarBases() {
   desenharTipos();
 }
 
+// As bases do mesmo grupo sempre saem com o mesmo numero de template, entao a
+// tela edita um numero por grupo — cada base mantem o proprio prefixo.
+function agruparBases() {
+  const grupos = [];
+
+  for (const base of estado.bases) {
+    let grupo = grupos.find((item) => item.grupo === base.grupo);
+
+    if (!grupo) {
+      grupo = { grupo: base.grupo, rotulo: GRUPOS[base.grupo] || rotulo(base.nome), bases: [] };
+      grupos.push(grupo);
+    }
+
+    grupo.bases.push(base);
+  }
+
+  return grupos;
+}
+
 function desenharTipos() {
   const lista = $('tipos');
   lista.innerHTML = '';
 
-  for (const base of estado.bases) {
-    const prefixo = base.template.replace(/_\d{1,3}$/, '');
-    const num = base.template.match(/_(\d{1,3})$/)?.[1] || '';
+  for (const grupo of agruparBases()) {
+    const contatos = grupo.bases.reduce((soma, base) => soma + base.contatos, 0);
+    const prefixos = [...new Set(grupo.bases.map((base) => base.template.replace(/_\d{1,3}$/, '')))];
+    const num = grupo.bases[0].template.match(/_(\d{1,3})$/)?.[1] || '';
 
     const item = document.createElement('li');
     item.innerHTML = `
@@ -84,21 +109,23 @@ function desenharTipos() {
         <strong></strong>
         <em></em>
       </div>
-      <span class="contagem${base.contatos ? '' : ' zero'}"></span>
+      <span class="contagem${contatos ? '' : ' zero'}"></span>
       <div class="stepper">
         <button type="button" data-passo="-1" aria-label="Diminuir">−</button>
-        <input type="text" inputmode="numeric" maxlength="3" data-key="${base.key}" aria-label="Número do template">
+        <input type="text" inputmode="numeric" maxlength="3" data-grupo="${grupo.grupo}" aria-label="Número do template">
         <button type="button" data-passo="1" aria-label="Aumentar">+</button>
       </div>
     `;
 
-    item.querySelector('strong').textContent = rotulo(base.nome);
-    item.querySelector('em').textContent = prefixo;
-    item.querySelector('.contagem').textContent = base.existe ? plural(base.contatos, 'contato', 'contatos') : 'sem CSV';
+    item.querySelector('strong').textContent = grupo.rotulo;
+    item.querySelector('em').textContent = prefixos.join(' · ');
+
+    const contagem = item.querySelector('.contagem');
+    contagem.textContent = grupo.bases.some((base) => base.existe) ? plural(contatos, 'contato', 'contatos') : 'sem CSV';
+    contagem.title = grupo.bases.map((base) => `${rotulo(base.nome)}: ${numero(base.contatos)}`).join('\n');
 
     const campo = item.querySelector('input');
     campo.value = num;
-    campo.dataset.prefixo = prefixo;
 
     for (const botao of item.querySelectorAll('.stepper button')) {
       botao.onclick = () => {
@@ -114,20 +141,17 @@ function desenharTipos() {
 }
 
 function lerTemplates() {
-  return [...document.querySelectorAll('.stepper input')].map((campo) => ({
-    key: campo.dataset.key,
-    template_prefix: campo.dataset.prefixo,
-    template_numero: campo.value.trim(),
-  }));
-}
-
-function aplicarEmTodos() {
-  const valor = $('numero-todos').value.trim();
-  if (!valor) return;
+  const numeros = {};
 
   for (const campo of document.querySelectorAll('.stepper input')) {
-    campo.value = valor.padStart(2, '0');
+    numeros[campo.dataset.grupo] = campo.value.trim();
   }
+
+  return estado.bases.map((base) => ({
+    key: base.key,
+    template_prefix: base.template.replace(/_\d{1,3}$/, ''),
+    template_numero: numeros[base.grupo] || '',
+  }));
 }
 
 // Espelha o decideMode do dispatch.js: com mais de ~2min de folga o disparo é
@@ -362,11 +386,9 @@ async function iniciar() {
   }
 
   $('btn-vpn').onclick = verificarVpn;
-  $('btn-todos').onclick = aplicarEmTodos;
   $('btn-disparar').onclick = disparar;
   $('btn-voltar').onclick = () => { trocarView('menu'); carregarBases(); };
   $('hora').oninput = atualizarLancamento;
-  $('numero-todos').onkeydown = (e) => e.key === 'Enter' && aplicarEmTodos();
 
   trocarModo('producao');
   carregarHistorico();

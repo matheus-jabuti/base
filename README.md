@@ -27,9 +27,11 @@ python -m app.server
 
 Abre em <http://127.0.0.1:8000>. Sao duas telas:
 
-**Menu.** Escolhe o numero do template de cada tipo (o prefixo fica fixo, so o
-numero muda de rodada pra rodada), escolhe o horario e clica em Disparar. O
-botao "Aplicar em todos" empurra o mesmo numero pros cinco de uma vez.
+**Menu.** Escolhe o numero do template de dois grupos — Amigavel (as quatro
+bases amigaveis usam sempre o mesmo numero) e Contencioso (tem o proprio) —,
+escolhe o horario e clica em Disparar. O prefixo fica fixo, so o numero muda de
+rodada pra rodada. Uma faixa no topo confere a VPN assim que a tela abre, com
+ate 3 tentativas.
 
 **Progresso.** Depois do clique a tela vira acompanhamento: VPN, geracao da
 base e disparo, com as cinco bases mostrando em qual etapa cada uma esta

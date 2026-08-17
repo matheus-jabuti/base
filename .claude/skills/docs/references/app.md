@@ -66,7 +66,10 @@ essa escolha existe; a tela só manda o nome do modo.
 
 - Duas views no mesmo documento (`view-menu` / `view-progresso`), alternadas por `trocarView`.
 - O stepper de template edita só o número; o prefixo vem do servidor e vai de volta intacto.
-  "Aplicar em todos" copia o mesmo número para as cinco.
+- **Um stepper por grupo** (`agruparBases()` + mapa `GRUPOS`), não por base: as quatro amigáveis
+  compartilham o número, o contencioso tem o dele. A linha mostra o total do grupo (detalhe por base
+  no `title` do badge) e os prefixos distintos. `lerTemplates()` reexpande para uma entrada por base
+  antes do `PUT`, repetindo o número do grupo e mandando o prefixo de cada uma.
 - Antes de disparar: `PUT /api/templates` e um `confirm()` que diz quantos contatos **reais** vão sair
   e se vai agendar ou enviar agora.
 - `EventSource` em `/api/executar`; o `onmessage` roteia por `tipo`: `passo` → trilha, `bases` →

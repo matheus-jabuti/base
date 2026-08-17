@@ -201,19 +201,7 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--apagado); text-t
 
 .stepper input:focus { outline: 2px solid var(--acento); outline-offset: -2px; }
 
-.todos { display: flex; gap: 7px; }
-
-.todos input {
-  width: 52px;
-  padding: 5px 8px;
-  border: 1px solid var(--borda-forte);
-  border-radius: var(--raio-p);
-  background: var(--fundo-alto);
-  color: var(--texto);
-  font: inherit;
-  font-size: 13px;
-  text-align: center;
-}
+.dica { font-size: 12px; color: var(--fraco); }
 
 /* ---------------- lancamento ---------------- */
 

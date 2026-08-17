@@ -66,8 +66,11 @@ desconhecido é silenciosamente ignorado pela tela.
 
 Escrito por dois lados: à mão (estrutura) e pela tela (`PUT /api/templates`).
 
-- A tela só pode alterar `template_prefix` e `template_numero`; `key`, `nome` e `csv` são estrutura e
-  são reescritos a partir do arquivo atual.
+- A tela só pode alterar `template_prefix` e `template_numero`; `key`, `nome`, `csv` e `grupo` são
+  estrutura e são reescritos a partir do arquivo atual.
+- `grupo` define como a tela agrupa os steppers (um número por grupo, ver `app.md`); o `PUT` continua
+  mandando uma entrada **por base**, com o número do grupo repetido. Base sem `grupo` vira grupo
+  próprio, então o campo é opcional.
 - `template_numero` é validado duas vezes, com a mesma regra: `gravar_templates` em Python
   (1 a 3 dígitos, `zfill(2)`) e `buildTemplateName` em JS. Mudou a regra, mude os dois.
 - O arquivo é regravado com `indent=2` e `ensure_ascii=False`; mantenha assim para o diff ficar limpo.
