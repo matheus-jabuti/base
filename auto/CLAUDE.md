@@ -6,8 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Working automation exists for one dispatch round: 5 bases dispatched together per run
 (`Disparo amigavel A/B/W`, `Disparo amigavel C`, `Disparo amigavel D/E/Z`, `Disparo amigavel N/A Rating`,
-`Disparo contencioso`). Earlier one-off exploration scripts live in `scripts/` (kept as reference —
-`explore*.js`, `broadcast-fill*.js`, `rename*.js`, etc. — not part of the run path).
+`Disparo contencioso`). The one-off exploration scripts that used to live in `scripts/`
+(`explore*.js`, `broadcast-fill*.js`, `rename*.js`, etc. — never part of the run path) were removed;
+their history is still in git if a past selector/flow needs checking. `scripts/out/` remains — it's
+runtime state (session `auth.json`, error screenshots), not exploration code.
 
 This folder lives inside the `base` repo, which also holds the Python pipeline that produces the CSVs
 (`../gerar_base.py` → `../out/`) and the web UI that drives both (`../app/`). See `../README.md`.
