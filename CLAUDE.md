@@ -68,6 +68,11 @@ and phones under 10 digits are dropped as undialable.
 `out/` is wiped (`clear_output_folder`, `.gitkeep` preserved) and rewritten on every run — all five
 CSVs are always written, empty ones included, because `dispatch.js` expects the files to exist.
 
+Manual filter (`filtros/`): after `coletar_contatos()`, both pipelines call `ler_telefones_filtro()` +
+`aplicar_filtro()` to strip any phone number found in a spreadsheet dropped in `filtros/` — no header
+or fixed column required, any cell that normalizes to a valid phone counts. Always runs, no flag to
+disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after use (unlike `in/`).
+
 ### The contract between the halves
 
 - **CSV set**: `OUTPUT_FILES` in `contatos.py` and the `csv` fields in `auto/config/dispatches.json`

@@ -103,6 +103,17 @@ O grupo sai da primeira letra do rating (`Z_REDUCAO` entra em D/E/Z,
 `W_FPD_COM_PL` entra em A/B/W). Rating desconhecido nao interrompe a geracao:
 vai para o CSV sem rating e aparece como aviso no final da execucao.
 
+## Filtro manual
+
+Pra remover na hora algum numero que nao pode entrar no disparo (pedido de opt-out, numero errado
+etc.), solte uma planilha (`.xlsx` ou `.csv`) com os telefones em `filtros/`. Nao precisa cabecalho
+nem coluna fixa — qualquer celula que pareca telefone valido entra no filtro.
+
+A cada geracao (banco ou Excel), antes de escrever os CSVs, o pipeline le tudo que estiver em
+`filtros/` e remove esses telefones das bases. Roda sempre, sem opcao de desligar; se a pasta esta
+vazia, nao faz nada. Os arquivos **nao sao apagados** depois de usados — ficam valendo pras proximas
+rodadas ate serem removidos manualmente.
+
 ## Regras de elegibilidade
 
 Entra no disparo quem:
@@ -123,7 +134,7 @@ Telefone com menos de 10 digitos e descartado, porque nao e discavel.
 | --- | --- |
 | `gerar_base.py` | Pipeline banco -> CSV |
 | `extract.py` | Pipeline Excel -> CSV |
-| `contatos.py` | Normalizacao, rating, deduplicacao e escrita dos CSVs |
+| `contatos.py` | Normalizacao, rating, deduplicacao, filtro manual e escrita dos CSVs |
 | `banco.py` | Engines e consultas |
 | `config.py` | Caminhos e leitura do `.env` |
 | `sql/` | Queries |

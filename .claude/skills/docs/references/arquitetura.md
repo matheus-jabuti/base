@@ -71,6 +71,7 @@ Caminho manual (planilha pronta em vez de banco): `python extract.py`.
 | `auto/config/dispatches.json` | Configuração das cinco bases |
 | `auto/bases/` | Bases de teste, um contato cada (versionadas) |
 | `tests/` | Suíte pytest do lado Python (`contatos.py`, `gerar_base.py`) |
+| `filtros/` | Planilhas (xlsx/csv) com telefones a excluir das bases; lida a cada geração |
 | `in/`, `out/`, `relatorio/`, `copy.md`, `auto/logs/` | Dados, todos fora do versionamento |
 
 ## Decisões estruturais que valem entender

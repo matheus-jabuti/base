@@ -4,13 +4,13 @@ Duas entradas, um núcleo comum, cinco CSVs de saída.
 
 ```
 gerar_base.py (banco)  ─┐
-                        ├─> contatos.coletar_contatos() ─> escrever_grupos() ─> out/*.csv
-extract.py (Excel)     ─┘                                └─> escrever_copy()  ─> copy.md
+                        ├─> coletar_contatos() ─> aplicar_filtro() ─> escrever_grupos() ─> out/*.csv
+extract.py (Excel)     ─┘        (filtros/*)                       └─> escrever_copy()  ─> copy.md
 ```
 
 ## Configuração — `config.py`
 
-- Caminhos fixos derivados de `BASE_DIR`: `sql/`, `in/`, `out/`, `relatorio/`, `copy.md`, `.env`.
+- Caminhos fixos derivados de `BASE_DIR`: `sql/`, `in/`, `out/`, `relatorio/`, `filtros/`, `copy.md`, `.env`.
 - `load_env()` lê o `.env` linha a linha com `os.environ.setdefault` — **variável já no ambiente
   vence o `.env`**. Aspas nas pontas do valor são removidas.
 - `require_env(nome)` levanta erro explicando qual variável faltou; use sempre em vez de
@@ -80,7 +80,12 @@ Ordem exata em `gerar()`:
    quem já está na base elegível.
 8. `montar_disparo` concatena os dois e mantém só `tipo` em (`amigavel`, `contencioso`) — o que ficou
    `NAO LOCALIZADO` cai aqui.
-9. `coletar_contatos` → `clear_output_folder` → `escrever_grupos` → `escrever_copy` → relatório.
+9. `coletar_contatos` → `ler_telefones_filtro` + `aplicar_filtro` → `clear_output_folder` →
+   `escrever_grupos` → `escrever_copy` → relatório.
+
+**Nota:** o relatório Excel (`gravar_relatorio`) usa `df_disparo`, montado *antes* do filtro — as
+abas `Base`/`Novos`/`Disparo` continuam mostrando os telefones filtrados como se fossem disparar.
+A verdade sobre quem recebeu mensagem de verdade são os CSVs em `out/`, já pós-filtro.
 
 Período padrão (`periodo_padrao`): ontem até hoje; **na segunda-feira volta três dias**, pegando a
 sexta anterior. `main()` retorna `0` só se sobrou pelo menos um contato — base vazia é código `1`.
@@ -109,6 +114,26 @@ Relatório (`gravar_relatorio`, `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx`)
 
 Mapa de grupo → arquivo → rótulo de campanha está em `OUTPUT_FILES` e `CAMPAIGN_LABELS`; a
 correspondência com `auto/config/dispatches.json` é contrato (ver `contratos.md`).
+
+## Filtro manual — `filtros/`
+
+Remove da base, depois de gerada, qualquer telefone que a operação precise excluir na hora (pedido de
+opt-out, número errado, etc.). Roda **sempre**, nos dois pipelines (banco e Excel), sem flag pra
+desligar — se `filtros/` está vazia, é um no-op.
+
+- Solte um ou mais arquivos `.xlsx`/`.xlsm`/`.csv` em `filtros/`. Sem formato fixo: não precisa de
+  cabeçalho nem coluna específica — `ler_telefones_filtro` varre toda célula de toda aba/linha e
+  aceita qualquer valor que `normalize_phone` reconheça como telefone válido (≥10 dígitos). Texto,
+  célula vazia ou número curto é ignorado silenciosamente.
+- `aplicar_filtro(grupos, telefones)` roda logo após `coletar_contatos()`, antes de qualquer CSV ser
+  escrito — remove por telefone em todos os grupos de uma vez (dedup já é global, então um telefone
+  nunca aparece em mais de um grupo).
+- Contagem de removidos vai pro stdout (`Filtro: N contato(s) removido(s)...`), que tanto o terminal
+  quanto a tela (`app/passos.py`, via captura de stdout) já mostram sem mudança nenhuma nesses dois
+  lugares.
+- Arquivos ficam em `filtros/` entre execuções — **não é descartável feito `in/`**. Um arquivo de
+  filtro esquecido ali continua sendo aplicado nas rodadas seguintes; é assim de propósito (evita ter
+  que reenviar a planilha toda vez), mas vale conferir a pasta se um número sumir sem explicação.
 
 ## Pipeline do Excel — `extract.py`
 
