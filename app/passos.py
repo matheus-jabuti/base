@@ -59,10 +59,6 @@ class Conexao:
     erro: str = ""
 
 
-def _porta(prefixo: str) -> int:
-    return int(os.environ.get(f"{prefixo}_PORT", "").strip() or 5432)
-
-
 def checar_vpn() -> list[Conexao]:
     """Abre um socket em cada banco. Sem VPN, o connect estoura o timeout.
 
@@ -76,7 +72,7 @@ def checar_vpn() -> list[Conexao]:
 
     for nome, prefixo in CONEXOES:
         host = os.environ.get(f"{prefixo}_HOST", "").strip()
-        porta = _porta(prefixo)
+        porta = config.env_port(prefixo)
 
         if not host:
             resultados.append(Conexao(nome, "", porta, False, f"{prefixo}_HOST nao preenchido no .env"))
