@@ -13,10 +13,17 @@ O projeto tem duas metades:
 ## Instalacao
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # requirements.txt + pytest
 cp .env.example .env   # e preencha as senhas
 
 cd auto && npm install && npx playwright install chromium
+```
+
+## Testes
+
+```bash
+python -m pytest -q   # regras de contatos.py e gerar_base.py
+cd auto && npm test   # regras de auto/lib/dispatch-logic.js
 ```
 
 ## Tela (caminho normal)

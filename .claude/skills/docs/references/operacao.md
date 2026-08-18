@@ -3,14 +3,15 @@
 ## Instalação
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # requirements.txt + pytest
 cp .env.example .env          # preencher DB_*, CUSTOMERS_DB_*, OWNER_ID
 
 cd auto && npm install && npx playwright install chromium
 ```
 
 Dependências Python fixadas em `requirements.txt` (pandas, SQLAlchemy, psycopg2, openpyxl, fastapi,
-uvicorn). O Playwright é `devDependency` de `auto/` — o download do Chromium é passo separado.
+uvicorn); `requirements-dev.txt` soma o `pytest`. O Playwright é `devDependency` de `auto/` — o
+download do Chromium é passo separado.
 
 **Os dois bancos só respondem com a VPN da empresa ligada.** É a causa número um de falha.
 
@@ -24,7 +25,8 @@ python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10
 python gerar_base.py --hora 17H --sem-relatorio --sem-copy
 python extract.py [--manter-excel]        # caminho manual: in/*.xlsx -> out/*.csv
 
-cd auto && npm test                       # única suíte automatizada
+python -m pytest -q                       # suíte Python (contatos.py, gerar_base.py)
+cd auto && npm test                       # suíte Node (dispatch-logic.js)
 cd auto && node dispatch.js --hora 14:30                    # lê de ../out (PRODUÇÃO)
 cd auto && node dispatch.js --hora 14:30 --bases-dir bases  # bases de teste
 ```

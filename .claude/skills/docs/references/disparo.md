@@ -9,7 +9,7 @@ arquitetura; o **passo a passo literal** (URLs, seletores, ordem, timeouts) fica
 | Arquivo | Contém |
 | --- | --- |
 | `lib/dispatch-logic.js` | Lógica **pura**: formatação de data/hora, nome do disparo, nome do template, regex da opção de lista, decisão agendado × imediato. Sem Playwright, sem rede, sem `fs`. |
-| `lib/dispatch-logic.test.js` | Checagens com `assert`, rodadas por `npm test`. É a única suíte do repo. |
+| `lib/dispatch-logic.test.js` | Checagens com `assert`, rodadas por `npm test`. A suíte do lado Node — o lado Python tem a dele em `tests/` (`pytest`, ver `padroes.md`). |
 | `dispatch.js` | Orquestração: browser, login, formulários, retries, log, códigos de saída. |
 | `config/dispatches.json` | As cinco bases (dados, não código). |
 | `bases/*.csv` | Bases de teste, um contato cada — versionadas de propósito. |

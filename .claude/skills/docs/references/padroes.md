@@ -68,10 +68,11 @@ Não escreva comentário que repete o código. Não deixe comentário órfão de
 
 ## Testes
 
-`cd auto && npm test` é a única suíte automatizada — `assert` puro, sem framework, sobre
-`lib/dispatch-logic.js`. Toda função pura nova em `auto/` entra lá. O lado Python não tem suíte hoje;
-não invente uma sem pedido, mas mantenha as funções puras testáveis (`periodo_padrao`,
-`resolve_group`, `normalize_phone` já são).
+Duas suítes, uma por lado. `cd auto && npm test` — `assert` puro, sem framework, sobre
+`lib/dispatch-logic.js`. Toda função pura nova em `auto/` entra lá. `python -m pytest -q` — `tests/`
+na raiz, cobre as regras de `contatos.py` (normalização, `resolve_group`, dedup) e `gerar_base.py`
+(`periodo_padrao`, `filtrar_elegiveis`, `montar_disparo`, `preparar_novos`). Regra nova nesses dois
+arquivos entra com teste em `tests/`. `.github/workflows/ci.yml` roda as duas suítes em todo push/PR.
 
 ## Refatoração
 

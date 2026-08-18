@@ -25,7 +25,7 @@ is self-contained; the parent's Porto-tools guidance does not apply here.
 ## Commands
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # requirements.txt + pytest
 cp .env.example .env                 # DB credentials, OWNER_ID — never committed
 cd auto && npm install && npx playwright install chromium
 
@@ -35,7 +35,8 @@ python gerar_base.py                 # DB → out/*.csv  (default period: yester
 python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10 --hora 17H --sem-relatorio --sem-copy
 python extract.py                    # manual path: in/*.xlsx (sheets TempA/TempB) → out/*.csv
 
-cd auto && npm test                  # the only test suite: assert-based checks of lib/dispatch-logic.js
+python -m pytest -q                  # Python side: rules in contatos.py / gerar_base.py (tests/)
+cd auto && npm test                  # Node side: assert-based checks of lib/dispatch-logic.js
 cd auto && node dispatch.js --hora 14:30 [--bases-dir bases]
 ```
 
@@ -148,3 +149,5 @@ finishing a task, not optional cleanup.
 - `README.md` — operator manual: eligibility rules, CLI flags, output table.
 - `auto/CLAUDE.md` — dispatch architecture, known gaps, bugs found in real runs.
 - `auto/.claude/docs/fluxo-disparo.md` — literal step-by-step of the dashboard flow (URLs, selectors, order).
+- `.github/workflows/ci.yml` — runs `pytest` and `npm test` on push/PR to `main`/`app`. Keep both
+  suites green; a new business rule in `contatos.py`/`gerar_base.py` should land with a `tests/` case.
