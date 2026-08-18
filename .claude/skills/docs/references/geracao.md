@@ -76,6 +76,9 @@ Ordem exata em `gerar()`:
 6. `filtrar_elegiveis`: mantém `houve_interacao == "NAO"`, remove `bucket` em `BUCKETS_BLOQUEADOS`
    (comparação em minúsculas: `pre-cobrança`, `pre-cobranca`, `acima de 97`) e remove
    `ind_baixa` em `{"C","Q"}` (acordo e quitado).
+6b. `consultar_pagamento_recente` + `remover_pagamento_recente`: tira dos elegíveis e dos novos quem
+   confirmou opção de pagamento nos últimos `DIAS_BLOQUEIO_PAGAMENTO_RECENTE` dias (padrão 2),
+   independente do período do relatório — ver seção "Bloqueio de pagamento recente" abaixo.
 7. `consultar_novos` + `preparar_novos`: mesmo filtro de `ind_baixa`, telefone preenchido, e remove
    quem já está na base elegível.
 8. `montar_disparo` concatena os dois e mantém só `tipo` em (`amigavel`, `contencioso`) — o que ficou
@@ -92,6 +95,26 @@ sexta anterior. `main()` retorna `0` só se sobrou pelo menos um contato — bas
 
 Relatório (`gravar_relatorio`, `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx`): abas `Base`,
 `Interagiram`, `Novos`, `Disparo`. Nunca sobrescreve — acrescenta `_2`, `_3` etc.
+
+## Bloqueio de pagamento recente
+
+Cobre um buraco real: `consulta_novos.sql` traz clientes pelo `updated_at` do cadastro
+(`b2bcustomers-db`), sem nenhuma referência a conversa ou tag. Quando um cliente confirma opção de
+pagamento, o cadastro dele costuma ser atualizado pelo processamento (boleto/PIX, mudança de valor ou
+status) — e esse `updated_at` cai no período do próximo lote, fazendo o cliente reentrar como "novo" e
+levar disparo de novo, mesmo tendo acabado de pagar. O filtro de `tag_opcao_pagamento` em
+`consulta_report.sql`/`gerar()` (passo 2 acima) só protege quem veio pelo caminho de conversas — não
+alcança esse caminho.
+
+- `sql/consulta_pagamento_recente.sql` — telefones com tag `tran_confirmar_opcao_pagamento%`
+  (`message_logs`, messagesdb) entre duas datas, **independente do período do relatório**.
+- `banco.consultar_pagamento_recente` — chamada com `data_fim - DIAS_BLOQUEIO_PAGAMENTO_RECENTE` até
+  `data_fim`, não `data_inicio`/`data_fim` do lote. Cobre tanto quem pagou dentro do período (reforço,
+  já coberto pelo passo 2) quanto quem pagou pouco antes do `data_inicio` (não coberto por nada até
+  então).
+- `gerar_base.remover_pagamento_recente(df, telefones_bloqueados)` — função pura, aplicada nos dois
+  lados: `df_elegiveis` (depois de `filtrar_elegiveis`) e `df_novos` (depois de `preparar_novos`).
+- `DIAS_BLOQUEIO_PAGAMENTO_RECENTE = 2` em `gerar_base.py`. Mudar o prazo é só trocar essa constante.
 
 ## Regras de contato — `contatos.py`
 

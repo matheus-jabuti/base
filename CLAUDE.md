@@ -56,8 +56,11 @@ any new DB-touching step.
 Flow: conversations in period (messagesdb) → drop anyone with a `tag_opcao_pagamento` → enrich from
 the customer registry (b2bcustomers-db, matched on `telefone`/`telefone_2`/`telefone_3` via
 `montar_lookup`) → keep `houve_interacao == "NAO"`, drop blocked buckets (`pre-cobranca`,
-`Acima de 97`) and `ind_baixa` in `C`/`Q` → add new customers of the period not already present →
-keep only `tipo` in (`amigavel`, `contencioso`).
+`Acima de 97`) and `ind_baixa` in `C`/`Q` → drop anyone who confirmed a payment option in the last
+`DIAS_BLOQUEIO_PAGAMENTO_RECENTE` days (2, `consultar_pagamento_recente` + `remover_pagamento_recente`
+— catches the customer registry `updated_at` bump that payment processing causes, which otherwise
+readmits a paying customer through the "new customer" path) → add new customers of the period not
+already present → keep only `tipo` in (`amigavel`, `contencioso`).
 
 Grouping (`contatos.py`): contencioso ignores rating; amigável is grouped by the **first letter** of
 the rating (`A/B/W`, `C`, `D/E/Z`), so prefixed values like `Z_REDUCAO` and `W_FPD_COM_PL` land

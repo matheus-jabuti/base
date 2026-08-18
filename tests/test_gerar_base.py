@@ -11,6 +11,7 @@ from gerar_base import (
     montar_disparo,
     periodo_padrao,
     preparar_novos,
+    remover_pagamento_recente,
 )
 
 
@@ -93,6 +94,35 @@ def test_preparar_novos_remove_telefones_ja_em_uso():
     df = preparar_novos(df_novos, em_uso)
 
     assert df["telefone"].tolist() == ["11987654321"]
+
+
+def test_remover_pagamento_recente_tira_telefones_bloqueados():
+    df = pd.DataFrame(
+        [
+            {"telefone": "11912345678", "nome": "Joao"},
+            {"telefone": "11987654321", "nome": "Maria"},
+        ]
+    )
+
+    resultado = remover_pagamento_recente(df, {"11912345678"})
+
+    assert resultado["telefone"].tolist() == ["11987654321"]
+
+
+def test_remover_pagamento_recente_sem_bloqueio_devolve_igual():
+    df = pd.DataFrame([{"telefone": "11912345678", "nome": "Joao"}])
+
+    resultado = remover_pagamento_recente(df, set())
+
+    assert resultado is df
+
+
+def test_remover_pagamento_recente_df_vazio():
+    df = pd.DataFrame(columns=["telefone"])
+
+    resultado = remover_pagamento_recente(df, {"11912345678"})
+
+    assert resultado.empty
 
 
 def test_preparar_novos_remove_ind_baixa_bloqueado():

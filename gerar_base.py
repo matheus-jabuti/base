@@ -27,6 +27,7 @@ import config
 from banco import (
     buscar_dados_customer,
     consultar_novos,
+    consultar_pagamento_recente,
     consultar_report,
     customers_engine,
     messages_engine,
@@ -49,6 +50,12 @@ BUCKETS_BLOQUEADOS = {"pre-cobrança", "pre-cobranca", "acima de 97"}
 
 # Baixa por acordo (C) ou quitacao (Q): nao pode ser cobrado.
 IND_BAIXA_BLOQUEADO = {"C", "Q"}
+
+# Quem confirmou opcao de pagamento fica esse tanto de dias fora do disparo,
+# ate o pagamento ser compensado. Pega tanto quem reaparece via "novos" (o
+# cadastro e atualizado pelo processamento do pagamento) quanto quem pagou
+# pouco antes do inicio do periodo do relatorio.
+DIAS_BLOQUEIO_PAGAMENTO_RECENTE = 2
 
 NAO_LOCALIZADO = "NAO LOCALIZADO"
 
@@ -124,6 +131,14 @@ def filtrar_elegiveis(df_final: pd.DataFrame) -> pd.DataFrame:
     df = df[~bucket.isin(BUCKETS_BLOQUEADOS)].reset_index(drop=True)
 
     return _remover_ind_baixa_bloqueado(df)
+
+
+def remover_pagamento_recente(df: pd.DataFrame, telefones_bloqueados: set[str]) -> pd.DataFrame:
+    """Tira quem confirmou opcao de pagamento recentemente, de qualquer origem (elegiveis ou novos)."""
+    if df.empty or not telefones_bloqueados:
+        return df
+
+    return df[~df["telefone"].isin(telefones_bloqueados)].reset_index(drop=True)
 
 
 def preparar_novos(df_novos: pd.DataFrame, telefones_em_uso: pd.Series) -> pd.DataFrame:
@@ -218,12 +233,26 @@ def gerar(
         df_customer = buscar_dados_customer(engine_clientes, telefones)
         print(f"Cadastros localizados: {len(df_customer)}.")
 
+        df_pagamento_recente = consultar_pagamento_recente(
+            engine_mensagens,
+            data_fim - td(days=DIAS_BLOQUEIO_PAGAMENTO_RECENTE),
+            data_fim,
+            config.owner_id(),
+        )
+        telefones_pagamento_recente = set(df_pagamento_recente["telefone"].dropna())
+        print(
+            f"Pagamento recente (ultimos {DIAS_BLOQUEIO_PAGAMENTO_RECENTE} dias): "
+            f"{len(telefones_pagamento_recente)} telefone(s) bloqueado(s)."
+        )
+
         df_final = montar_base(df_report, df_customer)
         df_elegiveis = filtrar_elegiveis(df_final)
+        df_elegiveis = remover_pagamento_recente(df_elegiveis, telefones_pagamento_recente)
         print(f"Elegiveis apos filtros: {len(df_elegiveis)}.")
 
         df_novos = consultar_novos(engine_clientes, data_inicio, data_fim)
         df_novos = preparar_novos(df_novos, df_elegiveis["telefone"])
+        df_novos = remover_pagamento_recente(df_novos, telefones_pagamento_recente)
         print(f"Clientes novos no periodo: {len(df_novos)}.")
 
         df_disparo = montar_disparo(df_elegiveis, df_novos)

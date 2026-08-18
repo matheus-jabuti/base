@@ -112,6 +112,22 @@ def consultar_novos(engine: Engine, data_inicio: date, data_fim: date) -> pd.Dat
     return _strip_colunas(df, ["telefone", "telefone_2", "telefone_3", "ind_baixa", "cpf", "valor_princ", "rating", "tipo"])
 
 
+def consultar_pagamento_recente(engine: Engine, data_inicio: date, data_fim: date, owner_id: str) -> pd.DataFrame:
+    """Telefones que confirmaram opcao de pagamento no intervalo informado."""
+    df = pd.read_sql(
+        text(ler_sql("consulta_pagamento_recente.sql")),
+        con=engine,
+        params={
+            "data_inicio": data_inicio.strftime("%Y-%m-%d"),
+            "data_fim": data_fim.strftime("%Y-%m-%d"),
+            "owner_id": owner_id,
+        },
+        dtype="str",
+    )
+
+    return _strip_colunas(df, ["telefone"])
+
+
 def buscar_dados_customer(engine: Engine, telefones: list[str]) -> pd.DataFrame:
     """Dados cadastrais dos telefones informados.
 

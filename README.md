@@ -122,6 +122,8 @@ Entra no disparo quem:
 - nao respondeu ao ultimo disparo (`houve_interacao = NAO`);
 - nao esta em `pre-cobranca` nem `Acima de 97` dias;
 - nao tem `ind_baixa` igual a `C` (acordo) ou `Q` (quitado);
+- nao confirmou opcao de pagamento nos ultimos 2 dias (`DIAS_BLOQUEIO_PAGAMENTO_RECENTE` em
+  `gerar_base.py`) — evita cobrar de quem acabou de pagar e o pagamento ainda nao compensou;
 - tem cadastro localizado, com `tipo` amigavel ou contencioso.
 
 Somam-se os clientes novos do periodo que ainda nao estao nessa base. No fim,
