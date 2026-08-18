@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import csv
+
+from openpyxl import Workbook
+
 from contatos import (
     GROUP_ABW,
     GROUP_C,
@@ -9,7 +13,9 @@ from contatos import (
     GROUP_DEZ,
     GROUP_NA_RATING,
     Registro,
+    aplicar_filtro,
     coletar_contatos,
+    ler_telefones_filtro,
     normalize_name,
     normalize_phone,
     rating_desconhecido,
@@ -119,3 +125,55 @@ def test_coletar_contatos_conta_rating_desconhecido_so_para_amigavel():
     assert resultado.ratings_desconhecidos["X"] == 1
     assert resultado.grupos[GROUP_NA_RATING] == [("11912345678", "Joao")]
     assert resultado.grupos[GROUP_CONTENCIOSO] == [("11987654321", "Maria")]
+
+
+def test_aplicar_filtro_remove_por_telefone_em_qualquer_grupo():
+    grupos = {
+        GROUP_ABW: [("11912345678", "Joao"), ("11900000000", "Ana")],
+        GROUP_C: [("11987654321", "Maria")],
+    }
+
+    filtrados, removidos = aplicar_filtro(grupos, {"11912345678", "11987654321"})
+
+    assert removidos == 2
+    assert filtrados[GROUP_ABW] == [("11900000000", "Ana")]
+    assert filtrados[GROUP_C] == []
+
+
+def test_aplicar_filtro_sem_telefones_nao_mexe_nos_grupos():
+    grupos = {GROUP_ABW: [("11912345678", "Joao")]}
+
+    filtrados, removidos = aplicar_filtro(grupos, set())
+
+    assert removidos == 0
+    assert filtrados is grupos
+
+
+def test_ler_telefones_filtro_le_xlsx_sem_cabecalho_fixo(tmp_path):
+    planilha = tmp_path / "filtro.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Telefones para remover"])
+    sheet.append(["(11) 91234-5678"])
+    sheet.append(["11 90000-0000"])
+    sheet.append(["numero curto: 123"])
+    workbook.save(planilha)
+
+    telefones = ler_telefones_filtro(tmp_path)
+
+    assert telefones == {"11912345678", "11900000000"}
+
+
+def test_ler_telefones_filtro_le_csv(tmp_path):
+    arquivo = tmp_path / "filtro.csv"
+    with arquivo.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["telefone"])
+        writer.writerow(["11912345678"])
+
+    assert ler_telefones_filtro(tmp_path) == {"11912345678"}
+
+
+def test_ler_telefones_filtro_pasta_vazia_ou_ausente(tmp_path):
+    assert ler_telefones_filtro(tmp_path) == set()
+    assert ler_telefones_filtro(tmp_path / "nao-existe") == set()

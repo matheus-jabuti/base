@@ -15,6 +15,8 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, NamedTuple
 
+from openpyxl import load_workbook
+
 # Cada grupo vira um CSV de saida. O contencioso nao e separado por rating.
 GROUP_ABW = "abw"
 GROUP_C = "c"
@@ -189,6 +191,76 @@ def coletar_contatos(registros: Iterable[Registro]) -> ResultadoContatos:
         resultado.grupos[resolve_group(registro.tipo, registro.rating)].append((phone, name))
 
     return resultado
+
+
+# Extensoes aceitas na pasta de filtro. csv entra pra facilitar exportacao rapida.
+FILTER_FILE_PATTERNS = ("*.xlsx", "*.xlsm", "*.xltx", "*.xltm", "*.csv")
+
+
+def coletar_arquivos_filtro(pasta: Path) -> list[Path]:
+    if not pasta.exists():
+        return []
+
+    arquivos: list[Path] = []
+    for pattern in FILTER_FILE_PATTERNS:
+        arquivos.extend(pasta.glob(pattern))
+
+    return sorted(arquivos)
+
+
+def _telefones_do_csv(arquivo: Path) -> Iterable[str]:
+    with arquivo.open(encoding="utf-8-sig", newline="") as f:
+        for linha in csv.reader(f):
+            for valor in linha:
+                telefone = normalize_phone(valor)
+                if telefone:
+                    yield telefone
+
+
+def _telefones_do_excel(arquivo: Path) -> Iterable[str]:
+    workbook = load_workbook(arquivo, read_only=True, data_only=True)
+    try:
+        for sheet in workbook.worksheets:
+            for linha in sheet.iter_rows(values_only=True):
+                for valor in linha:
+                    telefone = normalize_phone(valor)
+                    if telefone:
+                        yield telefone
+    finally:
+        workbook.close()
+
+
+def ler_telefones_filtro(pasta: Path) -> set[str]:
+    """Le toda planilha (xlsx ou csv) da pasta de filtro e devolve os telefones a remover.
+
+    Nao exige cabecalho nem coluna fixa: qualquer celula que normalize para um
+    telefone valido entra no filtro, pra aceitar listas coladas sem formatacao.
+    """
+    telefones: set[str] = set()
+
+    for arquivo in coletar_arquivos_filtro(pasta):
+        extrator = _telefones_do_csv if arquivo.suffix.lower() == ".csv" else _telefones_do_excel
+        telefones.update(extrator(arquivo))
+
+    return telefones
+
+
+def aplicar_filtro(
+    grupos: dict[str, list[tuple[str, str]]], telefones_filtro: set[str]
+) -> tuple[dict[str, list[tuple[str, str]]], int]:
+    """Remove das bases os telefones presentes no filtro. Devolve o total removido."""
+    if not telefones_filtro:
+        return grupos, 0
+
+    removidos = 0
+    filtrados: dict[str, list[tuple[str, str]]] = {}
+
+    for grupo, linhas in grupos.items():
+        mantidos = [linha for linha in linhas if linha[0] not in telefones_filtro]
+        removidos += len(linhas) - len(mantidos)
+        filtrados[grupo] = mantidos
+
+    return filtrados, removidos
 
 
 def clear_output_folder(output_dir: Path) -> None:

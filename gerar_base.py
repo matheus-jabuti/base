@@ -35,11 +35,13 @@ from contatos import (
     TIPOS_VALIDOS,
     Registro,
     ResultadoContatos,
+    aplicar_filtro,
     clear_output_folder,
     coletar_contatos,
     escrever_copy,
     escrever_grupos,
     imprimir_resumo,
+    ler_telefones_filtro,
 )
 
 # Quem esta em pre-cobranca ou ja passou de 97 dias nao entra no disparo.
@@ -239,6 +241,11 @@ def gerar(
         for linha in df_disparo.itertuples(index=False)
     )
     resultado = coletar_contatos(registros)
+
+    telefones_filtro = ler_telefones_filtro(config.FILTER_DIR)
+    if telefones_filtro:
+        resultado.grupos, removidos = aplicar_filtro(resultado.grupos, telefones_filtro)
+        print(f"Filtro: {removidos} contato(s) removido(s) ({len(telefones_filtro)} numero(s) na planilha de filtro).")
 
     clear_output_folder(config.OUTPUT_DIR)
     escrever_grupos(config.OUTPUT_DIR, resultado.grupos)

@@ -17,11 +17,13 @@ import config
 from contatos import (
     Registro,
     ResultadoContatos,
+    aplicar_filtro,
     clear_output_folder,
     coletar_contatos,
     escrever_copy,
     escrever_grupos,
     imprimir_resumo,
+    ler_telefones_filtro,
     normalize_header,
     normalize_sheet_name,
 )
@@ -141,6 +143,11 @@ def extrair(excel_files: list[Path], hora: str, com_copy: bool, data_disparo: da
     # TempA e TempB sao unificadas e deduplicadas: o mesmo telefone nao pode
     # receber dois disparos.
     resultado = coletar_contatos(registros)
+
+    telefones_filtro = ler_telefones_filtro(config.FILTER_DIR)
+    if telefones_filtro:
+        resultado.grupos, removidos = aplicar_filtro(resultado.grupos, telefones_filtro)
+        print(f"Filtro: {removidos} contato(s) removido(s) ({len(telefones_filtro)} numero(s) na planilha de filtro).")
 
     clear_output_folder(OUTPUT_DIR)
     escrever_grupos(OUTPUT_DIR, resultado.grupos)

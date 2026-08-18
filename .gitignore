@@ -1,10 +1,12 @@
 /in/*
 /out/*
 /relatorio/*
+/filtros/*
 
 !/in/.gitkeep
 !/out/.gitkeep
 !/relatorio/.gitkeep
+!/filtros/.gitkeep
 
 /copy.md
 /.env
