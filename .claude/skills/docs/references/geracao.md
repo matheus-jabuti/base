@@ -39,6 +39,10 @@ Uma linha por `conversation_id` no período, filtrada por `ownerId`. Colunas que
 - `tag_opcao_pagamento` — primeira tag `tran_confirmar_opcao_pagamento%` da conversa.
 - `ultima_tag_valida` / `ultimo_timestamp_valido` — última tag ignorando `start_agent_execution`
   (que só volta a valer quando não há nenhuma outra).
+- `tag_consulta_cliente_processa_dados` — presença da tag `int_consulta_cliente_processa_dados`
+  (disparada em `ConsultaCliente.py`/`ConsultaClienteV2.py` do repo de tools quando o CPF valida e a
+  API da Porto retorna dados do cliente). Só alimenta a aba `cpc` do relatório — não entra em nenhum
+  filtro de elegibilidade.
 
 ### `consulta_customer.sql` (b2bcustomers-db)
 
@@ -94,7 +98,12 @@ Período padrão (`periodo_padrao`): ontem até hoje; **na segunda-feira volta t
 sexta anterior. `main()` retorna `0` só se sobrou pelo menos um contato — base vazia é código `1`.
 
 Relatório (`gravar_relatorio`, `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx`): abas `Base`,
-`Interagiram`, `Novos`, `Disparo`. Nunca sobrescreve — acrescenta `_2`, `_3` etc.
+`Interagiram`, `Novos`, `Disparo` e `cpc` (só se não vazia). Nunca sobrescreve — acrescenta `_2`, `_3`
+etc.
+
+`contatos_a_processar` monta a aba `cpc`: `houve_interacao == "SIM"`, `ind_baixa` vazio e
+`tag_consulta_cliente_processa_dados` preenchida — conversa avançou até essa etapa mas pode ter
+ficado sem resolução, sinal pra revisão manual da corretoria. Não afeta `df_disparo` nem os CSVs.
 
 ## Bloqueio de pagamento recente
 

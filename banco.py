@@ -93,6 +93,7 @@ def consultar_report(engine: Engine, data_inicio: date, data_fim: date, owner_id
             "tag_opcao_pagamento",
             "houve_interacao",
             "ultima_tag_valida",
+            "tag_consulta_cliente_processa_dados",
         ],
     )
 

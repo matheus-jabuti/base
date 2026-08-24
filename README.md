@@ -97,7 +97,7 @@ Os Excels de `in/` sao apagados ao final; use `--manter-excel` para preservar.
 | `out/amigavel_na_rating.csv` | Amigavel sem rating (ou rating desconhecido) |
 | `out/contencioso.csv` | Contencioso, independente de rating |
 | `copy.md` | Nome de cada campanha, com data e hora |
-| `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx` | Conferencia: Base, Interagiram, Novos, Disparo |
+| `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx` | Conferencia: Base, Interagiram, Novos, Disparo, cpc (se houver) |
 
 O grupo sai da primeira letra do rating (`Z_REDUCAO` entra em D/E/Z,
 `W_FPD_COM_PL` entra em A/B/W). Rating desconhecido nao interrompe a geracao:

@@ -7,6 +7,7 @@ from datetime import date
 import pandas as pd
 
 from gerar_base import (
+    contatos_a_processar,
     filtrar_elegiveis,
     montar_disparo,
     periodo_padrao,
@@ -123,6 +124,45 @@ def test_remover_pagamento_recente_df_vazio():
     resultado = remover_pagamento_recente(df, {"11912345678"})
 
     assert resultado.empty
+
+
+def _df_processar(**overrides):
+    linha = {
+        "telefone": "11912345678",
+        "houve_interacao": "SIM",
+        "ind_baixa": pd.NA,
+        "tag_consulta_cliente_processa_dados": "int_consulta_cliente_processa_dados",
+    }
+    linha.update(overrides)
+    return pd.DataFrame([linha])
+
+
+def test_contatos_a_processar_mantem_quem_interagiu_sem_baixa_com_tag():
+    df = contatos_a_processar(_df_processar())
+    assert len(df) == 1
+
+
+def test_contatos_a_processar_descarta_quem_nao_interagiu():
+    df = contatos_a_processar(_df_processar(houve_interacao="NAO"))
+    assert df.empty
+
+
+def test_contatos_a_processar_descarta_ind_baixa_preenchido():
+    df = contatos_a_processar(_df_processar(ind_baixa="C"))
+    assert df.empty
+
+
+def test_contatos_a_processar_descarta_tag_vazia():
+    df = contatos_a_processar(_df_processar(tag_consulta_cliente_processa_dados=pd.NA))
+    assert df.empty
+
+    df = contatos_a_processar(_df_processar(tag_consulta_cliente_processa_dados=""))
+    assert df.empty
+
+
+def test_contatos_a_processar_sem_coluna_de_tag_devolve_vazio():
+    df = contatos_a_processar(_df_processar().drop(columns=["tag_consulta_cliente_processa_dados"]))
+    assert df.empty
 
 
 def test_preparar_novos_remove_ind_baixa_bloqueado():

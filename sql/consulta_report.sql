@@ -18,7 +18,8 @@ SELECT
         (array_agg(sub.tag_nome ORDER BY sub.tag_timestamp DESC NULLS LAST) FILTER (WHERE sub.tag_nome = 'start_agent_execution'))[1]
     ) AS ultima_tag_valida,
     BOOL_OR(sub.opcao_pagamento) AS opcao_pagamento,
-    (array_agg(sub.tag_opcao_pagamento) FILTER (WHERE sub.tag_opcao_pagamento IS NOT NULL))[1] AS tag_opcao_pagamento
+    (array_agg(sub.tag_opcao_pagamento) FILTER (WHERE sub.tag_opcao_pagamento IS NOT NULL))[1] AS tag_opcao_pagamento,
+    (array_agg(sub.tag_consulta_cliente_processa_dados) FILTER (WHERE sub.tag_consulta_cliente_processa_dados IS NOT NULL))[1] AS tag_consulta_cliente_processa_dados
 FROM (
     SELECT
         ml."conversationId" AS conversation_id,
@@ -44,7 +45,13 @@ FROM (
             FROM jsonb_array_elements(COALESCE(ml.metadata->'tags', '[]'::jsonb)) AS tags
             WHERE tags->>'tag' LIKE 'tran_confirmar_opcao_pagamento%'
             LIMIT 1
-        ) AS tag_opcao_pagamento
+        ) AS tag_opcao_pagamento,
+        (
+            SELECT tags->>'tag'
+            FROM jsonb_array_elements(COALESCE(ml.metadata->'tags', '[]'::jsonb)) AS tags
+            WHERE tags->>'tag' = 'int_consulta_cliente_processa_dados'
+            LIMIT 1
+        ) AS tag_consulta_cliente_processa_dados
     FROM public.message_logs ml
     LEFT JOIN LATERAL jsonb_array_elements(
         COALESCE(ml.metadata->'tags','[]'::jsonb)

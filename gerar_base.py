@@ -175,6 +175,32 @@ def montar_disparo(df_elegiveis: pd.DataFrame, df_novos: pd.DataFrame) -> pd.Dat
     return df_disparo[tipo.isin(TIPOS_VALIDOS)].reset_index(drop=True)
 
 
+COLUNAS_PROCESSAR = ["telefone", "nome", "tipo", "bucket", "rating", "tag_consulta_cliente_processa_dados"]
+
+
+def contatos_a_processar(df_final: pd.DataFrame) -> pd.DataFrame:
+    """Contatos que interagiram, sem baixa e chegaram no consulta_cliente_processa_dados.
+
+    Sinal pra sheet de conferencia "cpc": conversa avancou ate essa etapa mas
+    pode ter ficado sem resolucao, entao vale revisao manual.
+    """
+    if "tag_consulta_cliente_processa_dados" not in df_final.columns:
+        return pd.DataFrame(columns=[c for c in COLUNAS_PROCESSAR if c in df_final.columns])
+
+    interagiu = df_final["houve_interacao"] == "SIM"
+
+    if "ind_baixa" in df_final.columns:
+        sem_baixa = df_final["ind_baixa"].isna() | df_final["ind_baixa"].astype("string").str.strip().eq("")
+    else:
+        sem_baixa = True
+
+    tag = df_final["tag_consulta_cliente_processa_dados"]
+    com_tag = tag.notna() & tag.str.strip().ne("")
+
+    colunas = [c for c in COLUNAS_PROCESSAR if c in df_final.columns]
+    return df_final.loc[interagiu & sem_baixa & com_tag, colunas].reset_index(drop=True)
+
+
 def gravar_relatorio(
     report_dir: Path,
     data_referencia: date,
@@ -193,12 +219,15 @@ def gravar_relatorio(
         arquivo = report_dir / f"{nome}_{contador}.xlsx"
 
     df_interagiram = df_final[df_final["houve_interacao"] == "SIM"].reset_index(drop=True)
+    df_processar = contatos_a_processar(df_final)
 
     with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
         df_final.to_excel(writer, sheet_name="Base", index=False)
         df_interagiram.to_excel(writer, sheet_name="Interagiram", index=False)
         df_novos.to_excel(writer, sheet_name="Novos", index=False)
         df_disparo.to_excel(writer, sheet_name="Disparo", index=False)
+        if not df_processar.empty:
+            df_processar.to_excel(writer, sheet_name="cpc", index=False)
 
     return arquivo
 
