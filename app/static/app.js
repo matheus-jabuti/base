@@ -135,7 +135,7 @@ function desenharTipos() {
       botao.onclick = () => {
         let atual = Number(campo.value || 0) + Number(botao.dataset.passo);
         if (atual > max) atual = 1;
-        if (atual < 0) atual = max;
+        if (atual < 1) atual = max;
         campo.value = String(atual).padStart(2, '0');
       };
     }
