@@ -11,10 +11,23 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 3. Pergunta no terminal: `Horário do disparo (HH:MM):` — uma vez, vale pros 5.
 4. Abre o Chromium (`headless: true`).
 5. Login (`ensureLoggedIn`) — ver seção 1.
-6. Para cada uma das 5 entradas de `config/dispatches.json`, **em sequência** (não em
-   paralelo), roda os passos 2, 3 e 4 abaixo dentro de um `try/catch` próprio — se uma
-   entrada falhar, grava `erro` no CSV e segue pra próxima, não trava as outras 4.
-7. Login (passo 1) fica **fora** desse try/catch por entrada — se falhar, `main()`
+6. Monta um `estado` por entrada (`nome` já resolvido, `falhou: false`, `modo: null`).
+   Base com CSV vazio já entra marcada `falhou: true` e é logada `pulado` sem passar por
+   nenhuma fase.
+7. Roda as 3 fases **em lote**, uma de cada vez, cada uma passando pelas 5 bases antes de
+   ir pra próxima — não mais lista→campanha→transmissão por base, e sim lista×5 →
+   campanha×5 → transmissão×5 (`rodarFase`, função interna de `main()`):
+   - Dentro de uma fase, cada base ainda viva (`!estado.falhou`) roda uma vez; quem falhar
+     entra numa lista de retry só dessa fase.
+   - No fim da fase (depois das outras bases já terem passado), tenta de novo só quem
+     falhou — o tempo gasto com as demais bases já serve de folga extra pra indexação/
+     lentidão da plataforma, sem sleep artificial.
+   - Falhou de nova, `estado.falhou = true` definitivo: grava `erro` no CSV, tira
+     screenshot e a base **não entra mais em nenhuma fase seguinte** (ex.: falhou em criar
+     a lista, nunca chega a tentar campanha nem transmissão).
+   - Uma fase inteira nunca trava por causa de uma base — a próxima segue rodando pra
+     quem ainda está vivo.
+8. Login (passo 5) fica **fora** de qualquer `try/catch` por base — se falhar, `main()`
    inteiro rejeita, cai no `.catch` de topo, imprime `[FATAL] ...` numa linha só e
    sai com código 1, em vez de derrubar o processo com stack trace cru.
 
@@ -28,8 +41,8 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 3. Se redirecionou (ou não havia `auth.json`): abre `https://auth.jabuti.ai/sign-in`,
    preenche `#email`/`#password` (env vars `JABUTI_EMAIL`/`JABUTI_PASSWORD`, com
    fallback pra conta de teste), clica `Entrar`, espera saída da URL de sign-in.
-4. Salva a sessão nova em `scripts/out/auth.json` (reaproveitada nas próximas execuções
-   e reescrita depois de cada uma das 5 entradas, pra manter os cookies frescos).
+4. Salva a sessão nova em `scripts/out/auth.json` (reaproveitada nas próximas execuções e
+   reescrita uma vez, depois das 3 fases, pra manter os cookies frescos).
 
 ## 2. Criar lista de distribuição (`createList`)
 

@@ -42,20 +42,24 @@ Adicionar, remover ou renomear base é edição deste arquivo; não deve exigir 
 4. Sem `--hora`, pergunta no terminal. O horário vale para as cinco.
 5. Emite `[ETAPA] {"evento":"plano", ...}` e abre o Chromium (`headless: true`).
 6. Login (`ensureLoggedIn`) — **fora** do try/catch por base: falhou aqui, o processo inteiro cai.
-7. Para cada base, **em sequência**, dentro de try/catch próprio: lista → campanha → transmissão.
-   Uma falha registra `erro` e segue para a próxima.
+7. Roda por **fase em lote**, não por base: todas as 5 listas, depois as 5 campanhas, depois as 5
+   transmissões (`rodarFase`). Dentro de uma fase, quem falhar entra numa fila de retry só dessa fase e
+   tenta de novo no final — depois das outras bases já terem passado, o que já dá folga de indexação sem
+   precisar de sleep artificial. Falhou de novo, a base é marcada `falhou` (loga `erro`, tira screenshot)
+   e some das fases seguintes — falhar na lista significa nunca tentar campanha nem transmissão. Uma
+   base ruim nunca trava a fase para as outras.
 8. Ao final, se houve qualquer erro, `process.exitCode = 1` — é assim que a tela sabe.
    Erro fatal imprime `[FATAL] <mensagem>` em uma linha só e sai com 1, sem stack trace cru.
 
-Base com CSV de zero contatos é **pulada** (`status: pulado`), não é erro: o dashboard rejeitaria o
-CSV vazio na validação.
+Base com CSV de zero contatos já entra marcada `falhou` antes da primeira fase e é **pulada**
+(`status: pulado`), não é erro: o dashboard rejeitaria o CSV vazio na validação.
 
 ## Sessão
 
 `scripts/out/auth.json` guarda o `storageState`. Reaproveita se ainda válido (navega para o dashboard
 com `domcontentloaded` — a tela tem polling, `networkidle` nunca resolve); se redirecionou para
 sign-in, faz login com `JABUTI_EMAIL`/`JABUTI_PASSWORD` (com fallback para a conta de teste) e regrava.
-A sessão é regravada depois de cada base para manter os cookies frescos.
+A sessão é regravada uma vez, depois das 3 fases, para manter os cookies frescos.
 
 Só existe login por usuário/senha. SSO Microsoft nunca foi implementado — decisão registrada em
 `auto/CLAUDE.md` → "Known gaps".

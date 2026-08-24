@@ -304,6 +304,26 @@ async function main() {
     bases: configs.map((cfg) => ({ key: cfg.key, nome: cfg.nome, contatos: cfg.contatos, template: cfg.template })),
   });
 
+  // Estado por base, carregado entre as 3 fases (lista -> campanha -> transmissao).
+  // `falhou` tira a base das fases seguintes (CSV vazio ou erro definitivo apos retry).
+  const estados = configs.map((cfg) => ({
+    cfg,
+    nome: buildDispatchName(cfg.nome, today, hh, mm),
+    falhou: false,
+    modo: null,
+  }));
+
+  // Lista vazia nao passa na validacao do CSV no dashboard: pula direto, sem
+  // entrar em nenhuma fase.
+  for (const estado of estados) {
+    if (!estado.cfg.contatos) {
+      estado.falhou = true;
+      logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: estado.cfg.key, nome: estado.nome, modo: '-', status: 'pulado', detalhe: 'CSV sem contatos' });
+      progresso({ evento: 'base', key: estado.cfg.key, status: 'pulado', detalhe: 'CSV sem contatos' });
+      console.log(`[PULADO] ${estado.nome}: CSV sem contatos`);
+    }
+  }
+
   let erros = 0;
   const browser = await chromium.launch({ headless: true });
   try {
@@ -312,46 +332,60 @@ async function main() {
     progresso({ evento: 'login', status: 'ok' });
     page.on('dialog', (d) => d.accept());
 
-    for (const cfg of configs) {
-      const nome = buildDispatchName(cfg.nome, today, hh, mm);
+    // Roda uma fase (lista/campanha/transmissao) em todas as bases ainda vivas.
+    // Quem falhar na primeira passada so tenta de novo no fim da fase, depois de
+    // todas as outras bases - o tempo gasto com elas ja serve de folga extra pra
+    // indexacao/lentidao da plataforma, sem sleep artificial. Falhou de novo, marca
+    // como erro definitivo (loga, tira screenshot) e sai do jogo pras proximas fases.
+    async function rodarFase(etapa, executar) {
+      const vivos = estados.filter((e) => !e.falhou);
+      const falharam = [];
 
-      // Lista vazia nao passa na validacao do CSV no dashboard: pula e registra.
-      if (!cfg.contatos) {
-        logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: cfg.key, nome, modo: '-', status: 'pulado', detalhe: 'CSV sem contatos' });
-        progresso({ evento: 'base', key: cfg.key, status: 'pulado', detalhe: 'CSV sem contatos' });
-        console.log(`[PULADO] ${nome}: CSV sem contatos`);
-        continue;
+      for (const estado of vivos) {
+        progresso({ evento: 'base', key: estado.cfg.key, status: 'rodando', etapa });
+        try {
+          await executar(estado);
+        } catch (err) {
+          falharam.push(estado);
+          console.log(`[retry-fase] "${estado.nome}" falhou em ${etapa} (1a tentativa): ${err.message}`);
+        }
       }
 
-      try {
-        progresso({ evento: 'base', key: cfg.key, status: 'rodando', etapa: 'lista' });
-        await createList(page, nome, cfg.csv);
-
-        progresso({ evento: 'base', key: cfg.key, status: 'rodando', etapa: 'campanha' });
-        await createCampaign(page, nome);
-
-        progresso({ evento: 'base', key: cfg.key, status: 'rodando', etapa: 'transmissao' });
-        const modo = await createBroadcast(page, { key: cfg.key, nome, template: cfg.template, target });
-
-        await context.storageState({ path: AUTH_PATH });
-        logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: cfg.key, nome, modo, status: 'ok' });
-        progresso({ evento: 'base', key: cfg.key, status: 'ok', modo });
-        console.log(`[OK] ${nome} -> ${modo}`);
-      } catch (err) {
-        erros++;
-        progresso({ evento: 'base', key: cfg.key, status: 'erro', detalhe: err.message });
-        const shotPath = path.join(ROOT, `scripts/out/erro-${cfg.key}-${Date.now()}.png`);
-        await page.screenshot({ path: shotPath, fullPage: true }).catch(() => {});
-        logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: cfg.key, nome, modo: '-', status: 'erro', detalhe: err.message });
-        console.error(`[ERRO] ${nome}: ${err.message} (screenshot: ${shotPath})`);
+      for (const estado of falharam) {
+        progresso({ evento: 'base', key: estado.cfg.key, status: 'rodando', etapa, detalhe: 'retentando apos as outras bases' });
+        try {
+          await executar(estado);
+        } catch (err) {
+          estado.falhou = true;
+          erros++;
+          progresso({ evento: 'base', key: estado.cfg.key, status: 'erro', detalhe: err.message });
+          const shotPath = path.join(ROOT, `scripts/out/erro-${estado.cfg.key}-${Date.now()}.png`);
+          await page.screenshot({ path: shotPath, fullPage: true }).catch(() => {});
+          logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: estado.cfg.key, nome: estado.nome, modo: '-', status: 'erro', detalhe: err.message });
+          console.error(`[ERRO] ${estado.nome}: ${err.message} (screenshot: ${shotPath})`);
+        }
       }
+    }
+
+    await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
+    await rodarFase('campanha', (estado) => createCampaign(page, estado.nome));
+    await rodarFase('transmissao', async (estado) => {
+      estado.modo = await createBroadcast(page, { key: estado.cfg.key, nome: estado.nome, template: estado.cfg.template, target });
+    });
+
+    await context.storageState({ path: AUTH_PATH });
+    for (const estado of estados) {
+      if (estado.falhou) continue;
+      logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: estado.cfg.key, nome: estado.nome, modo: estado.modo, status: 'ok' });
+      progresso({ evento: 'base', key: estado.cfg.key, status: 'ok', modo: estado.modo });
+      console.log(`[OK] ${estado.nome} -> ${estado.modo}`);
     }
   } finally {
     await browser.close();
   }
 
-  // Os erros por base sao capturados no loop pra uma falha nao derrubar as outras,
-  // mas o processo precisa sair diferente de zero pra tela saber que deu problema.
+  // Os erros por base sao capturados fase a fase pra uma falha nao derrubar as
+  // outras, mas o processo precisa sair diferente de zero pra tela saber que deu problema.
   if (erros) {
     console.error(`${erros} de ${configs.length} disparos falharam.`);
     process.exitCode = 1;
