@@ -129,10 +129,14 @@ function desenharTipos() {
     const campo = item.querySelector('input');
     campo.value = num;
 
+    const max = grupo.grupo === 'contencioso' ? 10 : 7;
+
     for (const botao of item.querySelectorAll('.stepper button')) {
       botao.onclick = () => {
-        const atual = Number(campo.value || 0) + Number(botao.dataset.passo);
-        campo.value = String(Math.min(Math.max(atual, 0), 999)).padStart(2, '0');
+        let atual = Number(campo.value || 0) + Number(botao.dataset.passo);
+        if (atual > max) atual = 1;
+        if (atual < 0) atual = max;
+        campo.value = String(atual).padStart(2, '0');
       };
     }
 
