@@ -40,10 +40,13 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 4. Sobe o arquivo de `config.csv` daquela entrada em `input[type="file"]`.
 5. Espera o texto `Arquivo CSV validado com sucesso` aparecer (timeout 15s).
 6. Clica `Salvar Lista de Distribuição`.
-7. Espera o toast `Criada com sucesso` aparecer (timeout 15s) — essa tela **não
-   redireciona** ao salvar, fica no mesmo formulário; o toast é o único jeito confiável
-   de confirmar que persistiu. Se não aparecer, lança erro (nome duplicado, CSV
-   rejeitado etc.) e a entrada vai pro log como `erro` sem criar campanha/transmissão.
+7. Espera o toast `Criada com sucesso` aparecer (`confirmSavedOrWarn`, timeout 30s) —
+   essa tela **não redireciona** ao salvar, fica no mesmo formulário. Se o toast não
+   aparecer mas também não há mensagem de erro visível na tela, só loga um aviso e
+   segue (reenviar o formulário arriscaria criar lista duplicada); se aparecer erro
+   explícito, lança e a entrada vai pro log como `erro` sem criar campanha/transmissão.
+   A confirmação real de que a lista existe acontece no passo 4 (retry de
+   `fillBroadcastSelectors`).
 
 ## 3. Criar campanha (`createCampaign`)
 
@@ -51,7 +54,8 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 2. Preenche `input[name="name"]` com o mesmo nome da lista.
 3. Preenche `textarea[name="description"]` com `by automação`.
 4. Clica `Salvar Campanha`.
-5. Espera o toast `Criada com sucesso` (timeout 15s), mesma lógica do passo 2.7.
+5. Espera o toast `Criada com sucesso` (`confirmSavedOrWarn`, timeout 30s), mesma lógica
+   do passo 2.7.
 
 ## 4. Criar transmissão (`createBroadcast`)
 
@@ -63,7 +67,10 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
      de mil linhas.
    - Abre o combobox "Campanha", clica na opção com texto exatamente igual ao `<nome>`.
    - Abre o combobox "Template", clica na opção com o `template` configurado pra essa
-     entrada.
+     entrada (`clickTemplateOption`). A listbox não renderiza tudo de cara — conforme a
+     lista de templates cresce, opções mais abaixo (ex.: `WPP_contencioso_01`, com 10+
+     templates cadastrados) só existem no DOM depois de rolar; a função rola em passos
+     até a opção alvo ficar visível antes de clicar.
    - Tudo isso roda dentro de um retry: se a lista/campanha recém-criada ainda não
      aparecer na opção (indexação/processamento assíncrono do CSV no backend), recarrega
      a página `/meta/broadcasts/add` e tenta de novo — até 6 tentativas, ~10s de espera

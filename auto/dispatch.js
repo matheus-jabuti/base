@@ -123,6 +123,26 @@ async function ensureLoggedIn(browser) {
 // A tela de lista NÃO redireciona ao salvar (fica no mesmo /add) — só o toast
 // "Criada com sucesso" confirma que persistiu. networkidle sozinho não pega falha
 // de validação/nome duplicado (o clique ainda resolve a rede, só não salva nada).
+//
+// O toast pode demorar mais que isso em picos de lentidão da plataforma (visto em
+// execução real: form validado certinho, só o toast não chegou em 15s). Reenviar o
+// formulário arrisca criar duplicata, então aqui só falha se um erro explícito
+// aparecer na tela — se não apareceu nem toast nem erro, segue: createBroadcast já
+// confirma a existência de verdade (com seu próprio retry de indexação) ao tentar
+// selecionar a lista/campanha na transmissão.
+async function confirmSavedOrWarn(page, contexto) {
+  try {
+    await page.waitForSelector('text=Criada com sucesso', { timeout: 30000 });
+    return;
+  } catch {
+    const erroVisivel = await page.locator('text=/erro|já existe|inválid/i').first().isVisible().catch(() => false);
+    if (erroVisivel) {
+      throw new Error(`${contexto}: erro ao salvar (mensagem de erro visível na tela)`);
+    }
+    console.log(`[aviso] ${contexto}: toast "Criada com sucesso" não apareceu em 30s, seguindo — confirmação real acontece na transmissão.`);
+  }
+}
+
 async function createList(page, nome, csv) {
   await page.goto('https://dashboard.jabuti.ai/meta/distribution-list/add', { waitUntil: 'networkidle' });
   await page.fill('input[name="name"]', nome);
@@ -130,7 +150,7 @@ async function createList(page, nome, csv) {
   await page.setInputFiles('input[type="file"]', path.resolve(csv));
   await page.waitForSelector('text=Arquivo CSV validado com sucesso', { timeout: 15000 });
   await page.click('button:has-text("Salvar Lista de Distribuição")');
-  await page.waitForSelector('text=Criada com sucesso', { timeout: 15000 });
+  await confirmSavedOrWarn(page, `Lista "${nome}"`);
 }
 
 async function createCampaign(page, nome) {
@@ -138,7 +158,23 @@ async function createCampaign(page, nome) {
   await page.fill('input[name="name"]', nome);
   await page.fill('textarea[name="description"]', DESCRICAO);
   await page.click('button:has-text("Salvar Campanha")');
-  await page.waitForSelector('text=Criada com sucesso', { timeout: 15000 });
+  await confirmSavedOrWarn(page, `Campanha "${nome}"`);
+}
+
+// A lista de templates cresceu (ex.: contencioso já tem 10+ opções) e o dropdown
+// não renderiza tudo de cara — os itens mais abaixo (como WPP_contencioso_01) só
+// aparecem depois de rolar a listbox. Sem isso, getByRole nunca encontra a opção e
+// estoura timeout mesmo com o nome certo em config/dispatches.json (visto em
+// scripts/out/erro-contencioso-*.png, recorrente em execuções separadas).
+async function clickTemplateOption(page, template) {
+  const option = page.getByRole('option', { name: template, exact: true });
+  const listbox = page.getByRole('listbox');
+  for (let i = 0; i < 15; i++) {
+    if (await option.first().isVisible().catch(() => false)) break;
+    await listbox.evaluate((el) => { el.scrollTop += el.clientHeight; }).catch(() => {});
+    await page.waitForTimeout(150);
+  }
+  await option.first().click({ timeout: 10000 });
 }
 
 // ponytail: lista/campanha recém-criadas podem levar um tempo pra ficar
@@ -164,7 +200,7 @@ async function fillBroadcastSelectors(page, { nome, template }) {
 
   const tplId = await idFor('Template');
   await page.locator(`#${tplId}`).click();
-  await page.getByRole('option', { name: template, exact: true }).click({ timeout: 10000 });
+  await clickTemplateOption(page, template);
   await page.waitForTimeout(400);
 }
 

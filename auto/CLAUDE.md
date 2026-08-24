@@ -86,6 +86,19 @@ the actual UI outcome instead of trusting network idleness:
   999 (`(1.153 registros)`). The old `\d+` regex silently only matched bases under 1000 rows —
   contencioso (1.153) failed all 6 retries while the four smaller bases matched. Regex now lives
   in `listOptionRegex` (`lib/dispatch-logic.js`), covered by `npm test`.
+- Template dropdown doesn't render every option up front — as the template list grows (contencioso
+  passed 10 entries), options further down (e.g. `WPP_contencioso_01`) aren't in the DOM until the
+  listbox is scrolled, so `getByRole('option', ...).click()` timed out even with the right name in
+  `config/dispatches.json` (recurring across separate runs — `scripts/out/erro-contencioso-*.png`).
+  Fixed by `clickTemplateOption` in `dispatch.js`, which scrolls the listbox in steps until the
+  target option is visible before clicking.
+- `createList`/`createCampaign` had no tolerance for a slow "Criada com sucesso" toast — one instance
+  where the form was filled and validated correctly but the toast alone didn't render in 15s aborted
+  the whole base immediately (`scripts/out/erro-amigavel_abw-*.png`). Resubmitting the form isn't
+  safe (risk of a duplicate list/campaign with the same name), so `confirmSavedOrWarn` instead waits
+  longer (30s) and only throws if an explicit error message is visible; if neither toast nor error
+  shows up, it logs a warning and moves on — `createBroadcast`'s own retry loop is what actually
+  confirms the list/campaign exists when selecting them for the broadcast.
 
 If a new step is added to `dispatch.js`, don't trust `waitForLoadState`/`waitForTimeout` alone as proof of
 success — find the real signal (toast, redirect, row appearing) the same way, ideally from a captured
