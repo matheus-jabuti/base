@@ -167,18 +167,34 @@ async function createCampaign(page, nome) {
   await confirmSavedOrWarn(page, `Campanha "${nome}"`);
 }
 
-// A lista de templates cresceu (ex.: contencioso já tem 10+ opções) e o dropdown
-// não renderiza tudo de cara — os itens mais abaixo (como WPP_contencioso_01) só
-// aparecem depois de rolar a listbox. Sem isso, getByRole nunca encontra a opção e
-// estoura timeout mesmo com o nome certo em config/dispatches.json (visto em
-// scripts/out/erro-contencioso-*.png, recorrente em execuções separadas).
-async function clickTemplateOption(page, template) {
-  const option = page.getByRole('option', { name: template, exact: true });
-  const listbox = page.getByRole('listbox');
-  for (let i = 0; i < 15; i++) {
-    if (await option.first().isVisible().catch(() => false)) break;
-    await listbox.evaluate((el) => { el.scrollTop += el.clientHeight; }).catch(() => {});
-    await page.waitForTimeout(150);
+// Os 3 selects do form de transmissão (lista, campanha, template) são
+// autocomplete de verdade — aceitam digitar pra filtrar a listbox. Digitar
+// evita depender de a opção já estar renderizada, o que importa porque a lista
+// de templates cresceu (ex.: contencioso já tem 10+ opções) e o dropdown não
+// renderiza tudo de cara — itens mais abaixo (como WPP_contencioso_01) só
+// apareciam depois de rolar a listbox (scripts/out/erro-contencioso-*.png). O
+// mesmo risco existe em tese pra lista/campanha se o histórico de opções
+// crescer. Se o filtro não renderizar a opção esperada, cai pro fallback: só
+// pra template, que é o único caso já visto na prática, faz scroll manual como
+// antes; lista/campanha só limpam o filtro e tentam o clique direto de novo.
+async function selectAutocompleteOption(page, input, filtro, option, { fallbackScroll = false } = {}) {
+  await input.fill(filtro);
+  try {
+    await option.first().waitFor({ state: 'visible', timeout: 3000 });
+    await option.first().click({ timeout: 10000 });
+    return;
+  } catch {
+    // segue pro fallback abaixo
+  }
+
+  await input.fill('');
+  if (fallbackScroll) {
+    const listbox = page.getByRole('listbox');
+    for (let i = 0; i < 15; i++) {
+      if (await option.first().isVisible().catch(() => false)) break;
+      await listbox.evaluate((el) => { el.scrollTop += el.clientHeight; }).catch(() => {});
+      await page.waitForTimeout(150);
+    }
   }
   await option.first().click({ timeout: 10000 });
 }
@@ -199,18 +215,21 @@ async function fillBroadcastSelectors(page, { nome, template }) {
   }, labelText);
 
   const listId = await idFor('Lista de distribuição');
-  await page.locator(`#${listId}`).click();
-  await page.getByRole('option', { name: listOptionRegex(nome) }).click({ timeout: 10000 });
+  const listInput = page.locator(`#${listId}`);
+  await listInput.click();
+  await selectAutocompleteOption(page, listInput, nome, page.getByRole('option', { name: listOptionRegex(nome) }));
   await page.waitForTimeout(400);
 
   const campId = await idFor('Campanha');
-  await page.locator(`#${campId}`).click();
-  await page.getByRole('option', { name: nome, exact: true }).click({ timeout: 10000 });
+  const campInput = page.locator(`#${campId}`);
+  await campInput.click();
+  await selectAutocompleteOption(page, campInput, nome, page.getByRole('option', { name: nome, exact: true }));
   await page.waitForTimeout(400);
 
   const tplId = await idFor('Template');
-  await page.locator(`#${tplId}`).click();
-  await clickTemplateOption(page, template);
+  const tplInput = page.locator(`#${tplId}`);
+  await tplInput.click();
+  await selectAutocompleteOption(page, tplInput, template, page.getByRole('option', { name: template, exact: true }), { fallbackScroll: true });
   await page.waitForTimeout(400);
 }
 
