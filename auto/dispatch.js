@@ -251,7 +251,10 @@ async function fillBroadcastSelectors(page, { nome, template }) {
 async function confirmModalIfPresent(page) {
   const botao = page.getByRole('button', { name: /^Sim, confirmar/i });
   try {
-    await botao.waitFor({ state: 'visible', timeout: 5000 });
+    // O modal e renderizacao local (nao depende de round-trip de rede), entao
+    // 3s ja sobra pra pegar ele quando aparece de verdade (imediato) sem
+    // segurar tanto tempo morto quando nao aparece (agendado nunca mostrou).
+    await botao.waitFor({ state: 'visible', timeout: 3000 });
   } catch {
     return;
   }
@@ -261,27 +264,35 @@ async function confirmModalIfPresent(page) {
 async function confirmBroadcastCreated(page, nome) {
   const redirected = page
     .waitForURL((url) => url.pathname.includes('/broadcasts') && !url.pathname.includes('/add'), { timeout: 15000 })
-    .then(() => 'redirect')
-    .catch(() => null);
+    .then(() => 'redirect');
   const toasted = page
     .waitForSelector('text=/sucesso/i', { timeout: 15000 })
-    .then(() => 'toast')
-    .catch(() => null);
+    .then(() => 'toast');
 
-  const [redirectResult, toastResult] = await Promise.all([redirected, toasted]);
-  if (!redirectResult && !toastResult) {
+  // Promise.any: fica com o primeiro que resolver de verdade (agendado so
+  // redireciona, nunca mostra toast, e vice-versa em tese) em vez de esperar
+  // os dois settle como Promise.all fazia - isso forcava esperar o timeout
+  // inteiro do sinal que nunca chega mesmo depois do outro ja ter confirmado.
+  let resultado;
+  try {
+    resultado = await Promise.any([redirected, toasted]);
+  } catch {
     throw new Error('Nem redirecionou pra listagem de Transmissões nem mostrou toast de sucesso.');
   }
-  if (redirectResult) {
+
+  if (resultado === 'redirect') {
     await page.locator('tr', { hasText: nome }).first().waitFor({ state: 'visible', timeout: 15000 });
   }
 }
 
 async function createBroadcast(page, { key, nome, template, target }) {
+  const inicioBase = Date.now();
   const ATTEMPTS = 6;
   const PAUSE_MS = 10000;
   let lastErr;
+  let tentativas = 0;
   for (let i = 0; i < ATTEMPTS; i++) {
+    tentativas = i + 1;
     try {
       await fillBroadcastSelectors(page, { nome, template });
       lastErr = null;
@@ -296,11 +307,17 @@ async function createBroadcast(page, { key, nome, template, target }) {
   if (lastErr) {
     throw new Error(`Lista/Campanha/Template não ficaram selecionáveis após ${ATTEMPTS} tentativas: ${lastErr.message}`);
   }
+  // Quebra o tempo da transmissao em 3 pedaços pra achar o gargalo de verdade:
+  // selecao (inclui espera de indexacao se houve retry), preenchimento do
+  // form, e confirmacao pos-envio (modal + redirect/toast + linha na tabela).
+  const tSelecao = Date.now();
+  console.log(`[tempo] "${nome}": selecao lista/campanha/template em ${formatDuracao(tSelecao - inicioBase)} (${tentativas} tentativa${tentativas > 1 ? 's' : ''})`);
 
   await page.fill('input[name="name"]', nome);
   await page.fill('textarea[name="description"]', DESCRICAO);
 
   const modo = decideMode(target, new Date());
+  const tFormPreenchido = Date.now();
   if (modo === 'agendado') {
     await page.click('button:has-text("Agendar Transmissão")');
     await page.waitForSelector('text=Agendar Evento');
@@ -314,6 +331,8 @@ async function createBroadcast(page, { key, nome, template, target }) {
     await confirmModalIfPresent(page);
     await confirmBroadcastCreated(page, nome);
   }
+  console.log(`[tempo] "${nome}": envio+confirmacao (${modo}) em ${formatDuracao(Date.now() - tFormPreenchido)}`);
+  console.log(`[tempo] "${nome}": transmissao completa em ${formatDuracao(Date.now() - inicioBase)}`);
   return modo;
 }
 
