@@ -8,7 +8,7 @@ Generates the WhatsApp dispatch bases for Porto debt collection and fires them o
 dashboard. Three halves that chain into one pipeline:
 
 1. **Generation** (Python, repo root) — reads two Postgres databases, applies eligibility rules,
-   writes five two-column CSVs (`phonenumber,name`) to `out/` plus `copy.md` and an Excel report.
+   writes five two-column CSVs (`phonenumber,name`) to `out/` and an Excel report.
 2. **Dispatch** (Node + Playwright, `auto/`) — takes those CSVs and drives the dashboard UI to
    create distribution list → campaign → broadcast, per base. Has its own `auto/CLAUDE.md`
    — **read it before touching anything under `auto/`**.
@@ -32,7 +32,7 @@ cd auto && npm install && npx playwright install chromium
 python -m app.server                 # UI at http://127.0.0.1:8000 (normal path)
 
 python gerar_base.py                 # DB → out/*.csv  (default period: yesterday→today; Monday→last Friday)
-python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10 --hora 17H --sem-relatorio --sem-copy
+python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10 --sem-relatorio
 python extract.py                    # manual path: in/*.xlsx (sheets TempA/TempB) → out/*.csv
 
 python -m pytest -q                  # Python side: rules in contatos.py / gerar_base.py (tests/)
@@ -80,15 +80,13 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
 
 - **CSV set**: `OUTPUT_FILES` in `contatos.py` and the `csv` fields in `auto/config/dispatches.json`
   must stay in sync — adding/renaming a base means editing both, plus `auto/bases/` for test mode.
-- **`copy.md`**: campaign names (`CAMPAIGN_LABELS` + date + hour) — the same names `dispatch.js`
-  builds via `buildDispatchName`. Both must agree or the operator's copy won't match what was created.
 - **Progress protocol**: `dispatch.js` writes `[ETAPA] {json}` lines on stdout (`progresso()`);
   `app/passos.py:disparar` parses those and treats every other line as free-form log. Events:
   `plano`, `login`, `base` (`rodando` with `etapa` of lista/campanha/transmissao, then
   `ok`/`erro`/`pulado`). Adding a UI-visible step = one more `progresso()` call plus handling in
   `app/static/app.js`.
-- **Time**: one `HH:MM` drives everything — `copy.md`, campaign names, and the schedule. More than
-  ~2 min out it's scheduled, otherwise sent immediately (`decideMode`).
+- **Time**: one `HH:MM` drives everything — campaign names and the schedule. More than ~2 min out
+  it's scheduled, otherwise sent immediately (`decideMode`).
 
 ### UI
 
@@ -139,7 +137,7 @@ docs: documenta o protocolo [ETAPA] em contratos.md
 
 Rules that don't bend:
 
-- **Never commit `.env`, CSVs de cliente, `out/`, `relatorio/`, `copy.md`, logs.** All gitignored —
+- **Never commit `.env`, CSVs de cliente, `out/`, `relatorio/`, logs.** All gitignored —
   keep it that way, and never `git add -f` past it.
 - `git add` the specific paths you changed, never `git add -A` — untracked data files live alongside.
 - **Push to the current branch after committing** (`git push`, `-u` the first time a branch has no

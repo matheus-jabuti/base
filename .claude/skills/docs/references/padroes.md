@@ -103,11 +103,11 @@ docs: documenta o protocolo [ETAPA] em contratos.md
 
 Regras que não dobram:
 
-- **Nunca commitar `.env`, CSV de cliente, `out/`, `relatorio/`, `filtros/`, `copy.md`, logs.** Estão
+- **Nunca commitar `.env`, CSV de cliente, `out/`, `relatorio/`, `filtros/`, logs.** Estão
   no `.gitignore` — mantenha, e nunca force com `git add -f`.
 - `git add` dos caminhos específicos, nunca `git add -A`: há arquivo de dado não versionado ao lado.
 - Fora do versionamento e assim deve continuar: `.env`, `in/`, `out/`, `relatorio/`, `filtros/`,
-  `copy.md`, `auto/node_modules/`, `auto/logs/`, `auto/scripts/out/`. `auto/bases/` **é** versionado
+  `auto/node_modules/`, `auto/logs/`, `auto/scripts/out/`. `auto/bases/` **é** versionado
   de propósito.
 - **Push na branch atual logo após o commit** (`git push`, com `-u` na primeira vez que a branch não
   tem upstream). Criar branch e abrir PR continua dependendo de pedido do usuário.

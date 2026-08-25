@@ -5,12 +5,12 @@ Duas entradas, um núcleo comum, cinco CSVs de saída.
 ```
 gerar_base.py (banco)  ─┐
                         ├─> coletar_contatos() ─> aplicar_filtro() ─> escrever_grupos() ─> out/*.csv
-extract.py (Excel)     ─┘        (filtros/*)                       └─> escrever_copy()  ─> copy.md
+extract.py (Excel)     ─┘        (filtros/*)
 ```
 
 ## Configuração — `config.py`
 
-- Caminhos fixos derivados de `BASE_DIR`: `sql/`, `in/`, `out/`, `relatorio/`, `filtros/`, `copy.md`, `.env`.
+- Caminhos fixos derivados de `BASE_DIR`: `sql/`, `in/`, `out/`, `relatorio/`, `filtros/`, `.env`.
 - `load_env()` lê o `.env` linha a linha com `os.environ.setdefault` — **variável já no ambiente
   vence o `.env`**. Aspas nas pontas do valor são removidas.
 - `require_env(nome)` levanta erro explicando qual variável faltou; use sempre em vez de
@@ -88,7 +88,7 @@ Ordem exata em `gerar()`:
 8. `montar_disparo` concatena os dois e mantém só `tipo` em (`amigavel`, `contencioso`) — o que ficou
    `NAO LOCALIZADO` cai aqui.
 9. `coletar_contatos` → `ler_telefones_filtro` + `aplicar_filtro` → `clear_output_folder` →
-   `escrever_grupos` → `escrever_copy` → relatório.
+   `escrever_grupos` → relatório.
 
 **Nota:** o relatório Excel (`gravar_relatorio`) usa `df_disparo`, montado *antes* do filtro — as
 abas `Base`/`Novos`/`Disparo` continuam mostrando os telefones filtrados como se fossem disparar.
@@ -141,11 +141,9 @@ alcança esse caminho.
 - `clear_output_folder` esvazia `out/` a cada execução, preservando `.gitkeep`.
 - `escrever_grupos` grava **todos** os CSVs, inclusive os vazios (só o cabeçalho) — o `dispatch.js`
   exige que os cinco arquivos existam.
-- `escrever_copy` lista apenas os grupos não vazios, no formato
-  `<CAMPAIGN_LABELS[grupo]> - DD/MM/AAAA - <hora>`.
 
-Mapa de grupo → arquivo → rótulo de campanha está em `OUTPUT_FILES` e `CAMPAIGN_LABELS`; a
-correspondência com `auto/config/dispatches.json` é contrato (ver `contratos.md`).
+Mapa de grupo → arquivo está em `OUTPUT_FILES`; a correspondência com `auto/config/dispatches.json`
+é contrato (ver `contratos.md`).
 
 ## Filtro manual — `filtros/`
 

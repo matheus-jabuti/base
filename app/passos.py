@@ -182,7 +182,7 @@ class _FilaDeLinhas(io.TextIOBase):
             self._buffer = ""
 
 
-def gerar_base(data_inicio: date, data_fim: date, hora: str, com_relatorio: bool = True):
+def gerar_base(data_inicio: date, data_fim: date, com_relatorio: bool = True):
     """Roda o pipeline do banco e vai emitindo o que ele imprime.
 
     O gerar_base.py continua sendo um CLI que so imprime; em vez de duplicar a
@@ -201,9 +201,7 @@ def gerar_base(data_inicio: date, data_fim: date, hora: str, com_relatorio: bool
             retorno = pipeline.gerar(
                 data_inicio=data_inicio,
                 data_fim=data_fim,
-                hora=hora,
                 com_relatorio=com_relatorio,
-                com_copy=True,
             )
             saida.flush()
 
@@ -290,7 +288,7 @@ def executar(data_inicio: date, data_fim: date, hora: str, modo: str, com_relato
         yield marcar("base", "rodando")
         total = 0
 
-        for tipo, dado in gerar_base(data_inicio, data_fim, hora.replace(":", "H"), com_relatorio):
+        for tipo, dado in gerar_base(data_inicio, data_fim, com_relatorio):
             if tipo == "total":
                 total = dado
             else:

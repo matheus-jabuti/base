@@ -24,12 +24,11 @@ origem para `auto/bases/`, que tem um contato por base.
   b2bcustomers ---+   |  gerar_base.py      | CSV |  dispatch.js       |
                       +---------------------+     +--------------------+
                               |                           |
-                              +-> copy.md                 +-> auto/logs/disparos.csv
-                              +-> relatorio/*.xlsx
+                              +-> relatorio/*.xlsx        +-> auto/logs/disparos.csv
 ```
 
 1. **Geração** (Python, raiz) — lê dois Postgres, aplica as regras de elegibilidade, escreve cinco
-   CSVs de duas colunas (`phonenumber,name`) em `out/`, mais `copy.md` e um Excel de conferência.
+   CSVs de duas colunas (`phonenumber,name`) em `out/`, mais um Excel de conferência.
    Detalhes: `geracao.md`.
 2. **Disparo** (Node + Playwright, `auto/`) — lê esses CSVs e opera o dashboard pela interface.
    Detalhes: `disparo.md`.
@@ -62,7 +61,7 @@ Caminho manual (planilha pronta em vez de banco): `python extract.py`.
 | `sql/` | As queries (`consulta_report`, `consulta_customer`, `consulta_novos`) |
 | `gerar_base.py` | Pipeline banco → CSV (orquestrador + regras de elegibilidade) |
 | `extract.py` | Pipeline Excel → CSV (caminho manual) |
-| `contatos.py` | Núcleo compartilhado: normalização, rating, dedup, escrita dos CSVs e do `copy.md` |
+| `contatos.py` | Núcleo compartilhado: normalização, rating, dedup, escrita dos CSVs |
 | `app/server.py` | HTTP: validação, lock de execução única, framing SSE |
 | `app/passos.py` | Os passos de verdade: VPN, geração, templates, disparo |
 | `app/static/` | Tela sem build (HTML/CSS/JS) |
@@ -72,7 +71,7 @@ Caminho manual (planilha pronta em vez de banco): `python extract.py`.
 | `auto/bases/` | Bases de teste, um contato cada (versionadas) |
 | `tests/` | Suíte pytest do lado Python (`contatos.py`, `gerar_base.py`) |
 | `filtros/` | Planilhas (xlsx/csv) com telefones a excluir das bases; lida a cada geração |
-| `in/`, `out/`, `relatorio/`, `copy.md`, `auto/logs/` | Dados, todos fora do versionamento |
+| `in/`, `out/`, `relatorio/`, `auto/logs/` | Dados, todos fora do versionamento |
 
 ## Decisões estruturais que valem entender
 

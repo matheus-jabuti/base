@@ -8,7 +8,6 @@ gerar_base.py.
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -20,7 +19,6 @@ from contatos import (
     aplicar_filtro,
     clear_output_folder,
     coletar_contatos,
-    escrever_copy,
     escrever_grupos,
     imprimir_resumo,
     ler_telefones_filtro,
@@ -135,7 +133,7 @@ def find_input_excels(input_dir: Path) -> list[Path]:
     return sorted(files)
 
 
-def extrair(excel_files: list[Path], hora: str, com_copy: bool, data_disparo: date) -> ResultadoContatos:
+def extrair(excel_files: list[Path]) -> ResultadoContatos:
     registros: list[Registro] = []
     for excel_file in excel_files:
         registros.extend(ler_excel(excel_file))
@@ -155,17 +153,11 @@ def extrair(excel_files: list[Path], hora: str, com_copy: bool, data_disparo: da
     print("Extracao concluida com sucesso.")
     imprimir_resumo(resultado)
 
-    if com_copy:
-        escrever_copy(config.COPY_FILE, resultado.grupos, data_disparo, hora)
-        print(f"Copy das campanhas em {config.COPY_FILE.name}.")
-
     return resultado
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Converte os Excels de in/ nos CSVs de disparo.")
-    parser.add_argument("--hora", help="Hora do disparo usada no copy.md (padrao: hora atual, ex.: 17H).")
-    parser.add_argument("--sem-copy", action="store_true", help="Nao reescreve o copy.md.")
     parser.add_argument("--manter-excel", action="store_true", help="Nao apaga os Excels de in/ ao final.")
 
     return parser.parse_args(argv)
@@ -182,8 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Nenhum Excel encontrado em in/.")
         return 1
 
-    hora = args.hora or f"{datetime.now():%H}H"
-    extrair(excel_files, hora=hora, com_copy=not args.sem_copy, data_disparo=date.today())
+    extrair(excel_files)
 
     if not args.manter_excel:
         for excel_file in excel_files:

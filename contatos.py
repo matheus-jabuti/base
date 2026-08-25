@@ -11,7 +11,6 @@ import csv
 import shutil
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import date
 from pathlib import Path
 from typing import Iterable, NamedTuple
 
@@ -30,15 +29,6 @@ OUTPUT_FILES = {
     GROUP_DEZ: "amigavel_DEZ.csv",
     GROUP_NA_RATING: "amigavel_na_rating.csv",
     GROUP_CONTENCIOSO: "contencioso.csv",
-}
-
-# Nome da campanha correspondente a cada CSV, usado para montar o copy.md.
-CAMPAIGN_LABELS = {
-    GROUP_ABW: "Disparo amigavel A/B/W",
-    GROUP_C: "Disparo amigavel C",
-    GROUP_DEZ: "Disparo amigavel D/E/Z",
-    GROUP_NA_RATING: "Disparo amigavel N/A Rating",
-    GROUP_CONTENCIOSO: "Disparo contencioso",
 }
 
 # O rating vem como "A", "B", "C", "D", "E" ou prefixado ("Z_REDUCAO",
@@ -288,24 +278,6 @@ def escrever_grupos(output_dir: Path, grupos: dict[str, list[tuple[str, str]]]) 
 
     for group, file_name in OUTPUT_FILES.items():
         write_csv(output_dir / file_name, grupos.get(group, []))
-
-
-def escrever_copy(
-    copy_path: Path,
-    grupos: dict[str, list[tuple[str, str]]],
-    data_disparo: date,
-    hora: str,
-) -> None:
-    """Monta o copy.md com o nome de campanha de cada CSV nao vazio."""
-    data_formatada = data_disparo.strftime("%d/%m/%Y")
-
-    linhas = [
-        f"{CAMPAIGN_LABELS[group]} - {data_formatada} - {hora}"
-        for group in OUTPUT_FILES
-        if grupos.get(group)
-    ]
-
-    copy_path.write_text("\n".join(linhas) + "\n" if linhas else "", encoding="utf-8")
 
 
 def imprimir_resumo(resultado: ResultadoContatos) -> None:

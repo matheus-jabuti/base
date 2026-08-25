@@ -15,7 +15,6 @@ INPUT_DIR = BASE_DIR / "in"
 OUTPUT_DIR = BASE_DIR / "out"
 REPORT_DIR = BASE_DIR / "relatorio"
 FILTER_DIR = BASE_DIR / "filtros"
-COPY_FILE = BASE_DIR / "copy.md"
 ENV_FILE = BASE_DIR / ".env"
 
 # Owner da Porto Seguro nos logs de mensagem.

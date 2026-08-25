@@ -11,7 +11,7 @@ Fluxo:
 Uso:
     python gerar_base.py
     python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10
-    python gerar_base.py --hora 17H --sem-relatorio
+    python gerar_base.py --sem-relatorio
 """
 
 from __future__ import annotations
@@ -39,7 +39,6 @@ from contatos import (
     aplicar_filtro,
     clear_output_folder,
     coletar_contatos,
-    escrever_copy,
     escrever_grupos,
     imprimir_resumo,
     ler_telefones_filtro,
@@ -235,9 +234,7 @@ def gravar_relatorio(
 def gerar(
     data_inicio: date,
     data_fim: date,
-    hora: str,
     com_relatorio: bool,
-    com_copy: bool,
 ) -> ResultadoContatos:
     engine_mensagens = messages_engine()
     engine_clientes = customers_engine()
@@ -311,10 +308,6 @@ def gerar(
     print("Base gerada com sucesso.")
     imprimir_resumo(resultado)
 
-    if com_copy:
-        escrever_copy(config.COPY_FILE, resultado.grupos, data_fim, hora)
-        print(f"Copy das campanhas em {config.COPY_FILE.name}.")
-
     if com_relatorio:
         arquivo = gravar_relatorio(config.REPORT_DIR, data_fim, df_final, df_novos, df_disparo)
         print(f"Relatorio salvo em {arquivo}.")
@@ -333,9 +326,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Gera os CSVs de disparo a partir do banco.")
     parser.add_argument("--data-inicio", type=parse_data, help="Inicio do periodo (AAAA-MM-DD).")
     parser.add_argument("--data-fim", type=parse_data, help="Fim do periodo (AAAA-MM-DD).")
-    parser.add_argument("--hora", help="Hora do disparo usada no copy.md (padrao: hora atual, ex.: 17H).")
     parser.add_argument("--sem-relatorio", action="store_true", help="Nao gera o Excel de conferencia.")
-    parser.add_argument("--sem-copy", action="store_true", help="Nao reescreve o copy.md.")
 
     return parser.parse_args(argv)
 
@@ -352,14 +343,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Data de inicio maior que a data de fim.")
         return 1
 
-    hora = args.hora or f"{datetime.now():%H}H"
-
     resultado = gerar(
         data_inicio=data_inicio,
         data_fim=data_fim,
-        hora=hora,
         com_relatorio=not args.sem_relatorio,
-        com_copy=not args.sem_copy,
     )
 
     return 0 if resultado.total_contatos else 1

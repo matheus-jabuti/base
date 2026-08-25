@@ -22,7 +22,7 @@ python -m app.server                      # tela em http://127.0.0.1:8000 (camin
 
 python gerar_base.py                      # banco -> out/*.csv
 python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10
-python gerar_base.py --hora 17H --sem-relatorio --sem-copy
+python gerar_base.py --sem-relatorio
 python extract.py [--manter-excel]        # caminho manual: in/*.xlsx -> out/*.csv
 
 python -m pytest -q                       # suíte Python (contatos.py, gerar_base.py)
@@ -63,7 +63,6 @@ de conferência e mudar o período.
 | Falha por base, no dashboard | `auto/scripts/out/erro-<key>-<timestamp>.png` (screenshot da tela real) |
 | Histórico de execuções | `auto/logs/disparos.csv` (também na tela, últimas 10) |
 | Conferência da base gerada | `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx`, abas Base/Interagiram/Novos/Disparo |
-| Nome das campanhas da rodada | `copy.md` |
 
 ## Problemas conhecidos
 

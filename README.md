@@ -45,9 +45,9 @@ base e disparo, com as cinco bases mostrando em qual etapa cada uma esta
 (criando lista, criando campanha, criando transmissao) e o que deu certo ou
 errado no fim. O log tecnico completo fica recolhido embaixo.
 
-O horario vale para tudo: entra no `copy.md`, no nome das campanhas e na hora
-do agendamento. Acima de ~2min de folga a transmissao e agendada; abaixo disso
-a plataforma envia na hora — a tela avisa qual dos dois vai acontecer.
+O horario vale para tudo: entra no nome das campanhas e na hora do agendamento.
+Acima de ~2min de folga a transmissao e agendada; abaixo disso a plataforma
+envia na hora — a tela avisa qual dos dois vai acontecer.
 
 O **modo teste** troca a origem dos CSVs de `out/` para `auto/bases/`, que tem
 um contato so por base — serve pra exercitar a automacao do dashboard sem
@@ -73,9 +73,7 @@ Outras opcoes:
 
 | Opcao | Efeito |
 | --- | --- |
-| `--hora 17H` | Hora usada no `copy.md` (padrao: hora atual) |
 | `--sem-relatorio` | Nao gera o Excel de conferencia em `relatorio/` |
-| `--sem-copy` | Nao reescreve o `copy.md` |
 
 ## Gerar a partir de um Excel pronto (caminho manual)
 
@@ -96,7 +94,6 @@ Os Excels de `in/` sao apagados ao final; use `--manter-excel` para preservar.
 | `out/amigavel_DEZ.csv` | Amigavel com rating D, E ou Z |
 | `out/amigavel_na_rating.csv` | Amigavel sem rating (ou rating desconhecido) |
 | `out/contencioso.csv` | Contencioso, independente de rating |
-| `copy.md` | Nome de cada campanha, com data e hora |
 | `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx` | Conferencia: Base, Interagiram, Novos, Disparo, cpc (se houver) |
 
 O grupo sai da primeira letra do rating (`Z_REDUCAO` entra em D/E/Z,
