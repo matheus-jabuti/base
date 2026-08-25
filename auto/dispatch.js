@@ -144,7 +144,10 @@ async function confirmSavedOrWarn(page, contexto) {
 }
 
 async function createList(page, nome, csv) {
-  await page.goto('https://dashboard.jabuti.ai/meta/distribution-list/add', { waitUntil: 'networkidle' });
+  // domcontentloaded, nao networkidle: fill() ja espera o campo ficar
+  // acionavel, entao networkidle so somava espera de rede sem trazer sinal novo.
+  await page.goto('https://dashboard.jabuti.ai/meta/distribution-list/add', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('input[name="name"]');
   await page.fill('input[name="name"]', nome);
   await page.fill('textarea[name="description"]', DESCRICAO);
   await page.setInputFiles('input[type="file"]', path.resolve(csv));
@@ -154,7 +157,10 @@ async function createList(page, nome, csv) {
 }
 
 async function createCampaign(page, nome) {
-  await page.goto('https://dashboard.jabuti.ai/meta/campaigns/add', { waitUntil: 'networkidle' });
+  // mesmo motivo de createList: domcontentloaded + espera no campo real,
+  // sem depender de rede ociosa.
+  await page.goto('https://dashboard.jabuti.ai/meta/campaigns/add', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('input[name="name"]');
   await page.fill('input[name="name"]', nome);
   await page.fill('textarea[name="description"]', DESCRICAO);
   await page.click('button:has-text("Salvar Campanha")');
@@ -181,7 +187,11 @@ async function clickTemplateOption(page, template) {
 // selecionáveis no formulário de transmissão (indexação/processamento assíncrono
 // do CSV). Recarrega a página e tenta de novo em vez de falhar no primeiro timeout.
 async function fillBroadcastSelectors(page, { nome, template }) {
-  await page.goto('https://dashboard.jabuti.ai/meta/broadcasts/add', { waitUntil: 'networkidle' });
+  // domcontentloaded + espera no label real: idFor le o DOM direto (nao tem
+  // auto-wait do Playwright), entao precisa de um sinal explicito de que o
+  // form ja renderizou antes do primeiro evaluate.
+  await page.goto('https://dashboard.jabuti.ai/meta/broadcasts/add', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('text=Lista de distribuição');
 
   const idFor = (labelText) => page.evaluate((t) => {
     const label = Array.from(document.querySelectorAll('label')).find((l) => l.textContent.trim() === t);
