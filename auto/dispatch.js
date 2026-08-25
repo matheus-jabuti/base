@@ -311,6 +311,7 @@ async function createBroadcast(page, { key, nome, template, target }) {
   // selecao (inclui espera de indexacao se houve retry), preenchimento do
   // form, e confirmacao pos-envio (modal + redirect/toast + linha na tabela).
   const tSelecao = Date.now();
+  progresso({ evento: 'tempo', escopo: 'base', chave: 'selecao', key, ms: tSelecao - inicioBase, duracao: formatDuracao(tSelecao - inicioBase), tentativas });
   console.log(`[tempo] "${nome}": selecao lista/campanha/template em ${formatDuracao(tSelecao - inicioBase)} (${tentativas} tentativa${tentativas > 1 ? 's' : ''})`);
 
   await page.fill('input[name="name"]', nome);
@@ -331,8 +332,13 @@ async function createBroadcast(page, { key, nome, template, target }) {
     await confirmModalIfPresent(page);
     await confirmBroadcastCreated(page, nome);
   }
-  console.log(`[tempo] "${nome}": envio+confirmacao (${modo}) em ${formatDuracao(Date.now() - tFormPreenchido)}`);
-  console.log(`[tempo] "${nome}": transmissao completa em ${formatDuracao(Date.now() - inicioBase)}`);
+  const msEnvio = Date.now() - tFormPreenchido;
+  progresso({ evento: 'tempo', escopo: 'base', chave: 'envio', key, ms: msEnvio, duracao: formatDuracao(msEnvio), modo });
+  console.log(`[tempo] "${nome}": envio+confirmacao (${modo}) em ${formatDuracao(msEnvio)}`);
+
+  const msTransmissao = Date.now() - inicioBase;
+  progresso({ evento: 'tempo', escopo: 'base', chave: 'transmissao_completa', key, ms: msTransmissao, duracao: formatDuracao(msTransmissao) });
+  console.log(`[tempo] "${nome}": transmissao completa em ${formatDuracao(msTransmissao)}`);
   return modo;
 }
 
@@ -421,7 +427,9 @@ async function main() {
         }
       }
 
-      console.log(`[tempo] etapa "${etapa}" levou ${formatDuracao(Date.now() - inicioFase)}`);
+      const msFase = Date.now() - inicioFase;
+      progresso({ evento: 'tempo', escopo: 'fase', etapa, ms: msFase, duracao: formatDuracao(msFase) });
+      console.log(`[tempo] etapa "${etapa}" levou ${formatDuracao(msFase)}`);
     }
 
     await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
@@ -441,7 +449,9 @@ async function main() {
     await browser.close();
   }
 
-  console.log(`[tempo] disparo completo em ${formatDuracao(Date.now() - INICIO_EXECUCAO)}`);
+  const msTotal = Date.now() - INICIO_EXECUCAO;
+  progresso({ evento: 'tempo', escopo: 'total', ms: msTotal, duracao: formatDuracao(msTotal) });
+  console.log(`[tempo] disparo completo em ${formatDuracao(msTotal)}`);
 
   // Os erros por base sao capturados fase a fase pra uma falha nao derrubar as
   // outras, mas o processo precisa sair diferente de zero pra tela saber que deu problema.
@@ -452,7 +462,9 @@ async function main() {
 }
 
 main().catch((err) => {
+  const msTotal = Date.now() - INICIO_EXECUCAO;
   console.error(`[FATAL] ${err.message}`);
-  console.error(`[tempo] processo interrompido apos ${formatDuracao(Date.now() - INICIO_EXECUCAO)}`);
+  progresso({ evento: 'tempo', escopo: 'total', ms: msTotal, duracao: formatDuracao(msTotal), interrompido: true });
+  console.error(`[tempo] processo interrompido apos ${formatDuracao(msTotal)}`);
   process.exit(1);
 });

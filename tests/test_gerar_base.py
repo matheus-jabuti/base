@@ -5,8 +5,11 @@ from __future__ import annotations
 from datetime import date
 
 import pandas as pd
+import pytest
 
 from gerar_base import (
+    OperacaoCancelada,
+    _checar_cancelamento,
     contatos_a_processar,
     filtrar_elegiveis,
     montar_disparo,
@@ -163,6 +166,15 @@ def test_contatos_a_processar_descarta_tag_vazia():
 def test_contatos_a_processar_sem_coluna_de_tag_devolve_vazio():
     df = contatos_a_processar(_df_processar().drop(columns=["tag_consulta_cliente_processa_dados"]))
     assert df.empty
+
+
+def test_checar_cancelamento_levanta_quando_sinalizado():
+    with pytest.raises(OperacaoCancelada):
+        _checar_cancelamento(lambda: True)
+
+
+def test_checar_cancelamento_nao_faz_nada_sem_sinal():
+    _checar_cancelamento(lambda: False)
 
 
 def test_preparar_novos_remove_ind_baixa_bloqueado():

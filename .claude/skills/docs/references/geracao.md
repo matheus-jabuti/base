@@ -157,13 +157,30 @@ desligar — se `filtros/` está vazia, é um no-op.
   célula vazia ou número curto é ignorado silenciosamente.
 - `aplicar_filtro(grupos, telefones)` roda logo após `coletar_contatos()`, antes de qualquer CSV ser
   escrito — remove por telefone em todos os grupos de uma vez (dedup já é global, então um telefone
-  nunca aparece em mais de um grupo).
-- Contagem de removidos vai pro stdout (`Filtro: N contato(s) removido(s)...`), que tanto o terminal
-  quanto a tela (`app/passos.py`, via captura de stdout) já mostram sem mudança nenhuma nesses dois
-  lugares.
+  nunca aparece em mais de um grupo). Devolve `(grupos_filtrados, removidos_por_grupo)` —
+  `removidos_por_grupo` é um `dict[grupo, list[(telefone, nome)]]` das linhas removidas de cada grupo
+  (grupo sem remoção nem aparece no dict), não só um total agregado.
+- Contagem de removidos vai pro stdout (`Filtro: N contato(s) removido(s)...`) **e** para o evento
+  estruturado `[METRICA]` `filtro` (ver `contratos.md`), que carrega o breakdown por grupo.
+- Fora de dry-run, os removidos também são gravados em
+  `relatorio/filtro_removidos_AAAAMMDD[_N].csv` (`escrever_filtro_removidos`, colunas
+  `telefone,nome,grupo`) — mesmo padrão incremental do `gravar_relatorio`, nunca sobrescreve. A tela
+  serve o mais recente via `GET /api/filtro/ultimo-removido` (ver `app.md`).
+- `CSV_PARA_GRUPO` (`contatos.py`) é o dict inverso de `OUTPUT_FILES` (nome do csv → grupo). Existe só
+  para a tela conseguir mapear `auto/config/dispatches.json`'s `csv` de volta a um grupo em memória, no
+  dry-run — não muda nada na geração em si.
+- `GET /api/filtro` (`passos.filtro_atual()`) lista os arquivos e a contagem de telefones em
+  `filtros/` **antes** de rodar, sem precisar de VPN/DB — só lê a pasta.
 - Arquivos ficam em `filtros/` entre execuções — **não é descartável feito `in/`**. Um arquivo de
   filtro esquecido ali continua sendo aplicado nas rodadas seguintes; é assim de propósito (evita ter
   que reenviar a planilha toda vez), mas vale conferir a pasta se um número sumir sem explicação.
+
+## Dry-run (pré-visualização)
+
+`gerar(..., dry_run=True)` roda o pipeline inteiro — incluindo `aplicar_filtro` — mas pula
+`clear_output_folder`/`escrever_grupos`/`gravar_relatorio`. `resultado.grupos` na volta já é a
+contagem real pós-filtro, só que nunca chega a tocar `out/` nem `relatorio/`. É o modo que a tela usa
+no botão "Pré-visualizar" (`app.md`).
 
 ## Pipeline do Excel — `extract.py`
 

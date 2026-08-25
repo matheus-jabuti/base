@@ -132,9 +132,13 @@ def executar(
     data_inicio: str | None = None,
     data_fim: str | None = None,
     com_relatorio: bool = True,
+    dry_run: bool = False,
 ):
     """VPN, geracao da base e disparo num stream so — o botao unico da tela."""
     import gerar_base
+
+    if dry_run and not gerar:
+        raise HTTPException(400, "Pre-visualizacao exige gerar a base.")
 
     padrao_inicio, padrao_fim = gerar_base.periodo_padrao()
     inicio = _parse_data(data_inicio, padrao_inicio)
@@ -151,13 +155,38 @@ def executar(
             modo=_validar_modo(modo),
             com_relatorio=com_relatorio,
             gerar=gerar,
+            dry_run=dry_run,
         )
     )
 
 
+@app.post("/api/cancelar")
+def cancelar():
+    if not _execucao.locked():
+        raise HTTPException(409, "Nenhuma execucao em andamento.")
+
+    passos.cancelar()
+
+    return {"ok": True}
+
+
+@app.get("/api/filtro")
+def filtro():
+    return passos.filtro_atual()
+
+
+@app.get("/api/filtro/ultimo-removido")
+def filtro_ultimo_removido():
+    caminho = passos.ultimo_arquivo_filtro_removidos()
+    if not caminho:
+        raise HTTPException(404, "Nenhum arquivo de filtro removido encontrado.")
+
+    return FileResponse(caminho, filename=caminho.name, media_type="text/csv")
+
+
 @app.get("/api/historico")
-def historico(limite: int = 10):
-    return passos.ultimos_disparos(limite)
+def historico(limite: int = 10, busca: str = "", status: str = "", modo: str = ""):
+    return passos.ultimos_disparos(limite, busca, status, modo)
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

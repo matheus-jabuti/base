@@ -75,6 +75,9 @@ Manual filter (`filtros/`): after `coletar_contatos()`, both pipelines call `ler
 `aplicar_filtro()` to strip any phone number found in a spreadsheet dropped in `filtros/` — no header
 or fixed column required, any cell that normalizes to a valid phone counts. Always runs, no flag to
 disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after use (unlike `in/`).
+`aplicar_filtro()` returns a per-group breakdown of what it removed (not just a total), which
+`gerar_base.gerar()` also writes to `relatorio/filtro_removidos_*.csv` and surfaces via the
+`[METRICA]` stdout protocol — see "Progress protocol" below and `.claude/skills/docs/references/geracao.md`.
 
 ### The contract between the halves
 
@@ -83,8 +86,10 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
 - **Progress protocol**: `dispatch.js` writes `[ETAPA] {json}` lines on stdout (`progresso()`);
   `app/passos.py:disparar` parses those and treats every other line as free-form log. Events:
   `plano`, `login`, `base` (`rodando` with `etapa` of lista/campanha/transmissao, then
-  `ok`/`erro`/`pulado`). Adding a UI-visible step = one more `progresso()` call plus handling in
-  `app/static/app.js`.
+  `ok`/`erro`/`pulado`), `tempo` (per-base/per-phase/total timing). Adding a UI-visible step = one more
+  `progresso()` call plus handling in `app/static/app.js`. `gerar_base.py` has a sibling
+  `[METRICA] {json}` protocol for the intermediate counts it already prints (conversas, elegiveis,
+  filtro removido, etc.) — see `.claude/skills/docs/references/contratos.md`.
 - **Time**: one `HH:MM` drives everything — campaign names and the schedule. More than ~2 min out
   it's scheduled, otherwise sent immediately (`decideMode`).
 
@@ -92,11 +97,13 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
 
 `app/server.py` is thin: validation, a global `threading.Lock` so only one run happens at a time, and
 SSE framing. All real work is in `app/passos.py`, one generator per step yielding `(tipo, dado)`
-tuples; `executar()` chains VPN → base → dispatch and **stops at the first failure**. Generation
-reuses `gerar_base.gerar()` as-is by capturing its stdout (`_FilaDeLinhas`) rather than duplicating
-logic — keep `gerar_base.py` print-based so this keeps working. `app/static/` is plain HTML/CSS/JS,
-no build step. Template editing writes back only `template_prefix`/`template_numero` into
-`auto/config/dispatches.json`; `key`/`nome`/`csv` are structure, not configuration.
+tuples; `executar()` chains VPN → base → dispatch and **stops at the first failure, at cancellation
+(`POST /api/cancelar`), or — in dry-run mode — right after the base preview**. Generation reuses
+`gerar_base.gerar()` as-is by capturing its stdout (`_FilaDeLinhas`) rather than duplicating logic —
+keep `gerar_base.py` print-based so this keeps working; `dry_run`/`deve_cancelar` are additive optional
+params on `gerar()`. `app/static/` is plain HTML/CSS/JS, no build step. Template editing writes back
+only `template_prefix`/`template_numero` into `auto/config/dispatches.json`; `key`/`nome`/`csv` are
+structure, not configuration.
 
 ## Conventions
 

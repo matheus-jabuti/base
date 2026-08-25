@@ -17,9 +17,11 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import date, datetime
 from datetime import timedelta as td
 from pathlib import Path
+from typing import Callable
 
 import pandas as pd
 
@@ -39,10 +41,29 @@ from contatos import (
     aplicar_filtro,
     clear_output_folder,
     coletar_contatos,
+    escrever_filtro_removidos,
     escrever_grupos,
     imprimir_resumo,
     ler_telefones_filtro,
 )
+
+# Mesmo padrao do MARCA_ETAPA do dispatch.js/app/passos.py: uma linha extra e
+# reconhecivel no stdout pra tela consumir como evento estruturado, sem mudar
+# o contrato de gerar() continuar imprimindo texto legivel por print().
+MARCA_METRICA = "[METRICA] "
+
+
+def _metrica(chave: str, valor: object, rotulo: str, **extra: object) -> None:
+    print(f"{MARCA_METRICA}{json.dumps({'chave': chave, 'valor': valor, 'rotulo': rotulo, **extra}, ensure_ascii=False)}")
+
+
+class OperacaoCancelada(Exception):
+    """Levantada quando a tela pede cancelamento no meio da geracao."""
+
+
+def _checar_cancelamento(deve_cancelar: Callable[[], bool]) -> None:
+    if deve_cancelar():
+        raise OperacaoCancelada("Geracao cancelada pela tela.")
 
 # Quem esta em pre-cobranca ou ja passou de 97 dias nao entra no disparo.
 BUCKETS_BLOQUEADOS = {"pre-cobrança", "pre-cobranca", "acima de 97"}
@@ -235,6 +256,8 @@ def gerar(
     data_inicio: date,
     data_fim: date,
     com_relatorio: bool,
+    dry_run: bool = False,
+    deve_cancelar: Callable[[], bool] = lambda: False,
 ) -> ResultadoContatos:
     engine_mensagens = messages_engine()
     engine_clientes = customers_engine()
@@ -244,6 +267,8 @@ def gerar(
 
         df_report = consultar_report(engine_mensagens, data_inicio, data_fim, config.owner_id())
         print(f"Conversas no periodo: {len(df_report)}.")
+        _metrica("conversas_periodo", len(df_report), "Conversas no periodo")
+        _checar_cancelamento(deve_cancelar)
 
         if "telefone" not in df_report.columns:
             raise KeyError("A coluna 'telefone' nao foi retornada por consulta_report.sql.")
@@ -258,6 +283,8 @@ def gerar(
         telefones = df_report["telefone"].dropna().unique().tolist()
         df_customer = buscar_dados_customer(engine_clientes, telefones)
         print(f"Cadastros localizados: {len(df_customer)}.")
+        _metrica("cadastros_localizados", len(df_customer), "Cadastros localizados")
+        _checar_cancelamento(deve_cancelar)
 
         df_pagamento_recente = consultar_pagamento_recente(
             engine_mensagens,
@@ -270,16 +297,22 @@ def gerar(
             f"Pagamento recente (ultimos {DIAS_BLOQUEIO_PAGAMENTO_RECENTE} dias): "
             f"{len(telefones_pagamento_recente)} telefone(s) bloqueado(s)."
         )
+        _metrica("pagamento_recente_bloqueado", len(telefones_pagamento_recente), "Pagamento recente bloqueado")
+        _checar_cancelamento(deve_cancelar)
 
         df_final = montar_base(df_report, df_customer)
         df_elegiveis = filtrar_elegiveis(df_final)
         df_elegiveis = remover_pagamento_recente(df_elegiveis, telefones_pagamento_recente)
         print(f"Elegiveis apos filtros: {len(df_elegiveis)}.")
+        _metrica("elegiveis_apos_filtros", len(df_elegiveis), "Elegiveis apos filtros")
+        _checar_cancelamento(deve_cancelar)
 
         df_novos = consultar_novos(engine_clientes, data_inicio, data_fim)
         df_novos = preparar_novos(df_novos, df_elegiveis["telefone"])
         df_novos = remover_pagamento_recente(df_novos, telefones_pagamento_recente)
         print(f"Clientes novos no periodo: {len(df_novos)}.")
+        _metrica("clientes_novos", len(df_novos), "Clientes novos no periodo")
+        _checar_cancelamento(deve_cancelar)
 
         df_disparo = montar_disparo(df_elegiveis, df_novos)
     finally:
@@ -299,16 +332,31 @@ def gerar(
 
     telefones_filtro = ler_telefones_filtro(config.FILTER_DIR)
     if telefones_filtro:
-        resultado.grupos, removidos = aplicar_filtro(resultado.grupos, telefones_filtro)
-        print(f"Filtro: {removidos} contato(s) removido(s) ({len(telefones_filtro)} numero(s) na planilha de filtro).")
+        resultado.grupos, removidos_por_grupo = aplicar_filtro(resultado.grupos, telefones_filtro)
+        total_removidos = sum(len(linhas) for linhas in removidos_por_grupo.values())
+        print(f"Filtro: {total_removidos} contato(s) removido(s) ({len(telefones_filtro)} numero(s) na planilha de filtro).")
+        _metrica(
+            "filtro", total_removidos, "Filtro: removidos",
+            telefones_filtro=len(telefones_filtro),
+            por_grupo={grupo: len(linhas) for grupo, linhas in removidos_por_grupo.items()},
+        )
 
-    clear_output_folder(config.OUTPUT_DIR)
-    escrever_grupos(config.OUTPUT_DIR, resultado.grupos)
+        if not dry_run and removidos_por_grupo:
+            arquivo_removidos = escrever_filtro_removidos(config.REPORT_DIR, data_fim, removidos_por_grupo)
+            print(f"Removidos do filtro salvos em {arquivo_removidos}.")
 
-    print("Base gerada com sucesso.")
+    _checar_cancelamento(deve_cancelar)
+
+    if not dry_run:
+        clear_output_folder(config.OUTPUT_DIR)
+        escrever_grupos(config.OUTPUT_DIR, resultado.grupos)
+        print("Base gerada com sucesso.")
+    else:
+        print("Pre-visualizacao: nenhum CSV foi gravado.")
+
     imprimir_resumo(resultado)
 
-    if com_relatorio:
+    if com_relatorio and not dry_run:
         arquivo = gravar_relatorio(config.REPORT_DIR, data_fim, df_final, df_novos, df_disparo)
         print(f"Relatorio salvo em {arquivo}.")
 

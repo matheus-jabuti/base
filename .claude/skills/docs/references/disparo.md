@@ -103,6 +103,15 @@ o formulário**, não no início — se o upload das listas demorou, o horário 
 A tela espelha esse cálculo só para avisar o operador (`app/static/app.js:agendado`); a decisão real é
 sempre do `dispatch.js`.
 
+## Tempo por etapa
+
+`formatDuracao` (`lib/dispatch-logic.js`, coberta por `npm test`) formata cada duração medida. Cada
+ponto que já imprimia `[tempo] ...` como texto solto também emite `progresso({evento:'tempo', ...})`
+estruturado, pra tela mostrar sem precisar fazer parsing de texto (`contratos.md` documenta os campos
+por `escopo`): seleção lista/campanha/template, envio+confirmação e transmissão completa (por base,
+dentro de `createBroadcast`); duração de cada fase (`rodarFase`); e o total do disparo, tanto no
+caminho de sucesso quanto no `main().catch` de erro fatal (`interrompido: true`).
+
 ## Rastro
 
 - Nome de lista, campanha e transmissão: `<nome da base> - DD/MM/AAAA - HHhMM` (`buildDispatchName`).

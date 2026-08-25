@@ -4,6 +4,9 @@ const estado = {
   bases: [],
   modo: 'producao',
   rodando: false,
+  tempoTotal: null,
+  filtroRemovidos: 0,
+  filtroNumeros: [],
 };
 
 // A VPN as vezes demora a subir; tenta de novo antes de acusar erro.
@@ -24,6 +27,14 @@ const ETAPAS = {
 const total = () => estado.bases.reduce((soma, base) => soma + base.contatos, 0);
 const numero = (valor) => valor.toLocaleString('pt-BR');
 const plural = (qtd, um, muitos) => `${numero(qtd)} ${qtd === 1 ? um : muitos}`;
+
+function debounce(fn, ms) {
+  let temporizador;
+  return (...args) => {
+    clearTimeout(temporizador);
+    temporizador = setTimeout(() => fn(...args), ms);
+  };
+}
 
 // "Disparo amigavel A/B/W" -> "Amigavel A/B/W": o prefixo e o mesmo nos cinco.
 const rotulo = (nome) => {
@@ -180,8 +191,9 @@ function atualizarLancamento() {
   modoHora.textContent = agenda === null ? '' : agenda ? 'agendado' : 'envio imediato';
   modoHora.classList.toggle('imediato', agenda === false);
 
-  const botao = $('btn-disparar');
-  botao.disabled = estado.rodando || !contatos || !$('hora').value;
+  const semContatos = estado.rodando || !contatos || !$('hora').value;
+  $('btn-disparar').disabled = semContatos;
+
   const cheias = estado.bases.filter((base) => base.contatos).length;
   $('btn-disparar-nota').textContent = contatos
     ? `${plural(contatos, 'contato', 'contatos')} em ${plural(cheias, 'base', 'bases')}`
@@ -203,6 +215,53 @@ function trocarModo(modo) {
     : 'Modo produção — as mensagens vão para os clientes reais da base gerada.';
 
   carregarBases();
+}
+
+/* ------------------------------------------------ filtro manual */
+
+async function carregarFiltro() {
+  const dados = await fetch('/api/filtro').then((r) => r.json()).catch(() => null);
+  if (!dados) return;
+
+  estado.filtroNumeros = dados.numeros || [];
+
+  $('filtro-contagem').textContent = dados.telefones
+    ? plural(dados.telefones, 'telefone único no filtro', 'telefones únicos no filtro')
+    : 'Nenhum telefone no filtro.';
+
+  const lista = $('filtro-arquivos');
+  lista.innerHTML = dados.arquivos.length
+    ? dados.arquivos.map((arquivo) => `<li>${arquivo.nome}</li>`).join('')
+    : '<li class="vazio">Nenhum arquivo em filtros/</li>';
+}
+
+// Digitos crus -> "(DD) 9 NNNN-NNNN" (celular) ou "(DD) NNNN-NNNN" (fixo, sem
+// o 9). Numero fora desses dois formatos (ex: internacional) volta cru.
+function formatarTelefone(digitos) {
+  let d = String(digitos);
+  if (d.length > 11 && d.startsWith('55')) d = d.slice(2);
+
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d[2]} ${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return digitos;
+}
+
+function abrirModalNumerosFiltro() {
+  const lista = $('filtro-numeros');
+  lista.innerHTML = estado.filtroNumeros.length
+    ? estado.filtroNumeros.map(({ telefone, nome }) => `
+        <li>
+          <span class="tel">${formatarTelefone(telefone)}</span>
+          <span class="nome">${nome || '—'}</span>
+        </li>
+      `).join('')
+    : '<li class="vazio">Nenhum telefone no filtro.</li>';
+
+  $('modal-filtro-numeros').classList.add('aberto');
+}
+
+function fecharModalNumerosFiltro() {
+  $('modal-filtro-numeros').classList.remove('aberto');
 }
 
 /* ------------------------------------------------ progresso */
@@ -230,9 +289,21 @@ function prepararTrilha() {
 
   $('subbases').innerHTML = '';
   $('resultado').hidden = true;
+  $('resultado-extra').innerHTML = '';
   $('log').textContent = '';
   $('bloco-log').open = false;
   $('btn-voltar').hidden = true;
+
+  $('cartao-metricas').hidden = true;
+  $('metricas').innerHTML = '';
+  $('cartao-tempos').hidden = true;
+  $('tempos-fase').innerHTML = '';
+
+  estado.tempoTotal = null;
+  estado.filtroRemovidos = 0;
+
+  $('btn-cancelar').hidden = false;
+  $('btn-cancelar').disabled = false;
 }
 
 function desenharSubbases(bases) {
@@ -264,6 +335,50 @@ function atualizarSubbase({ key, status, etapa, detalhe, modo }) {
   if (status === 'erro' && detalhe) escreverLog(detalhe, 'erro');
 }
 
+function atualizarMetrica({ chave, valor, rotulo: rotuloMetrica, por_grupo }) {
+  $('cartao-metricas').hidden = false;
+
+  let item = document.querySelector(`#metricas li[data-chave="${chave}"]`);
+  if (!item) {
+    item = document.createElement('li');
+    item.dataset.chave = chave;
+    item.innerHTML = '<span class="rotulo"></span><strong></strong>';
+    $('metricas').appendChild(item);
+  }
+
+  item.querySelector('.rotulo').textContent = rotuloMetrica;
+  item.querySelector('strong').textContent = numero(valor);
+
+  if (chave === 'filtro') {
+    estado.filtroRemovidos = valor;
+    if (por_grupo && Object.keys(por_grupo).length) {
+      item.title = Object.entries(por_grupo).map(([grupo, qtd]) => `${grupo}: ${qtd}`).join(' · ');
+    }
+  }
+
+  item.classList.remove('piscou');
+  void item.offsetWidth;
+  item.classList.add('piscou');
+}
+
+function atualizarTempo({ escopo, chave, key, etapa, duracao }) {
+  if (escopo === 'base' && chave === 'transmissao_completa') {
+    const item = document.querySelector(`.subbases li[data-key="${key}"]`);
+    if (item) item.querySelector('.estado').title = `Levou ${duracao}`;
+  } else if (escopo === 'fase') {
+    $('cartao-tempos').hidden = false;
+    let item = document.querySelector(`#tempos-fase li[data-etapa="${etapa}"]`);
+    if (!item) {
+      item = document.createElement('li');
+      item.dataset.etapa = etapa;
+      $('tempos-fase').appendChild(item);
+    }
+    item.textContent = `${etapa}: ${duracao}`;
+  } else if (escopo === 'total') {
+    estado.tempoTotal = duracao;
+  }
+}
+
 function escreverLog(texto, tipo) {
   const alvo = $('log');
   const linha = document.createElement('div');
@@ -275,7 +390,7 @@ function escreverLog(texto, tipo) {
 
 /* ------------------------------------------------ execucao */
 
-async function disparar() {
+async function disparar({ dryRun = false } = {}) {
   const salvos = await fetch('/api/templates', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -289,9 +404,11 @@ async function disparar() {
   }
 
   const quando = agendado() ? `agendar para ${$('hora').value}` : `enviar agora (${$('hora').value})`;
-  const aviso = estado.modo === 'producao'
-    ? `Disparar ${numero(total())} contatos REAIS?\n\nVai ${quando}.`
-    : `Rodar o disparo de teste?\n\nVai ${quando}.`;
+  const aviso = dryRun
+    ? 'Rodar uma pré-visualização (sem gravar CSVs nem disparar)?'
+    : estado.modo === 'producao'
+      ? `Disparar ${numero(total())} contatos REAIS?\n\nVai ${quando}.`
+      : `Rodar o disparo de teste?\n\nVai ${quando}.`;
 
   if (!confirm(aviso)) return;
 
@@ -307,6 +424,7 @@ async function disparar() {
     com_relatorio: $('com-relatorio').checked,
     data_inicio: $('data-inicio').value,
     data_fim: $('data-fim').value,
+    dry_run: dryRun,
   });
 
   const fonte = new EventSource(`/api/executar?${parametros}`);
@@ -316,47 +434,76 @@ async function disparar() {
 
     if (tipo === 'passo') marcarPasso(dado.id, dado.status, dado.detalhe);
     else if (tipo === 'bases') desenharSubbases(dado);
+    else if (tipo === 'metrica') atualizarMetrica(dado);
     else if (tipo === 'etapa' && dado.evento === 'base') atualizarSubbase(dado);
     else if (tipo === 'etapa' && dado.evento === 'login') marcarPasso('disparo', 'rodando', dado.status === 'ok' ? 'conectado ao dashboard' : 'entrando no dashboard...');
     else if (tipo === 'etapa' && dado.evento === 'plano') escreverLog(`Plano: ${dado.bases.length} bases`);
+    else if (tipo === 'etapa' && dado.evento === 'tempo') atualizarTempo(dado);
     else if (tipo === 'log') escreverLog(String(dado));
     else if (tipo === 'erro') escreverLog(String(dado), 'erro');
     else if (tipo === 'fim') {
       fonte.close();
-      encerrar(dado.status === 'ok');
+      encerrar(dado.status);
     }
   };
 
   fonte.onerror = () => {
     fonte.close();
     escreverLog('Conexão com o servidor caiu.', 'erro');
-    encerrar(false);
+    encerrar('erro');
   };
 }
 
-function encerrar(ok) {
+async function cancelarExecucao() {
+  if (!confirm('Cancelar a execução em andamento?\n\nSe o disparo já começou, listas/campanhas já criadas no dashboard podem ficar sem transmissão correspondente.')) return;
+
+  $('btn-cancelar').disabled = true;
+  await fetch('/api/cancelar', { method: 'POST' }).catch(() => {});
+}
+
+const TEXTOS_RESULTADO = {
+  ok: ['Tudo certo', 'Os disparos foram criados no dashboard.'],
+  erro: ['Terminou com erro', 'Abra o log técnico abaixo para ver o que falhou.'],
+  cancelado: ['Execução cancelada', 'A execução foi interrompida a pedido.'],
+  'pre-visualizacao': ['Prévia gerada', 'Nenhum CSV foi gravado nem mensagem enviada.'],
+};
+
+function encerrar(status) {
   estado.rodando = false;
+  $('btn-cancelar').hidden = true;
 
   for (const item of document.querySelectorAll('.trilha > li.rodando')) {
-    item.className = ok ? 'ok' : 'erro';
+    item.className = status === 'ok' || status === 'pre-visualizacao' ? 'ok' : status === 'cancelado' ? 'cancelado' : 'erro';
   }
 
-  const caixa = $('resultado');
-  caixa.className = `resultado ${ok ? 'ok' : 'erro'}`;
-  caixa.hidden = false;
-  caixa.innerHTML = ok
-    ? '<strong>Tudo certo</strong><span>Os disparos foram criados no dashboard.</span>'
-    : '<strong>Terminou com erro</strong><span>Abra o log técnico abaixo para ver o que falhou.</span>';
+  const [titulo, texto] = TEXTOS_RESULTADO[status] || TEXTOS_RESULTADO.erro;
 
-  if (!ok) $('bloco-log').open = true;
+  const caixa = $('resultado');
+  caixa.className = `resultado ${status}`;
+  caixa.hidden = false;
+  caixa.innerHTML = '<strong></strong><span></span>';
+  caixa.querySelector('strong').textContent = titulo;
+  caixa.querySelector('span').textContent = texto + (estado.tempoTotal ? ` (${estado.tempoTotal})` : '');
+
+  if (status === 'erro') $('bloco-log').open = true;
+
+  const extra = $('resultado-extra');
+  extra.innerHTML = '';
+  if (estado.filtroRemovidos > 0) {
+    const link = document.createElement('a');
+    link.href = '/api/filtro/ultimo-removido';
+    link.textContent = 'Baixar números removidos pelo filtro (CSV)';
+    extra.appendChild(link);
+  }
 
   $('btn-voltar').hidden = false;
   carregarHistorico();
 }
 
-async function carregarHistorico() {
-  const linhas = await fetch('/api/historico?limite=10').then((r) => r.json());
-  const corpo = $('historico');
+const HISTORICO_RECENTES = 5;
+
+function desenharHistorico(idCorpo, linhas) {
+  const corpo = $(idCorpo);
   corpo.innerHTML = '';
 
   if (!linhas.length) {
@@ -379,6 +526,33 @@ async function carregarHistorico() {
   }
 }
 
+// Card lateral: so os ultimos 5, sem filtro — pra ver mais e filtrar, o botao
+// abre o modal com a lista inteira.
+async function carregarHistorico() {
+  const linhas = await fetch(`/api/historico?limite=${HISTORICO_RECENTES}`).then((r) => r.json());
+  desenharHistorico('historico', linhas);
+}
+
+async function carregarHistoricoModal() {
+  const parametros = new URLSearchParams({
+    limite: 200,
+    busca: $('historico-busca')?.value || '',
+    status: $('historico-status')?.value || '',
+  });
+
+  const linhas = await fetch(`/api/historico?${parametros}`).then((r) => r.json());
+  desenharHistorico('historico-modal', linhas);
+}
+
+function abrirModalHistorico() {
+  $('modal-historico').classList.add('aberto');
+  carregarHistoricoModal();
+}
+
+function fecharModalHistorico() {
+  $('modal-historico').classList.remove('aberto');
+}
+
 /* ------------------------------------------------ boot */
 
 async function iniciar() {
@@ -394,11 +568,31 @@ async function iniciar() {
   }
 
   $('btn-vpn').onclick = verificarVpn;
-  $('btn-disparar').onclick = disparar;
+  $('btn-disparar').onclick = () => disparar();
+  $('btn-cancelar').onclick = cancelarExecucao;
   $('btn-voltar').onclick = () => { trocarView('menu'); carregarBases(); };
   $('hora').oninput = atualizarLancamento;
+  $('gerar-base').onchange = atualizarLancamento;
+
+  $('bloco-filtro').addEventListener('toggle', () => { if ($('bloco-filtro').open) carregarFiltro(); });
+  $('btn-ver-numeros-filtro').onclick = abrirModalNumerosFiltro;
+  $('btn-fechar-modal-filtro').onclick = fecharModalNumerosFiltro;
+
+  $('btn-ver-historico').onclick = abrirModalHistorico;
+  $('btn-fechar-modal-historico').onclick = fecharModalHistorico;
+  $('historico-busca').oninput = debounce(carregarHistoricoModal, 250);
+  $('historico-status').onchange = carregarHistoricoModal;
+
+  for (const overlay of document.querySelectorAll('.modal-overlay')) {
+    overlay.onclick = (evento) => { if (evento.target === overlay) overlay.classList.remove('aberto'); };
+  }
+  document.addEventListener('keydown', (evento) => {
+    if (evento.key !== 'Escape') return;
+    for (const overlay of document.querySelectorAll('.modal-overlay.aberto')) overlay.classList.remove('aberto');
+  });
 
   trocarModo('producao');
+  carregarFiltro();
   carregarHistorico();
   verificarVpn();
 }

@@ -43,7 +43,16 @@ ate 3 tentativas.
 **Progresso.** Depois do clique a tela vira acompanhamento: VPN, geracao da
 base e disparo, com as cinco bases mostrando em qual etapa cada uma esta
 (criando lista, criando campanha, criando transmissao) e o que deu certo ou
-errado no fim. O log tecnico completo fica recolhido embaixo.
+errado no fim. Uma coluna lateral mostra metricas ao vivo (conversas no
+periodo, elegiveis, filtro removido etc.) conforme a geracao avanca, e o
+tempo de cada fase do disparo. O log tecnico completo fica recolhido embaixo.
+Um botao **Cancelar execucao** interrompe uma rodada em andamento (o disparo
+para na hora; a geracao da base para no proximo ponto de checagem, nao
+instantaneamente).
+
+O botao **Pre-visualizar** roda a geracao da base ate o fim — incluindo o
+filtro manual — sem gravar nenhum CSV nem disparar nada, so pra ver quantos
+contatos sairiam em cada base antes de confirmar de verdade.
 
 O horario vale para tudo: entra no nome das campanhas e na hora do agendamento.
 Acima de ~2min de folga a transmissao e agendada; abaixo disso a plataforma
@@ -54,7 +63,10 @@ um contato so por base — serve pra exercitar a automacao do dashboard sem
 mandar mensagem pra cliente.
 
 Em **Opcoes avancadas** da pra pular a geracao da base (reaproveitando os CSVs
-que ja estao em `out/`), desligar o relatorio Excel e mudar o periodo.
+que ja estao em `out/`), desligar o relatorio Excel e mudar o periodo. O card
+**Filtro manual** mostra os arquivos e a contagem de telefones em `filtros/`
+antes de rodar. O card **Ultimos disparos** tem busca por base e filtro por
+status.
 
 ## Gerar a base direto do banco (linha de comando)
 
@@ -110,6 +122,10 @@ A cada geracao (banco ou Excel), antes de escrever os CSVs, o pipeline le tudo q
 `filtros/` e remove esses telefones das bases. Roda sempre, sem opcao de desligar; se a pasta esta
 vazia, nao faz nada. Os arquivos **nao sao apagados** depois de usados — ficam valendo pras proximas
 rodadas ate serem removidos manualmente.
+
+Na tela, o card **Filtro manual** mostra os arquivos e a contagem de telefones antes de rodar. Depois
+de uma geracao que removeu algo, o resultado traz um link pra baixar a lista dos numeros removidos
+(tambem salva em `relatorio/filtro_removidos_AAAAMMDD.csv`).
 
 ## Regras de elegibilidade
 

@@ -44,6 +44,23 @@ Regras: o prefixo é `[ETAPA] ` com espaço (constante `MARCA_ETAPA`); o payload
 Etapa nova = um `progresso()` a mais **e** o tratamento correspondente em `app.js` — evento
 desconhecido é silenciosamente ignorado pela tela.
 
+| `tempo` | `escopo`: `base` \| `fase` \| `total`; `ms` e `duracao` (já formatada por `formatDuracao`); em `escopo:base` também `chave` (`selecao`\|`envio`\|`transmissao_completa`) e `key`; em `escopo:fase` também `etapa`; em `escopo:total` opcionalmente `interrompido` | `app.js:atualizarTempo` |
+
+## 2b. Protocolo de métricas `[METRICA]`
+
+Mesmo esquema do `[ETAPA]`, só que emitido por `gerar_base.py` (não pelo `dispatch.js`) ao lado dos
+`print()`s de sempre — aditivo, não substitui nada:
+
+```
+[METRICA] {"chave":"...", "valor":..., "rotulo":"...", ...}
+```
+
+`app/passos.py:_FilaDeLinhas` reconhece o prefixo `MARCA_METRICA = "[METRICA] "` e emite evento
+`metrica` em vez de `log`. Chaves emitidas por `gerar()`: `conversas_periodo`, `cadastros_localizados`,
+`pagamento_recente_bloqueado`, `elegiveis_apos_filtros`, `clientes_novos`, `filtro` (esta última também
+carrega `telefones_filtro` e `por_grupo`, o breakdown de quantos foram removidos por grupo). `app.js`
+consome via `atualizarMetrica`, que ignora chave desconhecida (só cria um card novo na hora).
+
 ## 3. Códigos de saída
 
 - `gerar_base.py`: `0` só quando sobrou pelo menos um contato; base vazia é `1`.
@@ -83,11 +100,18 @@ Mudou coluna: ajuste o header em `ensureLogFile`, o `logDispatch` e as células 
 
 ## 7. A tela chama o pipeline como código
 
-`app/passos.py:gerar_base` importa `gerar_base` e chama `gerar(data_inicio, data_fim,
-com_relatorio)` capturando o `stdout`. Consequências:
+`app/passos.py:gerar_base` importa `gerar_base` e chama `gerar(data_inicio, data_fim, com_relatorio,
+dry_run=..., deve_cancelar=...)` capturando o `stdout`. Os dois últimos parâmetros são opcionais com
+default compatível (`dry_run=False`, `deve_cancelar=lambda: False`) — o CLI (`python gerar_base.py`)
+nem sabe que existem. Consequências:
 
-- Manter a assinatura de `gerar()` e o retorno com `.total_contatos`.
+- Manter a assinatura de `gerar()` (aditiva) e o retorno com `.total_contatos`/`.grupos`.
 - Manter o pipeline **imprimindo** o progresso: `print` é a interface de log usada pela tela.
+- `dry_run=True` roda tudo (inclusive `aplicar_filtro`) mas não grava CSV/Excel — `resultado.grupos`
+  já reflete o filtro aplicado, então a prévia é o número real pós-filtro, só não vai pro disco.
+- `deve_cancelar` é checado (`_checar_cancelamento`) entre chamadas bloqueantes de DB/pandas, nunca
+  dentro delas — cancelar no meio de uma query só surte efeito quando ela retornar. Levanta
+  `OperacaoCancelada`, que `app/passos.py:gerar_base` traduz em evento `("cancelado", True)`.
 - Nada de `input()` ou qualquer bloqueio interativo no caminho de `gerar()`.
 
 O `dispatch.js` tem a mesma restrição em espírito: só pergunta no terminal quando `--hora` não vem, e a

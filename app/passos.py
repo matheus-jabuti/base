@@ -17,7 +17,7 @@ import subprocess
 import sys
 import threading
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -48,6 +48,47 @@ TIMEOUT_VPN_S = 4
 
 # Prefixo que o dispatch.js usa pras linhas de progresso legiveis por maquina.
 MARCA_ETAPA = "[ETAPA] "
+
+# Mesmo esquema, so que emitido pelo gerar_base.py pras contagens intermediarias.
+MARCA_METRICA = "[METRICA] "
+
+# Estado de cancelamento: uma execucao por vez (o lock em server.py garante
+# isso), entao um Event/Popen a nivel de modulo basta pra sinalizar "pare" pro
+# passo que estiver rodando no momento.
+_evento_cancelamento = threading.Event()
+_lock_processo = threading.Lock()
+_processo_disparo: subprocess.Popen | None = None
+
+
+def _matar_processo(processo: subprocess.Popen) -> None:
+    """Mata o processo e os filhos.
+
+    O node spawna o chromium do Playwright; Popen.kill() so mata o processo
+    imediato e deixa o chromium orfao, por isso o taskkill com /T no Windows.
+    """
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(processo.pid), "/T", "/F"], capture_output=True)
+    else:
+        processo.terminate()
+
+    try:
+        processo.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        processo.kill()
+
+
+def cancelar() -> None:
+    """Sinaliza cancelamento pro passo em andamento. Chamado por POST /api/cancelar.
+
+    Um cancelamento durante a geracao (thread Python, sem forma de matar de
+    fora) so surte efeito no proximo ponto de checagem em gerar_base.py — nao
+    e instantaneo. Durante o disparo (subprocesso node), mata o processo na
+    hora, o que fecha o stdout e destrava o loop que le a saida dele.
+    """
+    _evento_cancelamento.set()
+    with _lock_processo:
+        if _processo_disparo is not None:
+            _matar_processo(_processo_disparo)
 
 
 @dataclass
@@ -144,19 +185,83 @@ def contagens(modo: str) -> list[dict]:
     ]
 
 
-def _em_thread(alvo, fila: queue.Queue) -> threading.Thread:
-    def executar():
-        try:
-            alvo()
-        except BaseException as erro:  # noqa: BLE001 - vira linha de log, nao derruba o server
-            fila.put(("erro", f"{type(erro).__name__}: {erro}"))
-        finally:
-            fila.put(None)
+def contagens_previa(modo: str, grupos_previa: dict[str, int]) -> list[dict]:
+    """Mesma forma de contagens(), a partir do resultado em memoria de um dry-run.
 
-    thread = threading.Thread(target=executar, daemon=True)
-    thread.start()
+    Nada foi gravado em disco, entao 'existe' aqui significa 'teria contatos',
+    nao 'ha um CSV na pasta'.
+    """
+    import contatos
 
-    return thread
+    return [
+        {
+            "key": cfg["key"],
+            "nome": cfg["nome"],
+            "csv": cfg["csv"],
+            "grupo": cfg.get("grupo", cfg["key"]),
+            "template": f"{cfg['template_prefix']}_{cfg['template_numero']}",
+            "contatos": grupos_previa.get(contatos.CSV_PARA_GRUPO.get(cfg["csv"], ""), 0),
+            "existe": grupos_previa.get(contatos.CSV_PARA_GRUPO.get(cfg["csv"], ""), 0) > 0,
+        }
+        for cfg in ler_templates()
+    ]
+
+
+def _nomes_da_base(pasta: Path) -> dict[str, str]:
+    """Mapa telefone -> nome, lido dos CSVs de disparo (phonenumber,name) ja gerados.
+
+    So serve pra exibir o nome de quem esta no filtro quando o contato tambem
+    esta na base atual; sem cadastro correspondente, o nome fica vazio. Nao
+    bate no banco de clientes de proposito — filtro_atual() nao precisa de VPN.
+    """
+    import csv
+
+    nomes: dict[str, str] = {}
+    if not pasta.exists():
+        return nomes
+
+    for arquivo in pasta.glob("*.csv"):
+        with arquivo.open(encoding="utf-8", newline="") as f:
+            for linha in csv.DictReader(f):
+                telefone = (linha.get("phonenumber") or "").strip()
+                if telefone:
+                    nomes[telefone] = (linha.get("name") or "").strip()
+
+    return nomes
+
+
+def filtro_atual() -> dict:
+    """Arquivos e telefones (com nome, quando achado na base atual) na pasta de filtro manual."""
+    import config
+    import contatos
+
+    config.load_env()
+    arquivos = contatos.coletar_arquivos_filtro(config.FILTER_DIR)
+    telefones = contatos.ler_telefones_filtro(config.FILTER_DIR)
+    nomes = _nomes_da_base(BASES_DIR["producao"])
+
+    return {
+        "pasta": str(config.FILTER_DIR),
+        "arquivos": [
+            {
+                "nome": arquivo.name,
+                "tamanho_bytes": arquivo.stat().st_size,
+                "modificado": datetime.fromtimestamp(arquivo.stat().st_mtime).isoformat(),
+            }
+            for arquivo in arquivos
+        ],
+        "telefones": len(telefones),
+        "numeros": [{"telefone": t, "nome": nomes.get(t, "")} for t in sorted(telefones)],
+    }
+
+
+def ultimo_arquivo_filtro_removidos() -> Path | None:
+    """CSV mais recente com os numeros removidos pelo filtro manual, se existir."""
+    import config
+
+    candidatos = sorted(config.REPORT_DIR.glob("filtro_removidos_*.csv"), key=lambda p: p.stat().st_mtime)
+
+    return candidatos[-1] if candidatos else None
 
 
 class _FilaDeLinhas(io.TextIOBase):
@@ -171,8 +276,18 @@ class _FilaDeLinhas(io.TextIOBase):
 
         while "\n" in self._buffer:
             linha, _, self._buffer = self._buffer.partition("\n")
-            if linha.strip():
-                self._fila.put(("log", linha.rstrip()))
+            linha = linha.rstrip()
+            if not linha:
+                continue
+
+            if linha.startswith(MARCA_METRICA):
+                try:
+                    self._fila.put(("metrica", json.loads(linha[len(MARCA_METRICA):])))
+                    continue
+                except json.JSONDecodeError:
+                    pass
+
+            self._fila.put(("log", linha))
 
         return len(texto)
 
@@ -182,7 +297,7 @@ class _FilaDeLinhas(io.TextIOBase):
             self._buffer = ""
 
 
-def gerar_base(data_inicio: date, data_fim: date, com_relatorio: bool = True):
+def gerar_base(data_inicio: date, data_fim: date, com_relatorio: bool = True, dry_run: bool = False):
     """Roda o pipeline do banco e vai emitindo o que ele imprime.
 
     O gerar_base.py continua sendo um CLI que so imprime; em vez de duplicar a
@@ -197,24 +312,40 @@ def gerar_base(data_inicio: date, data_fim: date, com_relatorio: bool = True):
 
     def executar():
         saida = _FilaDeLinhas(fila)
-        with contextlib.redirect_stdout(saida):
-            retorno = pipeline.gerar(
-                data_inicio=data_inicio,
-                data_fim=data_fim,
-                com_relatorio=com_relatorio,
-            )
+        try:
+            with contextlib.redirect_stdout(saida):
+                retorno = pipeline.gerar(
+                    data_inicio=data_inicio,
+                    data_fim=data_fim,
+                    com_relatorio=com_relatorio,
+                    dry_run=dry_run,
+                    deve_cancelar=_evento_cancelamento.is_set,
+                )
+                saida.flush()
+
+            resultado["total"] = retorno.total_contatos
+            resultado["grupos"] = {grupo: len(linhas) for grupo, linhas in retorno.grupos.items()}
+        except pipeline.OperacaoCancelada:
             saida.flush()
+            fila.put(("cancelado", True))
+        except BaseException as erro:  # noqa: BLE001 - vira linha de log, nao derruba o server
+            fila.put(("erro", f"{type(erro).__name__}: {erro}"))
+        finally:
+            fila.put(None)
 
-        resultado["total"] = retorno.total_contatos
-
-    _em_thread(executar, fila)
+    threading.Thread(target=executar, daemon=True).start()
     yield from _drenar(fila)
+
+    if dry_run and "grupos" in resultado:
+        yield ("grupos_previa", resultado["grupos"])
 
     yield ("total", resultado.get("total", 0))
 
 
 def disparar(hora: str, modo: str):
     """Chama o dispatch.js do auto/ e repassa a saida dele em tempo real."""
+    global _processo_disparo
+
     node = shutil.which("node")
     if not node:
         yield ("erro", "Node nao encontrado no PATH. Instale o Node pra rodar o disparo.")
@@ -237,34 +368,47 @@ def disparar(hora: str, modo: str):
         errors="replace",
         bufsize=1,
     )
+    with _lock_processo:
+        _processo_disparo = processo
 
-    for linha in processo.stdout:
-        linha = linha.rstrip()
-        if not linha:
-            continue
-
-        # O dispatch.js marca o progresso com [ETAPA] {json}; o resto e log solto.
-        if linha.startswith(MARCA_ETAPA):
-            try:
-                yield ("etapa", json.loads(linha[len(MARCA_ETAPA):]))
+    try:
+        for linha in processo.stdout:
+            linha = linha.rstrip()
+            if not linha:
                 continue
-            except json.JSONDecodeError:
-                pass
 
-        yield ("erro" if linha.startswith(("[ERRO]", "[FATAL]")) else "log", linha)
+            # O dispatch.js marca o progresso com [ETAPA] {json}; o resto e log solto.
+            if linha.startswith(MARCA_ETAPA):
+                try:
+                    yield ("etapa", json.loads(linha[len(MARCA_ETAPA):]))
+                    continue
+                except json.JSONDecodeError:
+                    pass
 
-    processo.wait()
+            yield ("erro" if linha.startswith(("[ERRO]", "[FATAL]")) else "log", linha)
 
-    if processo.returncode != 0:
-        yield ("falhou", f"dispatch.js saiu com codigo {processo.returncode}")
+        processo.wait()
+
+        if _evento_cancelamento.is_set():
+            yield ("cancelado", True)
+        elif processo.returncode != 0:
+            yield ("falhou", f"dispatch.js saiu com codigo {processo.returncode}")
+    finally:
+        with _lock_processo:
+            _processo_disparo = None
 
 
-def executar(data_inicio: date, data_fim: date, hora: str, modo: str, com_relatorio: bool, gerar: bool):
+def executar(
+    data_inicio: date, data_fim: date, hora: str, modo: str, com_relatorio: bool, gerar: bool,
+    dry_run: bool = False,
+):
     """O disparo inteiro num evento so: VPN, base e disparo, em sequencia.
 
     Emite ('passo', ...) a cada troca de etapa pra tela desenhar o progresso, e
-    para na primeira falha — nao adianta gerar base sem VPN nem disparar sem base.
+    para na primeira falha, no cancelamento, ou (em dry-run) apos a previa —
+    nao adianta gerar base sem VPN nem disparar sem base.
     """
+    _evento_cancelamento.clear()
     falhou = False
 
     def marcar(passo: str, status: str, detalhe: str = ""):
@@ -284,26 +428,45 @@ def executar(data_inicio: date, data_fim: date, hora: str, modo: str, com_relato
 
     yield marcar("vpn", "ok", f"{len(conexoes)} bancos respondendo")
 
+    grupos_previa: dict[str, int] = {}
+
     if gerar:
         yield marcar("base", "rodando")
         total = 0
+        cancelado = False
 
-        for tipo, dado in gerar_base(data_inicio, data_fim, com_relatorio):
+        for tipo, dado in gerar_base(data_inicio, data_fim, com_relatorio, dry_run=dry_run):
             if tipo == "total":
                 total = dado
+            elif tipo == "grupos_previa":
+                grupos_previa = dado
+            elif tipo == "cancelado":
+                cancelado = True
             else:
                 if tipo == "erro":
                     falhou = True
                 yield (tipo, dado)
+
+        if cancelado:
+            yield marcar("base", "cancelado", "Cancelado pela tela.")
+            yield ("fim", {"status": "cancelado"})
+            return
 
         if falhou or not total:
             yield marcar("base", "erro", "Falha ao gerar" if falhou else "Nenhum contato elegivel no periodo.")
             yield ("fim", {"status": "erro"})
             return
 
-        yield marcar("base", "ok", f"{total:,} contatos".replace(",", "."))
+        detalhe = f"{total:,} contatos".replace(",", ".")
+        yield marcar("base", "ok", f"{detalhe} (pre-visualizacao)" if dry_run else detalhe)
     else:
         yield marcar("base", "pulado", "Usando os CSVs que ja estavam na pasta")
+
+    if dry_run:
+        yield ("bases", contagens_previa(modo, grupos_previa))
+        yield marcar("disparo", "pulado", "Pre-visualizacao: disparo nao executado")
+        yield ("fim", {"status": "pre-visualizacao"})
+        return
 
     yield ("bases", contagens(modo))
 
@@ -313,6 +476,10 @@ def executar(data_inicio: date, data_fim: date, hora: str, modo: str, com_relato
         if tipo == "falhou":
             falhou = True
             yield ("erro", dado)
+        elif tipo == "cancelado":
+            yield marcar("disparo", "cancelado", "Cancelado pela tela.")
+            yield ("fim", {"status": "cancelado"})
+            return
         else:
             yield (tipo, dado)
 
@@ -329,8 +496,12 @@ def _drenar(fila: queue.Queue):
         yield item
 
 
-def ultimos_disparos(limite: int = 10) -> list[dict]:
-    """Ultimas linhas do log do auto/, pro resumo final da tela."""
+def ultimos_disparos(limite: int = 10, busca: str = "", status: str = "", modo: str = "") -> list[dict]:
+    """Ultimas linhas do log do auto/, pro resumo final da tela.
+
+    Filtros aplicados antes do corte por limite, senao a busca so olharia
+    dentro das ultimas `limite` linhas em vez do log inteiro.
+    """
     if not LOG_DISPAROS.exists():
         return []
 
@@ -338,5 +509,16 @@ def ultimos_disparos(limite: int = 10) -> list[dict]:
 
     with LOG_DISPAROS.open(encoding="utf-8", newline="") as arquivo:
         linhas = list(csv.DictReader(arquivo))
+
+    if status:
+        linhas = [linha for linha in linhas if linha.get("status") == status]
+    if modo:
+        linhas = [linha for linha in linhas if linha.get("modo") == modo]
+    if busca:
+        alvo = busca.strip().lower()
+        linhas = [
+            linha for linha in linhas
+            if alvo in linha.get("nome", "").lower() or alvo in linha.get("tipo", "").lower()
+        ]
 
     return linhas[-limite:][::-1]

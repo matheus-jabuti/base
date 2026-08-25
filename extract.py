@@ -144,8 +144,9 @@ def extrair(excel_files: list[Path]) -> ResultadoContatos:
 
     telefones_filtro = ler_telefones_filtro(config.FILTER_DIR)
     if telefones_filtro:
-        resultado.grupos, removidos = aplicar_filtro(resultado.grupos, telefones_filtro)
-        print(f"Filtro: {removidos} contato(s) removido(s) ({len(telefones_filtro)} numero(s) na planilha de filtro).")
+        resultado.grupos, removidos_por_grupo = aplicar_filtro(resultado.grupos, telefones_filtro)
+        total_removidos = sum(len(linhas) for linhas in removidos_por_grupo.values())
+        print(f"Filtro: {total_removidos} contato(s) removido(s) ({len(telefones_filtro)} numero(s) na planilha de filtro).")
 
     clear_output_folder(OUTPUT_DIR)
     escrever_grupos(OUTPUT_DIR, resultado.grupos)

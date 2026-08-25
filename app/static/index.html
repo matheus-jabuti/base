@@ -34,89 +34,159 @@
 
       <div class="faixa" id="faixa-modo"></div>
 
-      <div class="cartao">
-        <div class="cartao-topo">
-          <h2>Templates</h2>
-          <span class="dica">Um número por grupo</span>
-        </div>
-        <ul class="tipos" id="tipos"></ul>
-      </div>
-
-      <div class="cartao lancamento">
-        <div class="hora-bloco">
-          <div class="hora-topo">
-            <label for="hora">Horário do disparo</label>
-            <span class="pilula" id="hora-modo"></span>
+      <div class="colunas">
+        <div class="coluna-principal">
+          <div class="cartao">
+            <div class="cartao-topo">
+              <h2>Templates</h2>
+              <span class="dica">Um número por grupo</span>
+            </div>
+            <ul class="tipos" id="tipos"></ul>
           </div>
-          <input type="time" id="hora" step="60">
-        </div>
-        <button type="button" class="botao-principal" id="btn-disparar">
-          <span>Disparar</span>
-          <small id="btn-disparar-nota"></small>
-        </button>
-      </div>
 
-      <details class="cartao recolhivel">
-        <summary>Opções avançadas</summary>
-        <div class="conteudo">
-          <label class="opcao">
-            <input type="checkbox" id="gerar-base" checked>
-            <span><strong>Gerar a base antes de disparar</strong><em>Desmarque para reaproveitar os CSVs que já estão na pasta</em></span>
-          </label>
-          <label class="opcao">
-            <input type="checkbox" id="com-relatorio" checked>
-            <span><strong>Gerar relatório Excel</strong><em>Planilha de conferência em relatorio/</em></span>
-          </label>
-          <div class="periodo">
-            <label>Início <input type="date" id="data-inicio"></label>
-            <label>Fim <input type="date" id="data-fim"></label>
+          <div class="cartao lancamento">
+            <div class="hora-bloco">
+              <div class="hora-topo">
+                <label for="hora">Horário do disparo</label>
+                <span class="pilula" id="hora-modo"></span>
+              </div>
+              <input type="time" id="hora" step="60">
+            </div>
+            <button type="button" class="botao-principal" id="btn-disparar">
+              <span>Disparar</span>
+              <small id="btn-disparar-nota"></small>
+            </button>
           </div>
-        </div>
-      </details>
 
-      <details class="cartao recolhivel" id="bloco-historico">
-        <summary>Últimos disparos</summary>
-        <div class="conteudo">
-          <table class="historico">
-            <thead><tr><th>Data</th><th>Hora</th><th>Base</th><th>Modo</th><th>Status</th></tr></thead>
-            <tbody id="historico"></tbody>
-          </table>
+          <details class="cartao recolhivel">
+            <summary>Opções avançadas</summary>
+            <div class="conteudo">
+              <label class="opcao">
+                <input type="checkbox" id="gerar-base" checked>
+                <span><strong>Gerar a base antes de disparar</strong><em>Desmarque para reaproveitar os CSVs que já estão na pasta</em></span>
+              </label>
+              <label class="opcao">
+                <input type="checkbox" id="com-relatorio" checked>
+                <span><strong>Gerar relatório Excel</strong><em>Planilha de conferência em relatorio/</em></span>
+              </label>
+              <div class="periodo">
+                <label>Início <input type="date" id="data-inicio"></label>
+                <label>Fim <input type="date" id="data-fim"></label>
+              </div>
+            </div>
+          </details>
         </div>
-      </details>
+
+        <div class="coluna-lateral">
+          <details class="cartao recolhivel" id="bloco-filtro">
+            <summary>Filtro manual</summary>
+            <div class="conteudo">
+              <p class="dica" id="filtro-contagem">Carregando...</p>
+              <ul class="filtro-arquivos" id="filtro-arquivos"></ul>
+              <button type="button" class="botao-fantasma" id="btn-ver-numeros-filtro">Ver números</button>
+            </div>
+          </details>
+
+          <details class="cartao recolhivel" id="bloco-historico">
+            <summary>Últimos disparos</summary>
+            <div class="conteudo">
+              <div class="tabela-scroll">
+                <table class="historico">
+                  <thead><tr><th>Data</th><th>Hora</th><th>Base</th><th>Modo</th><th>Status</th></tr></thead>
+                  <tbody id="historico"></tbody>
+                </table>
+              </div>
+              <button type="button" class="botao-fantasma" id="btn-ver-historico">Ver todos os disparos</button>
+            </div>
+          </details>
+        </div>
+      </div>
     </section>
 
     <!-- ================= PROGRESSO ================= -->
     <section id="view-progresso" hidden>
-      <div class="cartao">
-        <ol class="trilha" id="trilha">
-          <li data-passo="vpn">
-            <span class="bolha"></span>
-            <div class="texto"><strong>Conferindo a VPN</strong><em></em></div>
-          </li>
-          <li data-passo="base">
-            <span class="bolha"></span>
-            <div class="texto"><strong>Gerando a base</strong><em></em></div>
-          </li>
-          <li data-passo="disparo">
-            <span class="bolha"></span>
-            <div class="texto">
-              <strong>Disparando</strong><em></em>
-              <ul class="subbases" id="subbases"></ul>
-            </div>
-          </li>
-        </ol>
+      <button type="button" class="botao-fantasma perigo largo" id="btn-cancelar" hidden>Cancelar execução</button>
+
+      <div class="colunas">
+        <div class="coluna-principal">
+          <div class="cartao">
+            <ol class="trilha" id="trilha">
+              <li data-passo="vpn">
+                <span class="bolha"></span>
+                <div class="texto"><strong>Conferindo a VPN</strong><em></em></div>
+              </li>
+              <li data-passo="base">
+                <span class="bolha"></span>
+                <div class="texto"><strong>Gerando a base</strong><em></em></div>
+              </li>
+              <li data-passo="disparo">
+                <span class="bolha"></span>
+                <div class="texto">
+                  <strong>Disparando</strong><em></em>
+                  <ul class="subbases" id="subbases"></ul>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div class="resultado" id="resultado" hidden></div>
+          <div class="resultado-extra" id="resultado-extra"></div>
+
+          <details class="cartao recolhivel" id="bloco-log">
+            <summary>Log técnico</summary>
+            <div class="conteudo"><pre class="log" id="log"></pre></div>
+          </details>
+
+          <button type="button" class="botao-fantasma largo" id="btn-voltar" hidden>Voltar ao início</button>
+        </div>
+
+        <div class="coluna-lateral">
+          <div class="cartao" id="cartao-metricas" hidden>
+            <h2>Métricas ao vivo</h2>
+            <ul class="metricas" id="metricas"></ul>
+          </div>
+          <div class="cartao" id="cartao-tempos" hidden>
+            <h2>Tempos</h2>
+            <ul class="tempos-fase" id="tempos-fase"></ul>
+          </div>
+        </div>
       </div>
-
-      <div class="resultado" id="resultado" hidden></div>
-
-      <details class="cartao recolhivel" id="bloco-log">
-        <summary>Log técnico</summary>
-        <div class="conteudo"><pre class="log" id="log"></pre></div>
-      </details>
-
-      <button type="button" class="botao-fantasma largo" id="btn-voltar" hidden>Voltar ao início</button>
     </section>
   </main>
+</div>
+
+<div class="modal-overlay" id="modal-filtro-numeros">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-filtro-titulo">
+    <div class="modal-topo">
+      <h2 id="modal-filtro-titulo">Números no filtro</h2>
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-filtro" aria-label="Fechar">×</button>
+    </div>
+    <ul class="filtro-numeros" id="filtro-numeros"></ul>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-historico">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-historico-titulo">
+    <div class="modal-topo">
+      <h2 id="modal-historico-titulo">Últimos disparos</h2>
+      <button type="button" class="modal-fechar" id="btn-fechar-modal-historico" aria-label="Fechar">×</button>
+    </div>
+    <div class="historico-busca">
+      <input type="search" id="historico-busca" placeholder="Buscar por base...">
+      <select id="historico-status">
+        <option value="">Todos os status</option>
+        <option value="ok">OK</option>
+        <option value="erro">Erro</option>
+        <option value="pulado">Pulado</option>
+      </select>
+    </div>
+    <div class="tabela-scroll modal-tabela">
+      <table class="historico">
+        <thead><tr><th>Data</th><th>Hora</th><th>Base</th><th>Modo</th><th>Status</th></tr></thead>
+        <tbody id="historico-modal"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script src="/static/app.js"></script>

@@ -48,10 +48,13 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   `JABUTI_EMAIL`/`JABUTI_PASSWORD` env vars (falls back to the known test account) and persists the new
   session once after all 3 phases finish. All paths are resolved from `__dirname`, not the cwd, because
   the UI spawns this as a subprocess. Progress is reported on stdout as `[ETAPA] {json}` lines
-  (`progresso()`) — events `plano` (the 5 bases about to run), `login`, and `base` (per base: `rodando`
+  (`progresso()`) — events `plano` (the 5 bases about to run), `login`, `base` (per base: `rodando`
   with an `etapa` of lista/campanha/transmissao — optionally `detalhe: 'retentando apos as outras bases'`
-  on the end-of-phase retry — then `ok`/`erro`/`pulado`). The UI parses those and leaves every other line
-  as free-form log, so adding a new step means emitting one more `progresso()` call.
+  on the end-of-phase retry — then `ok`/`erro`/`pulado`), and `tempo` (timing, emitted alongside every
+  existing `[tempo] ...` console.log — `escopo: base|fase|total`, `ms`, `duracao` already formatted by
+  `formatDuracao`; see `../.claude/skills/docs/references/contratos.md` for the field table). The UI
+  parses those and leaves every other line as free-form log, so adding a new step means emitting one
+  more `progresso()` call.
 - `logs/disparos.csv` — one row appended per base per run: date, target time, key, name, mode
   (agendado/imediato), execution timestamp, status (ok/erro/pulado), detail. Gitignored.
 

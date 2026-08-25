@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 import csv
+from datetime import date
 
 from openpyxl import Workbook
 
 from contatos import (
+    CSV_PARA_GRUPO,
     GROUP_ABW,
     GROUP_C,
     GROUP_CONTENCIOSO,
     GROUP_DEZ,
     GROUP_NA_RATING,
+    OUTPUT_FILES,
     Registro,
     aplicar_filtro,
     coletar_contatos,
+    escrever_filtro_removidos,
     ler_telefones_filtro,
     normalize_name,
     normalize_phone,
@@ -133,20 +137,52 @@ def test_aplicar_filtro_remove_por_telefone_em_qualquer_grupo():
         GROUP_C: [("11987654321", "Maria")],
     }
 
-    filtrados, removidos = aplicar_filtro(grupos, {"11912345678", "11987654321"})
+    filtrados, removidos_por_grupo = aplicar_filtro(grupos, {"11912345678", "11987654321"})
 
-    assert removidos == 2
     assert filtrados[GROUP_ABW] == [("11900000000", "Ana")]
     assert filtrados[GROUP_C] == []
+    assert removidos_por_grupo[GROUP_ABW] == [("11912345678", "Joao")]
+    assert removidos_por_grupo[GROUP_C] == [("11987654321", "Maria")]
+    assert sum(len(linhas) for linhas in removidos_por_grupo.values()) == 2
 
 
 def test_aplicar_filtro_sem_telefones_nao_mexe_nos_grupos():
     grupos = {GROUP_ABW: [("11912345678", "Joao")]}
 
-    filtrados, removidos = aplicar_filtro(grupos, set())
+    filtrados, removidos_por_grupo = aplicar_filtro(grupos, set())
 
-    assert removidos == 0
+    assert removidos_por_grupo == {}
     assert filtrados is grupos
+
+
+def test_escrever_filtro_removidos_grava_csv_com_grupo(tmp_path):
+    removidos_por_grupo = {
+        GROUP_ABW: [("11912345678", "Joao")],
+        GROUP_C: [("11987654321", "Maria")],
+    }
+
+    arquivo = escrever_filtro_removidos(tmp_path, date(2026, 8, 25), removidos_por_grupo)
+    linhas = list(csv.reader(arquivo.open(encoding="utf-8")))
+
+    assert arquivo.name == "filtro_removidos_20260825.csv"
+    assert linhas[0] == ["telefone", "nome", "grupo"]
+    assert ["11912345678", "Joao", GROUP_ABW] in linhas
+    assert ["11987654321", "Maria", GROUP_C] in linhas
+
+
+def test_escrever_filtro_removidos_nao_sobrescreve_mesmo_dia(tmp_path):
+    removidos_por_grupo = {GROUP_ABW: [("11912345678", "Joao")]}
+
+    primeiro = escrever_filtro_removidos(tmp_path, date(2026, 8, 25), removidos_por_grupo)
+    segundo = escrever_filtro_removidos(tmp_path, date(2026, 8, 25), removidos_por_grupo)
+
+    assert primeiro != segundo
+    assert primeiro.exists() and segundo.exists()
+
+
+def test_csv_para_grupo_cobre_todos_os_grupos():
+    assert set(CSV_PARA_GRUPO.values()) == set(OUTPUT_FILES.keys())
+    assert set(CSV_PARA_GRUPO.keys()) == set(OUTPUT_FILES.values())
 
 
 def test_ler_telefones_filtro_le_xlsx_sem_cabecalho_fixo(tmp_path):

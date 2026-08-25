@@ -11,6 +11,7 @@ import csv
 import shutil
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Iterable, NamedTuple
 
@@ -30,6 +31,10 @@ OUTPUT_FILES = {
     GROUP_NA_RATING: "amigavel_na_rating.csv",
     GROUP_CONTENCIOSO: "contencioso.csv",
 }
+
+# Caminho inverso, csv -> grupo. Usado pela tela pra ligar o dispatches.json
+# (que so conhece o nome do csv) de volta ao grupo, sem duplicar as chaves.
+CSV_PARA_GRUPO = {arquivo: grupo for grupo, arquivo in OUTPUT_FILES.items()}
 
 # O rating vem como "A", "B", "C", "D", "E" ou prefixado ("Z_REDUCAO",
 # "W_FPD_COM_PL", ...). A primeira letra define o grupo.
@@ -237,20 +242,54 @@ def ler_telefones_filtro(pasta: Path) -> set[str]:
 
 def aplicar_filtro(
     grupos: dict[str, list[tuple[str, str]]], telefones_filtro: set[str]
-) -> tuple[dict[str, list[tuple[str, str]]], int]:
-    """Remove das bases os telefones presentes no filtro. Devolve o total removido."""
-    if not telefones_filtro:
-        return grupos, 0
+) -> tuple[dict[str, list[tuple[str, str]]], dict[str, list[tuple[str, str]]]]:
+    """Remove das bases os telefones presentes no filtro.
 
-    removidos = 0
+    Devolve (grupos_filtrados, removidos_por_grupo) — removidos_por_grupo guarda
+    as linhas (telefone, nome) removidas de cada grupo, pra auditoria e pro
+    detalhamento na tela (antes so devolvia um total agregado).
+    """
+    if not telefones_filtro:
+        return grupos, {}
+
+    removidos_por_grupo: dict[str, list[tuple[str, str]]] = {}
     filtrados: dict[str, list[tuple[str, str]]] = {}
 
     for grupo, linhas in grupos.items():
         mantidos = [linha for linha in linhas if linha[0] not in telefones_filtro]
-        removidos += len(linhas) - len(mantidos)
+        removidos = [linha for linha in linhas if linha[0] in telefones_filtro]
+        if removidos:
+            removidos_por_grupo[grupo] = removidos
         filtrados[grupo] = mantidos
 
-    return filtrados, removidos
+    return filtrados, removidos_por_grupo
+
+
+def escrever_filtro_removidos(
+    pasta: Path, data_referencia: date, removidos_por_grupo: dict[str, list[tuple[str, str]]]
+) -> Path:
+    """Grava os numeros removidos pelo filtro manual, pra conferencia.
+
+    Mesmo padrao de nome incremental do gravar_relatorio (nao sobrescreve
+    rodadas do mesmo dia).
+    """
+    pasta.mkdir(parents=True, exist_ok=True)
+    nome = f"filtro_removidos_{data_referencia:%Y%m%d}"
+    arquivo = pasta / f"{nome}.csv"
+
+    contador = 1
+    while arquivo.exists():
+        contador += 1
+        arquivo = pasta / f"{nome}_{contador}.csv"
+
+    with arquivo.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["telefone", "nome", "grupo"])
+        for grupo, linhas in removidos_por_grupo.items():
+            for telefone, nome_contato in linhas:
+                writer.writerow([telefone, nome_contato, grupo])
+
+    return arquivo
 
 
 def clear_output_folder(output_dir: Path) -> None:
