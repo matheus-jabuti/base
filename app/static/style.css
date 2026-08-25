@@ -519,7 +519,6 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 }
 
 @keyframes entrar { from { opacity: 0; transform: translateX(14px); } }
-@media (prefers-reduced-motion: reduce) { .painel { animation: none; } .ponto-aba { animation: none; } }
 
 .painel-topo { display: grid; gap: 7px; padding: 16px 18px 14px; border-bottom: 1px solid var(--linha); }
 .painel-topo h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; text-transform: none; color: var(--texto); }
@@ -626,7 +625,29 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 .barra-execucao-texto span { font-size: 12px; color: var(--fraco); }
 
 .progresso-fita { height: 4px; background: var(--painel-2); border: 1px solid var(--linha); border-top: 0; border-radius: 0 0 var(--raio) var(--raio); overflow: hidden; margin-bottom: 14px; }
-.progresso-fita i { display: block; height: 100%; width: 0; background: var(--acento); transition: width .4s; }
+
+.progresso-fita i {
+  position: relative;
+  display: block;
+  height: 100%;
+  width: 0;
+  overflow: hidden;
+  background: var(--acento);
+  transition: width .6s cubic-bezier(.22, .61, .36, 1), background .3s;
+}
+
+/* Enquanto roda, uma luz varre a barra: mostra que a execucao esta viva mesmo
+   quando a porcentagem fica parada por um tempo. */
+.progresso-fita i.rodando::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+  animation: varrer 1.6s linear infinite;
+}
+
+@keyframes varrer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
 .progresso-fita i.ok { background: var(--ok); }
 .progresso-fita i.erro { background: var(--perigo); }
 
@@ -645,6 +666,7 @@ body.modo-producao .botao-principal { background: var(--perigo); }
   font-size: 11px;
   font-weight: 700;
   color: transparent;
+  transition: background .3s, border-color .3s, color .3s;
 }
 
 .trilha > li.rodando .bolha { border-color: var(--acento); border-top-color: transparent; animation: girar .8s linear infinite; }
@@ -656,10 +678,9 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 .trilha > li.cancelado .bolha { border-style: dashed; border-color: var(--alerta); }
 
 @keyframes girar { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .trilha > li.rodando .bolha { animation: none; } }
 
 .trilha .texto { display: grid; gap: 3px; min-width: 0; }
-.trilha .texto > strong { font-size: 13.5px; font-weight: 600; color: var(--fraco); }
+.trilha .texto > strong { font-size: 13.5px; font-weight: 600; color: var(--fraco); transition: color .3s; }
 .trilha > li.rodando .texto > strong, .trilha > li.ok .texto > strong, .trilha > li.erro .texto > strong { color: var(--texto); }
 .trilha .texto > em { font-style: normal; font-size: 12.5px; color: var(--fraco); }
 .trilha > li.erro .texto > em { color: var(--perigo); }
@@ -676,14 +697,42 @@ body.modo-producao .botao-principal { background: var(--perigo); }
   border: 1px solid var(--linha);
   border-radius: 9px;
   background: var(--painel-2);
+  transition: border-color .3s, background .3s, opacity .3s;
+  animation: surgir .32s ease-out backwards;
+  animation-delay: var(--atraso, 0ms);
+}
+
+@keyframes surgir { from { opacity: 0; transform: translateY(6px); } }
+
+/* A base que esta sendo processada respira: e o unico ponto da lista que muda
+   sozinho enquanto o dashboard nao responde. */
+.subbases li.rodando { border-color: var(--acento); animation: respirar 2.4s ease-in-out infinite; }
+
+@keyframes respirar {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 3px var(--acento-suave); }
 }
 
 .subbases .esquerda { display: grid; gap: 6px; min-width: 0; }
 .subbases .esquerda strong { font-size: 12.5px; font-weight: 600; }
 .subbases li.pulado { opacity: .6; }
-.subbases .situacao { font-family: var(--mono); font-size: 12px; color: var(--fraco); text-align: right; font-variant-numeric: tabular-nums; }
+
+.subbases .situacao {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fraco);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  transition: color .3s;
+}
+
+.subbases li.ok { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.subbases li.erro { border-color: color-mix(in srgb, var(--perigo) 45%, transparent); }
 .subbases li.ok .situacao { color: var(--ok); }
 .subbases li.erro .situacao { color: var(--perigo); }
+.subbases .situacao.trocou { animation: trocar .3s ease-out; }
+
+@keyframes trocar { from { opacity: 0; transform: translateY(3px); } }
 
 .etapas { display: flex; gap: 5px; flex-wrap: wrap; }
 
@@ -694,10 +743,25 @@ body.modo-producao .botao-principal { background: var(--perigo); }
   color: var(--fraco);
   font-family: var(--mono);
   font-size: 10.5px;
+  transition: background .3s, color .3s, border-color .3s;
 }
 
-.etapas span.ok { border-color: transparent; background: var(--ok-suave); color: var(--ok); }
-.etapas span.rodando { border-color: var(--acento); background: var(--acento-suave); color: var(--acento); }
+.etapas span.ok { border-color: transparent; background: var(--ok-suave); color: var(--ok); animation: encaixar .34s ease-out; }
+
+@keyframes encaixar {
+  0% { transform: scale(.92); }
+  55% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+
+.etapas span.rodando {
+  border-color: var(--acento);
+  background: var(--acento-suave);
+  color: var(--acento);
+  animation: piscando 1.6s ease-in-out infinite;
+}
+
+@keyframes piscando { 50% { opacity: .5; } }
 
 /* ---------------- resultado ---------------- */
 
@@ -710,6 +774,7 @@ body.modo-producao .botao-principal { background: var(--perigo); }
   border: 1px solid var(--linha-forte);
   border-radius: var(--raio);
   background: var(--painel);
+  animation: surgir .35s ease-out;
 }
 
 .resultado-icone { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 9px; background: var(--linha); color: var(--painel); font-size: 16px; font-weight: 700; }
@@ -887,6 +952,19 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 .filtro-numeros .tel { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .filtro-numeros .nome { color: var(--fraco); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filtro-numeros li.vazio { color: var(--fraco); }
+
+/* ---------------- movimento reduzido ---------------- */
+
+/* Quem pede menos movimento no sistema fica so com as trocas de cor: nenhum
+   loop, nenhuma entrada deslizando. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* ---------------- telas estreitas ---------------- */
 

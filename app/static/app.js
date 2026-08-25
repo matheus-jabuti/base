@@ -580,16 +580,26 @@ function iniciarCronometro() {
 function pintarProgresso(porcento, situacao) {
   const fita = $('progresso-fita');
   fita.style.width = `${Math.min(porcento, 100)}%`;
-  fita.className = situacao || '';
+  // Sem situacao final, a barra fica com o brilho que varre enquanto roda.
+  fita.className = situacao || (estado.rodando ? 'rodando' : '');
 }
+
+// O dispatch.js roda fase a fase (lista de todas, depois campanha, depois
+// transmissao), entao contar so base concluida deixaria a barra parada por
+// minutos. Cada base tambem rende fracao conforme a etapa em que esta.
+const PESO_ETAPA = { lista: 0.2, campanha: 0.55, transmissao: 0.85 };
 
 function calcularProgresso() {
   const bases = [...(estado.execucao?.bases.values() || [])];
   if (!bases.length) return 45;
 
-  const prontas = bases.filter((base) => base.status && base.status !== 'rodando').length;
+  const feito = bases.reduce((soma, base) => {
+    if (base.status && base.status !== 'rodando') return soma + 1;
+    if (base.status === 'rodando') return soma + (PESO_ETAPA[base.etapa] || 0.1);
+    return soma;
+  }, 0);
 
-  return 45 + (55 * prontas) / bases.length;
+  return 45 + (55 * feito) / bases.length;
 }
 
 function marcarPasso(id, status, detalhe) {
@@ -607,11 +617,13 @@ function desenharSubbases(bases) {
   const lista = $('subbases');
   lista.innerHTML = '';
 
-  for (const base of bases) {
+  bases.forEach((base, indice) => {
     estado.execucao.bases.set(base.key, { ...base, status: '', etapa: null, duracao: null, detalhe: '' });
 
     const item = document.createElement('li');
     item.dataset.key = base.key;
+    // As cinco linhas entram em cascata, nao todas de uma vez.
+    item.style.setProperty('--atraso', `${indice * 70}ms`);
     item.innerHTML = `
       <span class="esquerda">
         <strong></strong>
@@ -623,7 +635,7 @@ function desenharSubbases(bases) {
     lista.appendChild(item);
 
     pintarSubbase(base.key);
-  }
+  });
 }
 
 function pintarSubbase(key) {
@@ -649,12 +661,21 @@ function pintarSubbase(key) {
   }
 
   const situacao = item.querySelector('.situacao');
+  const anterior = situacao.textContent;
+
   if (estado.execucao.dryRun) situacao.textContent = dados.contatos ? 'prévia' : 'sem contatos';
   else if (dados.status === 'ok') situacao.textContent = `${dados.modoEnvio === 'agendado' ? 'agendado' : 'enviado'}${dados.duracao ? ` · ${dados.duracao}` : ''}`;
   else if (dados.status === 'erro') situacao.textContent = 'falhou';
   else if (dados.status === 'pulado') situacao.textContent = dados.detalhe || 'pulada';
   else if (dados.status === 'rodando') situacao.textContent = dados.detalhe || ROTULO_ETAPA[dados.etapa] || 'processando';
   else situacao.textContent = dados.contatos ? 'na fila' : 'sem contatos';
+
+  // Texto novo entra com um fade curto em vez de trocar seco.
+  if (anterior && anterior !== situacao.textContent) {
+    situacao.classList.remove('trocou');
+    void situacao.offsetWidth;
+    situacao.classList.add('trocou');
+  }
 }
 
 function atualizarSubbase({ key, status, etapa, detalhe, modo }) {
