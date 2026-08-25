@@ -525,6 +525,7 @@ function prepararExecucao(dryRun) {
 
   $('subbases').innerHTML = '';
   $('resultado').hidden = true;
+  $('resultado').className = 'resultado';
   $('cartao-porbase').hidden = true;
   $('porbase').innerHTML = '';
   $('cartao-arquivos').hidden = true;
@@ -533,10 +534,23 @@ function prepararExecucao(dryRun) {
   $('log').textContent = '';
   $('bloco-log').open = false;
 
-  $('cartao-metricas').hidden = true;
-  $('metricas').innerHTML = '';
   $('cartao-tempos').hidden = true;
   $('tempos-fase').innerHTML = '';
+
+  // Nada de coluna vazia esperando o primeiro evento: as bases ja conhecidas
+  // aparecem na fila, e as metricas entram como esqueleto ate chegar valor.
+  desenharSubbases(estado.bases.map((base) => ({
+    key: base.key,
+    nome: base.nome,
+    contatos: base.contatos,
+    template: templateEscolhido(base),
+  })));
+
+  if ($('gerar-base').checked) esqueletoMetricas();
+  else {
+    $('cartao-metricas').hidden = true;
+    $('metricas').innerHTML = '';
+  }
 
   $('btn-cancelar').hidden = false;
   $('btn-cancelar').disabled = false;
@@ -545,9 +559,22 @@ function prepararExecucao(dryRun) {
     ? 'Pré-visualização em andamento'
     : `Execução em andamento · ${estado.modo}`;
 
+  marcarPasso('vpn', 'rodando');
+  marcarPasso('base', '', $('gerar-base').checked ? 'aguarda a VPN responder' : 'vai reaproveitar os CSVs da pasta');
+  marcarPasso('disparo', '', dryRun ? 'não roda em pré-visualização' : 'aguarda a base ficar pronta');
+
   atualizarSubtitulo();
   pintarProgresso(2, '');
   iniciarCronometro();
+}
+
+// Enquanto a geracao nao emite a primeira metrica, o cartao mostra barras
+// cinzas no lugar de sumir da coluna.
+function esqueletoMetricas() {
+  $('cartao-metricas').hidden = false;
+  $('metricas').innerHTML = [72, 58, 80, 64, 70].map((largura) => `
+    <li class="esqueleto"><span style="width: ${largura}%"></span><span class="valor"></span></li>
+  `).join('');
 }
 
 function atualizarSubtitulo() {
@@ -602,11 +629,20 @@ function calcularProgresso() {
   return 45 + (55 * feito) / bases.length;
 }
 
+// O backend manda detalhe vazio ao entrar em 'rodando'; sem isso a linha ficaria
+// so com o titulo enquanto o passo demora.
+const ESPERA_PASSO = {
+  vpn: 'abrindo socket nos dois bancos...',
+  base: 'consultando os bancos e aplicando as regras...',
+  disparo: 'abrindo o dashboard...',
+};
+
 function marcarPasso(id, status, detalhe) {
   const item = document.querySelector(`.trilha > li[data-passo="${id}"]`);
   if (!item) return;
 
   item.className = status || '';
+  if (status === 'rodando' && !detalhe) detalhe = ESPERA_PASSO[id];
   if (detalhe !== undefined) item.querySelector('.texto > em').textContent = detalhe;
 
   if (id === 'vpn' && status === 'ok') pintarProgresso(15, '');
@@ -615,6 +651,9 @@ function marcarPasso(id, status, detalhe) {
 
 function desenharSubbases(bases) {
   const lista = $('subbases');
+  // O evento 'bases' redesenha a lista que ja estava na tela desde o inicio da
+  // execucao; so a primeira vez entra em cascata.
+  const primeira = !lista.childElementCount;
   lista.innerHTML = '';
 
   bases.forEach((base, indice) => {
@@ -623,7 +662,8 @@ function desenharSubbases(bases) {
     const item = document.createElement('li');
     item.dataset.key = base.key;
     // As cinco linhas entram em cascata, nao todas de uma vez.
-    item.style.setProperty('--atraso', `${indice * 70}ms`);
+    if (primeira) item.style.setProperty('--atraso', `${indice * 70}ms`);
+    else item.style.animation = 'none';
     item.innerHTML = `
       <span class="esquerda">
         <strong></strong>
@@ -695,6 +735,9 @@ function atualizarSubbase({ key, status, etapa, detalhe, modo }) {
 
 function atualizarMetrica({ chave, valor, rotulo: rotuloMetrica, por_grupo }) {
   $('cartao-metricas').hidden = false;
+
+  // Primeira metrica de verdade derruba o esqueleto.
+  if ($('metricas').querySelector('.esqueleto')) $('metricas').innerHTML = '';
 
   let item = document.querySelector(`#metricas li[data-chave="${chave}"]`);
   if (!item) {

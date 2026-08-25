@@ -806,6 +806,22 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 @keyframes piscar { from { background: var(--acento-suave); } }
 .metricas li.piscou { animation: piscar 1.1s ease-out; }
 
+/* ---------------- esqueleto ---------------- */
+
+.metricas li.esqueleto { align-items: center; }
+
+.esqueleto span {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--painel-2) 25%, var(--linha) 50%, var(--painel-2) 75%);
+  background-size: 220% 100%;
+  animation: cintilar 1.5s linear infinite;
+}
+
+.esqueleto .valor { width: 42px; flex: none; }
+
+@keyframes cintilar { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
 /* ---------------- tabelas ---------------- */
 
 .tabela-scroll { overflow-x: auto; }
@@ -955,8 +971,10 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 
 /* ---------------- movimento reduzido ---------------- */
 
-/* Quem pede menos movimento no sistema fica so com as trocas de cor: nenhum
-   loop, nenhuma entrada deslizando. */
+/* Quem pede menos movimento no sistema perde as entradas deslizando, os pulsos
+   e os pops. Os indicadores de "ainda estou trabalhando" continuam girando:
+   sao pequenos, ficam parados no lugar, e sem eles nao da pra saber se a
+   execucao travou. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;
@@ -964,6 +982,10 @@ body.modo-producao .botao-principal { background: var(--perigo); }
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .trilha > li.rodando .bolha { animation: girar 1.2s linear infinite !important; }
+  .esqueleto span { animation: cintilar 1.6s linear infinite !important; }
+  .progresso-fita i.rodando::after { animation: varrer 1.8s linear infinite !important; }
 }
 
 /* ---------------- telas estreitas ---------------- */
