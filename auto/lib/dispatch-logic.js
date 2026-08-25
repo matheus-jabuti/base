@@ -64,6 +64,17 @@ function decideMode(target, now, bufferMs = 2 * 60 * 1000) {
   return target.getTime() - now.getTime() > bufferMs ? 'agendado' : 'imediato';
 }
 
+function formatDuracao(ms) {
+  const totalSegundos = Math.round(ms / 1000);
+  const horas = Math.floor(totalSegundos / 3600);
+  const minutos = Math.floor((totalSegundos % 3600) / 60);
+  const segundos = totalSegundos % 60;
+
+  if (horas > 0) return `${horas}h${pad2(minutos)}m${pad2(segundos)}s`;
+  if (minutos > 0) return `${minutos}m${pad2(segundos)}s`;
+  return `${segundos}s`;
+}
+
 module.exports = {
   pad2,
   formatDateBR,
@@ -75,4 +86,5 @@ module.exports = {
   listOptionRegex,
   targetDateTime,
   decideMode,
+  formatDuracao,
 };

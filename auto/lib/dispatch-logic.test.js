@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, targetDateTime, decideMode, formatDateISO } = require('./dispatch-logic');
+const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, targetDateTime, decideMode, formatDateISO, formatDuracao } = require('./dispatch-logic');
 
 const { hh, mm } = parseHora('09:30');
 assert.strictEqual(hh, 9);
@@ -33,5 +33,10 @@ const target = targetDateTime(date, hh, mm);
 assert.strictEqual(decideMode(target, new Date(target.getTime() + 10 * 60 * 1000)), 'imediato');
 assert.strictEqual(decideMode(target, new Date(target.getTime() - 10 * 60 * 1000)), 'agendado');
 assert.strictEqual(decideMode(target, new Date(target.getTime() - 30 * 1000)), 'imediato'); // dentro do buffer
+
+assert.strictEqual(formatDuracao(400), '0s');
+assert.strictEqual(formatDuracao(45000), '45s');
+assert.strictEqual(formatDuracao(75000), '1m15s');
+assert.strictEqual(formatDuracao(3661000), '1h01m01s');
 
 console.log('dispatch-logic: OK');

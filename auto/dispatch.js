@@ -12,7 +12,13 @@ const {
   listOptionRegex,
   targetDateTime,
   decideMode,
+  formatDuracao,
 } = require('./lib/dispatch-logic');
+
+// Marca o inicio o mais cedo possivel, antes de qualquer I/O, pra o timer
+// total cobrir a execucao inteira mesmo se o processo morrer no meio (o
+// handler [FATAL] la embaixo usa a mesma referencia).
+const INICIO_EXECUCAO = Date.now();
 
 // Caminhos ancorados no arquivo, nao no cwd: a tela roda o dispatch como
 // subprocesso e o cwd nem sempre e auto/.
@@ -367,6 +373,7 @@ async function main() {
     // indexacao/lentidao da plataforma, sem sleep artificial. Falhou de novo, marca
     // como erro definitivo (loga, tira screenshot) e sai do jogo pras proximas fases.
     async function rodarFase(etapa, executar) {
+      const inicioFase = Date.now();
       const vivos = estados.filter((e) => !e.falhou);
       const falharam = [];
 
@@ -394,6 +401,8 @@ async function main() {
           console.error(`[ERRO] ${estado.nome}: ${err.message} (screenshot: ${shotPath})`);
         }
       }
+
+      console.log(`[tempo] etapa "${etapa}" levou ${formatDuracao(Date.now() - inicioFase)}`);
     }
 
     await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
@@ -413,6 +422,8 @@ async function main() {
     await browser.close();
   }
 
+  console.log(`[tempo] disparo completo em ${formatDuracao(Date.now() - INICIO_EXECUCAO)}`);
+
   // Os erros por base sao capturados fase a fase pra uma falha nao derrubar as
   // outras, mas o processo precisa sair diferente de zero pra tela saber que deu problema.
   if (erros) {
@@ -423,5 +434,6 @@ async function main() {
 
 main().catch((err) => {
   console.error(`[FATAL] ${err.message}`);
+  console.error(`[tempo] processo interrompido apos ${formatDuracao(Date.now() - INICIO_EXECUCAO)}`);
   process.exit(1);
 });
