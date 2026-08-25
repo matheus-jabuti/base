@@ -45,23 +45,29 @@ Mesmo em teste, lista, campanha e transmissão **são criadas de verdade** no da
 
 ## Rodada normal pela tela
 
-1. VPN ligada.
-2. `python -m app.server`, abrir `http://127.0.0.1:8000`.
-3. Ajustar o número do template de cada base (o prefixo é fixo; "Aplicar em todos" replica o número).
-4. Escolher o horário — a tela avisa se vai agendar ou enviar na hora.
-5. Conferir a faixa de modo (produção × teste) e disparar; há um `confirm()` com a contagem real.
-6. Acompanhar a trilha: VPN → base → disparo, com as cinco bases mostrando a etapa atual.
-7. Terminou: resultado no topo, log técnico recolhido embaixo, histórico atualizado.
+1. VPN ligada (o chip no topo confere sozinho ao abrir).
+2. `python -m app.server`, abrir `http://127.0.0.1:8000` — abre na aba **Preparar**.
+3. Ajustar o número do template (um por grupo: mexer numa amigável replica nas outras).
+4. Escolher o horário, pelos atalhos ou no relógio — a tela avisa se vai agendar ou enviar na hora.
+5. Conferir a faixa de modo (produção × teste) e clicar em **Revisar e disparar**: o painel mostra
+   bases, templates, horário resolvido e a checagem de VPN, período, filtro e bases vazias. Em
+   produção, o disparo exige segurar o botão por 1,5s.
+6. A aba **Monitorar** assume: VPN → base → disparo, com as cinco bases mostrando a etapa atual
+   (lista/campanha/transmissão), métricas da geração e tempo por fase na lateral.
+7. Terminou: a mesma aba vira o resultado — frase de fechamento, tabela por base e arquivos gerados.
+   O log técnico fica recolhido embaixo (abre sozinho em caso de erro) e a aba **Histórico** já mostra
+   as linhas novas.
 
-Em "Opções avançadas" dá para pular a geração (reaproveitando os CSVs já em `out/`), desligar o Excel
-de conferência e mudar o período.
+No cartão "Geração da base" dá para pular a geração (reaproveitando os CSVs já em `out/`), desligar o
+Excel de conferência, mudar o período e ver o filtro manual. **Pré-visualizar sem gravar** roda a
+geração inteira sem escrever CSV nem abrir o dashboard.
 
 ## Onde olhar quando falha
 
 | Sintoma | Onde |
 | --- | --- |
 | Falha por base, no dashboard | `auto/scripts/out/erro-<key>-<timestamp>.png` (screenshot da tela real) |
-| Histórico de execuções | `auto/logs/disparos.csv` (também na tela, últimas 10) |
+| Histórico de execuções | `auto/logs/disparos.csv` (também na aba Histórico, com busca e filtros) |
 | Conferência da base gerada | `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx`, abas Base/Interagiram/Novos/Disparo |
 
 ## Problemas conhecidos

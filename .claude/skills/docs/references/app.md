@@ -1,7 +1,7 @@
 # Tela (`app/`, FastAPI + JS sem build)
 
-Caminho normal de uso: um menu para escolher template e horário, um clique que encadeia VPN → geração
-→ disparo, e uma tela de progresso alimentada por SSE.
+Caminho normal de uso: três abas fixas (Preparar / Monitorar / Histórico), um painel de revisão antes
+do disparo, e o acompanhamento ao vivo alimentado por SSE — que, ao terminar, vira a tela de resultado.
 
 ```bash
 python -m app.server      # http://127.0.0.1:8000
@@ -89,41 +89,77 @@ essa escolha existe; a tela só manda o nome do modo.
 
 ## Front (`app/static/app.js`)
 
-- Duas views no mesmo documento (`view-menu` / `view-progresso`), alternadas por `trocarView`. Cada
-  view tem um wrapper `.colunas` (coluna principal + coluna lateral, grid a partir de 960px — abaixo
-  disso empilha) desde o container ir para 1280px.
+- **Três views no mesmo documento** (`view-preparar` / `view-monitorar` / `view-historico`), trocadas
+  por `irPara(aba)`, que sincroniza o `location.hash` (`#preparar`, `#monitorar`, `#historico`), marca
+  a aba ativa e recarrega o histórico ao entrar nele. `window.onhashchange` chama o mesmo `irPara`, e
+  o boot entra pela hash da URL. Preparar e Monitorar usam o wrapper `.colunas` (coluna principal +
+  lateral fixa de 300px, grid a partir de 980px — abaixo disso empilha).
+- **Contexto sempre visível**: barra superior fixa (`position: sticky`) com marca, abas, chip de VPN
+  (clicável, refaz a checagem), segmento de modo e alternador de tema; logo abaixo, a faixa de modo.
+  A aba Monitorar ganha um ponto pulsante (`#ponto-monitorar`) enquanto há execução rodando.
+- **Tema**: claro por padrão, escuro por `prefers-color-scheme`, e `data-tema` no `<html>` quando o
+  usuário escolhe explicitamente (`alternarTema` cicla claro → escuro → sistema, guardado em
+  `localStorage`). Toda cor sai de token em `:root`; nenhuma cor é definida só dentro do media query.
+  `[hidden] { display: none !important; }` é obrigatório: vários blocos têm `display` próprio
+  (grid/flex) e ganhariam do `[hidden]` do navegador.
+- Uma linha por base em Preparar, com barra de volume proporcional ao maior CSV e o rótulo
+  `contatos` / `CSV vazio` / `sem CSV`. Base vazia continua listada (o `dispatch.js` espera os cinco
+  arquivos).
 - O stepper de template edita só o número; o prefixo vem do servidor e vai de volta intacto.
-- **Um stepper por grupo** (`agruparBases()` + mapa `GRUPOS`), não por base: as quatro amigáveis
-  compartilham o número, o contencioso tem o dele. A linha mostra o total do grupo (detalhe por base
-  no `title` do badge) e os prefixos distintos. `lerTemplates()` reexpande para uma entrada por base
-  antes do `PUT`, repetindo o número do grupo e mandando o prefixo de cada uma.
-- Antes de disparar: `PUT /api/templates` e um `confirm()` que diz quantos contatos **reais** vão sair
-  e se vai agendar ou enviar agora (mensagem diferente em pré-visualização, ver abaixo).
-- `disparar({dryRun})` monta a querystring de `/api/executar` com `dry_run`; o botão "Pré-visualizar"
-  chama com `dryRun: true`, o "Disparar" sem.
+- **Um número por grupo** (`grupoDaBase()` + mapa `GRUPOS`), mesmo com uma linha por base: mexer no
+  stepper (ou digitar no campo) de uma amigável replica nas outras do grupo; o contencioso tem o dele.
+  `lerTemplates()` monta uma entrada por base antes do `PUT`, repetindo o número do grupo e mandando o
+  prefixo de cada uma.
+- **Painel de revisão** (`#painel-revisao`) no lugar do `confirm()` do navegador: `abrirRevisao(dryRun)`
+  monta o modo, o título com o total, o horário resolvido (agendado/imediato), a mini-tabela
+  base · template · contatos e a checklist de `montarChecklist()` — VPN, período da geração (ou aviso
+  de que está reaproveitando CSVs), telefones do filtro manual, bases vazias e o aviso de que o
+  agendamento só é desfeito no dashboard. Nenhuma verificação nova: tudo vem do que já está em memória
+  (`estado.vpn`, `estado.filtro`, `estado.bases`).
+- **Segurar para disparar**: em produção (e fora do dry-run), `#btn-confirmar` só confirma depois de
+  `SEGURAR_MS` (1500ms) de `pointerdown`/`keydown` — `iniciarSegurar` anima a fita e agenda
+  `confirmarRevisao`; soltar, sair do botão ou `Escape` chama `abortarSegurar`. Em teste e em
+  pré-visualização o mesmo botão vira um clique só (classe `.simples`).
+- `executar(dryRun)` faz o `PUT /api/templates` e monta a querystring de `/api/executar` com `dry_run`;
+  "Pré-visualizar sem gravar" chama com `true`, "Revisar e disparar" com `false`.
 - `EventSource` em `/api/executar`; o `onmessage` roteia por `tipo`: `passo` → trilha, `bases` →
-  desenha as cinco linhas, `metrica` → `atualizarMetrica` (cards da coluna lateral, ver
-  `contratos.md`), `etapa` (`base`/`login`/`plano`/`tempo`) → estado por base ou `atualizarTempo`,
-  `log`/`erro` → log técnico, `fim` → `encerrar(status)` e recarrega o histórico. `status` de `fim` não
-  é mais booleano: é `ok`/`erro`/`cancelado`/`pre-visualizacao`, cada um com texto e cor próprios
-  (`TEXTOS_RESULTADO`).
+  `desenharSubbases` (também popula `estado.execucao.bases`), `metrica` → `atualizarMetrica` (cards da
+  coluna lateral, ver `contratos.md`), `etapa` (`base`/`login`/`plano`/`tempo`) → estado por base ou
+  `atualizarTempo`, `log`/`erro` → log técnico, `fim` → `encerrar(status)`. `status` de `fim` é
+  `ok`/`erro`/`cancelado`/`pre-visualizacao`, cada um com texto, ícone e cor próprios.
+- **Estado da execução** vive em `estado.execucao` (início, hora, modo, dryRun, `bases` como `Map`,
+  métricas de filtro, tempo total). É o que permite sair da aba e voltar sem perder nada, e é a fonte
+  da tela de resultado.
+- **Etapas por base**: cada `<li>` das sub-bases mostra os chips `lista`/`campanha`/`transmissao`
+  (`pintarSubbase`) — os anteriores à etapa atual ficam `ok`, o atual `rodando`. Base sem contatos
+  mostra `CSV vazio`; em dry-run os chips somem e a situação vira `prévia`.
+- **Cronômetro e fita de progresso**: `iniciarCronometro()` conta o tempo decorrido de segundo em
+  segundo; `calcularProgresso()` vai de 15% (VPN) a 45% (base gerada) e daí proporcional às bases já
+  concluídas.
+- **Resultado** (`desenharResultado` / `desenharPorBase` / `desenharArquivos`): frase de fechamento com
+  quantas bases foram agendadas ou enviadas, tabela por base (template, contatos, tempo, status) e os
+  arquivos da execução — link pra `/api/filtro/ultimo-removido` quando a métrica `filtro` veio > 0,
+  relatório e contagem de linhas do log.
 - **Cancelar**: `#btn-cancelar` (visível só durante uma execução) chama `POST /api/cancelar` depois de
   um `confirm()` avisando que listas/campanhas já criadas podem ficar sem transmissão correspondente.
-- **Filtro manual**: `#bloco-filtro` chama `GET /api/filtro` (`carregarFiltro`) ao expandir, mostrando
-  arquivos e contagem de `filtros/` antes de rodar. Se a métrica `filtro` (evento `metrica`) veio com
-  valor > 0 numa execução, `encerrar()` mostra um link de download pra
-  `/api/filtro/ultimo-removido`.
+- **Filtro manual**: `carregarFiltro()` roda no boot (`GET /api/filtro`) e alimenta tanto o resumo
+  lateral quanto a checklist da revisão; o chip "Filtro manual" abre o modal com os números.
 - `agendado()` espelha o `decideMode` do `dispatch.js` (buffer de 2min) **apenas para avisar**; quem
   decide é o `dispatch.js`. Se o buffer mudar lá, mude aqui junto.
 - Horário inicial: agora + 15 minutos. Período inicial: `/api/periodo-padrao`.
 - Modo teste troca a faixa de aviso e recarrega as contagens da outra pasta.
-- **Histórico**: `#historico-busca` (debounce 250ms) e `#historico-status` recarregam
-  `carregarHistorico()` passando `busca`/`status` pra `/api/historico`.
-- **Faixa de VPN** (`#faixa-vpn`, acima da faixa de modo): `verificarVpn()` roda no boot e chama
+- **Histórico** (aba própria, não mais modal): `#historico-busca` (debounce 250ms), `#historico-status`,
+  `#historico-modo` e `#historico-limite` recarregam `carregarHistorico()`, que passa
+  `busca`/`status`/`modo`/`limite` pra `/api/historico` e conta linhas/ok/erro no topo. `modo` aqui é
+  `agendado`/`imediato` (o que o `dispatch.js` grava), não produção/teste. `nomeDaBase()` tira o
+  sufixo `- dd/mm/aaaa - HHhMM` do nome da campanha e `horaCurta()` reduz o ISO de `hora_execucao` ao
+  relógio local.
+- **Chip de VPN** (`#chip-vpn`, na barra do topo): `verificarVpn()` roda no boot e chama
   `GET /api/vpn` até `VPN_TENTATIVAS` (3) vezes, com `VPN_ESPERA_MS` (1500ms) entre elas, **parando na
   primeira que responder `ok`** — quem conecta de primeira vê o verde direto. Esgotadas as tentativas,
-  a faixa fica vermelha com o motivo por banco e o botão "Verificar de novo", que repete o ciclo. É só
-  aviso: o bloqueio de verdade continua sendo o passo `vpn` do `executar()`, no backend.
+  o chip fica vermelho com o motivo por banco e clicar nele repete o ciclo. O resultado fica em
+  `estado.vpn` e alimenta a checklist da revisão. É só aviso: o bloqueio de verdade continua sendo o
+  passo `vpn` do `executar()`, no backend.
 
 ## Ao mexer aqui
 
@@ -131,3 +167,8 @@ essa escolha existe; a tela só manda o nome do modo.
   `app.js`; o contrato está em `contratos.md`.
 - Mantenha `server.py` sem regra de negócio. Se precisar de lógica, ela vai para `passos.py`.
 - Não reimplemente em JS nada que o backend já calcula, com a exceção consciente do `agendado()`.
+- Cor semântica não se mistura com acento: vermelho só onde há consequência imediata (faixa de
+  produção, painel de confirmação, botão de segurar, status de erro), acento só para o que é
+  interativo. Status nunca é só cor — sempre tem rótulo escrito.
+- Bloco novo com `display` próprio precisa continuar respeitando `[hidden]` (a regra global já cobre,
+  não a remova).

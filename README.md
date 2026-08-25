@@ -32,27 +32,44 @@ cd auto && npm test   # regras de auto/lib/dispatch-logic.js
 python -m app.server
 ```
 
-Abre em <http://127.0.0.1:8000>. Sao duas telas:
+Abre em <http://127.0.0.1:8000>. Sao tres abas fixas no topo — **Preparar**,
+**Monitorar** e **Historico** —, cada uma com endereco proprio (`#preparar`,
+`#monitorar`, `#historico`). O modo (producao/teste) e o estado da VPN ficam
+sempre visiveis na barra do topo, em qualquer aba.
 
-**Menu.** Escolhe o numero do template de dois grupos — Amigavel (as quatro
-bases amigaveis usam sempre o mesmo numero) e Contencioso (tem o proprio) —,
-escolhe o horario e clica em Disparar. O prefixo fica fixo, so o numero muda de
-rodada pra rodada. Uma faixa no topo confere a VPN assim que a tela abre, com
-ate 3 tentativas.
+**Preparar.** Uma linha por base, com o volume de contatos em barra, e o numero
+do template por grupo — Amigavel (as quatro bases amigaveis usam sempre o mesmo
+numero) e Contencioso (tem o proprio). O prefixo fica fixo, so o numero muda de
+rodada pra rodada. Abaixo, o horario (com atalhos: agora, +15min, +30min,
++60min) e as opcoes de geracao: pular a geracao reaproveitando os CSVs que ja
+estao em `out/`, desligar o relatorio Excel, mudar o periodo e ver os arquivos e
+telefones do filtro manual em `filtros/`. A coluna da direita resume o que vai
+sair — total de contatos, modo, horario, templates, filtro, ultima execucao.
 
-**Progresso.** Depois do clique a tela vira acompanhamento: VPN, geracao da
-base e disparo, com as cinco bases mostrando em qual etapa cada uma esta
-(criando lista, criando campanha, criando transmissao) e o que deu certo ou
-errado no fim. Uma coluna lateral mostra metricas ao vivo (conversas no
-periodo, elegiveis, filtro removido etc.) conforme a geracao avanca, e o
-tempo de cada fase do disparo. O log tecnico completo fica recolhido embaixo.
-Um botao **Cancelar execucao** interrompe uma rodada em andamento (o disparo
-para na hora; a geracao da base para no proximo ponto de checagem, nao
-instantaneamente).
+**Revisao.** O botao **Revisar e disparar** nao dispara: abre um painel com a
+lista de bases e templates, o horario resolvido (agendado ou imediato) e uma
+checagem do que da pra checar antes (VPN, periodo, filtro manual, bases vazias).
+Em producao o disparo exige **segurar o botao por 1,5s**; em teste e na
+pre-visualizacao e um clique so.
 
-O botao **Pre-visualizar** roda a geracao da base ate o fim — incluindo o
-filtro manual — sem gravar nenhum CSV nem disparar nada, so pra ver quantos
-contatos sairiam em cada base antes de confirmar de verdade.
+**Monitorar.** Acompanhamento ao vivo: VPN, geracao da base e disparo, com as
+cinco bases mostrando em qual etapa cada uma esta (lista, campanha,
+transmissao). A coluna lateral mostra as metricas da geracao (conversas no
+periodo, elegiveis, filtro removido etc.) e o tempo de cada fase. Um botao
+**Cancelar execucao** interrompe uma rodada em andamento (o disparo para na
+hora; a geracao da base para no proximo ponto de checagem, nao
+instantaneamente). Ao terminar, a mesma aba vira o resultado: o que foi
+agendado ou enviado, tabela por base com contatos, tempo e status, e os
+arquivos gerados (CSV de removidos pelo filtro, relatorio, log tecnico).
+
+O botao **Pre-visualizar sem gravar** roda a geracao da base ate o fim —
+incluindo o filtro manual — sem gravar nenhum CSV nem disparar nada, so pra ver
+quantos contatos sairiam em cada base antes de confirmar de verdade.
+
+**Historico.** Uma linha por base disparada, direto de `auto/logs/disparos.csv`,
+com busca por base, filtro por status (ok/erro/pulado), por tipo de envio
+(agendado/imediato) e por quantidade. O motivo do erro aparece na propria
+tabela.
 
 O horario vale para tudo: entra no nome das campanhas e na hora do agendamento.
 Acima de ~2min de folga a transmissao e agendada; abaixo disso a plataforma
@@ -62,11 +79,8 @@ O **modo teste** troca a origem dos CSVs de `out/` para `auto/bases/`, que tem
 um contato so por base — serve pra exercitar a automacao do dashboard sem
 mandar mensagem pra cliente.
 
-Em **Opcoes avancadas** da pra pular a geracao da base (reaproveitando os CSVs
-que ja estao em `out/`), desligar o relatorio Excel e mudar o periodo. O card
-**Filtro manual** mostra os arquivos e a contagem de telefones em `filtros/`
-antes de rodar. O card **Ultimos disparos** tem busca por base e filtro por
-status.
+A tela segue o tema do sistema (claro ou escuro); o botao no canto direito da
+barra alterna entre claro, escuro e o padrao do sistema.
 
 ## Gerar a base direto do banco (linha de comando)
 

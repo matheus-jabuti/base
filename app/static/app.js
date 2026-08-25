@@ -4,28 +4,35 @@ const estado = {
   bases: [],
   modo: 'producao',
   rodando: false,
-  tempoTotal: null,
-  filtroRemovidos: 0,
-  filtroNumeros: [],
+  aba: 'preparar',
+  vpn: null,
+  filtro: { telefones: 0, arquivos: [], numeros: [] },
+  ultimaExecucao: null,
+  execucao: null,
 };
 
 // A VPN as vezes demora a subir; tenta de novo antes de acusar erro.
 const VPN_TENTATIVAS = 3;
 const VPN_ESPERA_MS = 1500;
 
+// Tempo que o botao de producao precisa ficar pressionado pra disparar.
+const SEGURAR_MS = 1500;
+
 const GRUPOS = {
   amigavel: 'Amigável',
   contencioso: 'Contencioso',
 };
 
-const ETAPAS = {
+const ETAPAS = ['lista', 'campanha', 'transmissao'];
+
+const ROTULO_ETAPA = {
   lista: 'criando lista',
   campanha: 'criando campanha',
   transmissao: 'criando transmissão',
 };
 
 const total = () => estado.bases.reduce((soma, base) => soma + base.contatos, 0);
-const numero = (valor) => valor.toLocaleString('pt-BR');
+const numero = (valor) => Number(valor || 0).toLocaleString('pt-BR');
 const plural = (qtd, um, muitos) => `${numero(qtd)} ${qtd === 1 ? um : muitos}`;
 
 function debounce(fn, ms) {
@@ -38,18 +45,59 @@ function debounce(fn, ms) {
 
 // "Disparo amigavel A/B/W" -> "Amigavel A/B/W": o prefixo e o mesmo nos cinco.
 const rotulo = (nome) => {
-  const curto = nome.replace(/^Disparo /, '');
+  const curto = String(nome || '').replace(/^Disparo /, '');
   return curto.charAt(0).toUpperCase() + curto.slice(1);
 };
 
+const grupoDaBase = (base) => base.grupo || base.key.split('_')[0];
+
+/* ------------------------------------------------ tema */
+
+function aplicarTema(tema) {
+  if (tema) document.documentElement.dataset.tema = tema;
+  else delete document.documentElement.dataset.tema;
+}
+
+function alternarTema() {
+  const atual = document.documentElement.dataset.tema;
+  const proximo = atual === 'claro' ? 'escuro' : atual === 'escuro' ? '' : 'claro';
+
+  aplicarTema(proximo);
+  if (proximo) localStorage.setItem('tema', proximo);
+  else localStorage.removeItem('tema');
+
+  $('btn-tema').title = proximo ? `Tema ${proximo}` : 'Tema do sistema';
+}
+
+/* ------------------------------------------------ abas */
+
+function irPara(aba) {
+  if (!['preparar', 'monitorar', 'historico'].includes(aba)) aba = 'preparar';
+  estado.aba = aba;
+
+  for (const botao of document.querySelectorAll('.aba')) {
+    const ativa = botao.dataset.aba === aba;
+    botao.classList.toggle('ativa', ativa);
+    if (ativa) botao.setAttribute('aria-current', 'page');
+    else botao.removeAttribute('aria-current');
+  }
+
+  $('view-preparar').hidden = aba !== 'preparar';
+  $('view-monitorar').hidden = aba !== 'monitorar';
+  $('view-historico').hidden = aba !== 'historico';
+
+  if (location.hash !== `#${aba}`) location.hash = aba;
+  if (aba === 'historico') carregarHistorico();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 /* ------------------------------------------------ vpn */
 
-function pintarVpn(situacao, texto, comBotao) {
-  const faixa = $('faixa-vpn');
-  faixa.hidden = false;
-  faixa.className = `faixa vpn ${situacao}`;
-  $('vpn-texto').textContent = texto;
-  $('btn-vpn').hidden = !comBotao;
+function pintarVpn(situacao, texto) {
+  const chip = $('chip-vpn');
+  chip.className = `pilula-vpn ${situacao}`;
+  $('chip-vpn-texto').textContent = texto;
+  chip.title = situacao === 'erro' ? texto : 'Conferir a VPN de novo';
 }
 
 // Confere a VPN ao abrir a tela: ate 3 tentativas, parando na primeira que der certo.
@@ -57,13 +105,14 @@ async function verificarVpn() {
   let motivo = '';
 
   for (let tentativa = 1; tentativa <= VPN_TENTATIVAS; tentativa++) {
-    pintarVpn('checando', `Conferindo a VPN — tentativa ${tentativa} de ${VPN_TENTATIVAS}...`, false);
+    pintarVpn('checando', `Conferindo a VPN — ${tentativa}/${VPN_TENTATIVAS}...`);
 
     try {
       const resposta = await fetch('/api/vpn').then((r) => r.json());
 
       if (resposta.ok) {
-        pintarVpn('ok', `VPN conectada — ${plural(resposta.conexoes.length, 'banco respondendo', 'bancos respondendo')}.`, false);
+        estado.vpn = { ok: true, detalhe: plural(resposta.conexoes.length, 'banco respondendo', 'bancos respondendo') };
+        pintarVpn('ok', `VPN · ${estado.vpn.detalhe}`);
         return true;
       }
 
@@ -75,15 +124,16 @@ async function verificarVpn() {
     if (tentativa < VPN_TENTATIVAS) await new Promise((pronto) => setTimeout(pronto, VPN_ESPERA_MS));
   }
 
-  pintarVpn('erro', `VPN fora do ar depois de ${VPN_TENTATIVAS} tentativas. Conecte a VPN da empresa antes de disparar. ${motivo}`, true);
+  estado.vpn = { ok: false, detalhe: motivo };
+  pintarVpn('erro', `VPN fora do ar — ${motivo}`);
   return false;
 }
 
-/* ------------------------------------------------ menu */
+/* ------------------------------------------------ preparar: bases */
 
 async function carregarBases() {
   estado.bases = await fetch(`/api/bases?modo=${estado.modo}`).then((r) => r.json());
-  desenharTipos();
+  desenharBases();
 }
 
 // As bases do mesmo grupo sempre saem com o mesmo numero de template, entao a
@@ -92,8 +142,7 @@ function agruparBases() {
   const grupos = [];
 
   for (const base of estado.bases) {
-    // Sem o campo grupo (servidor antigo), o prefixo da key ja separa amigavel de contencioso.
-    const chave = base.grupo || base.key.split('_')[0];
+    const chave = grupoDaBase(base);
     let grupo = grupos.find((item) => item.grupo === chave);
 
     if (!grupo) {
@@ -107,54 +156,71 @@ function agruparBases() {
   return grupos;
 }
 
-function desenharTipos() {
-  const lista = $('tipos');
+function desenharBases() {
+  const lista = $('bases');
   lista.innerHTML = '';
 
-  for (const grupo of agruparBases()) {
-    const contatos = grupo.bases.reduce((soma, base) => soma + base.contatos, 0);
-    const prefixos = [...new Set(grupo.bases.map((base) => base.template.replace(/_\d{1,3}$/, '')))];
-    const num = grupo.bases[0].template.match(/_(\d{1,3})$/)?.[1] || '';
+  const maior = Math.max(...estado.bases.map((base) => base.contatos), 1);
 
+  for (const base of estado.bases) {
     const item = document.createElement('li');
     item.innerHTML = `
-      <div class="tipo-nome">
+      <div class="nome">
         <strong></strong>
         <em></em>
+        <div class="volume"><i></i></div>
       </div>
-      <span class="contagem${contatos ? '' : ' zero'}"></span>
+      <div class="contagem"><span></span><small></small></div>
       <div class="stepper">
         <button type="button" data-passo="-1" aria-label="Diminuir">−</button>
-        <input type="text" inputmode="numeric" maxlength="3" data-grupo="${grupo.grupo}" aria-label="Número do template">
+        <input type="text" inputmode="numeric" maxlength="3" aria-label="Número do template">
         <button type="button" data-passo="1" aria-label="Aumentar">+</button>
       </div>
     `;
 
-    item.querySelector('strong').textContent = grupo.rotulo;
-    item.querySelector('em').textContent = prefixos.join(' · ');
+    item.querySelector('strong').textContent = rotulo(base.nome);
+    item.querySelector('em').textContent = base.template.replace(/_\d{1,3}$/, '_');
+
+    const barra = item.querySelector('.volume i');
+    barra.style.width = `${Math.max((base.contatos / maior) * 100, base.contatos ? 4 : 2)}%`;
+    barra.classList.toggle('vazio', !base.contatos);
 
     const contagem = item.querySelector('.contagem');
-    contagem.textContent = grupo.bases.some((base) => base.existe) ? plural(contatos, 'contato', 'contatos') : 'sem CSV';
-    contagem.title = grupo.bases.map((base) => `${rotulo(base.nome)}: ${numero(base.contatos)}`).join('\n');
+    contagem.classList.toggle('zero', !base.contatos);
+    contagem.querySelector('span').textContent = numero(base.contatos);
+    contagem.querySelector('small').textContent = base.contatos ? 'contatos' : base.existe ? 'CSV vazio' : 'sem CSV';
 
     const campo = item.querySelector('input');
-    campo.value = num;
+    campo.dataset.grupo = grupoDaBase(base);
+    campo.value = base.template.match(/_(\d{1,3})$/)?.[1] || '';
 
-    const max = grupo.grupo === 'contencioso' ? 10 : 7;
+    const max = grupoDaBase(base) === 'contencioso' ? 10 : 7;
 
     for (const botao of item.querySelectorAll('.stepper button')) {
       botao.onclick = () => {
         let atual = Number(campo.value || 0) + Number(botao.dataset.passo);
         if (atual > max) atual = 1;
         if (atual < 1) atual = max;
-        campo.value = String(atual).padStart(2, '0');
+        // Bases do mesmo grupo compartilham o numero: mexe em todas de uma vez.
+        for (const irmao of document.querySelectorAll(`.stepper input[data-grupo="${campo.dataset.grupo}"]`)) {
+          irmao.value = String(atual).padStart(2, '0');
+        }
+        atualizarResumo();
       };
     }
+
+    campo.oninput = () => {
+      for (const irmao of document.querySelectorAll(`.stepper input[data-grupo="${campo.dataset.grupo}"]`)) {
+        if (irmao !== campo) irmao.value = campo.value;
+      }
+      atualizarResumo();
+    };
 
     lista.appendChild(item);
   }
 
-  atualizarLancamento();
+  $('dica-bases').textContent = `um número de template por grupo · ${agruparBases().length} grupos`;
+  atualizarResumo();
 }
 
 function lerTemplates() {
@@ -167,36 +233,92 @@ function lerTemplates() {
   return estado.bases.map((base) => ({
     key: base.key,
     template_prefix: base.template.replace(/_\d{1,3}$/, ''),
-    template_numero: numeros[base.grupo || base.key.split('_')[0]] || '',
+    template_numero: numeros[grupoDaBase(base)] || '',
   }));
 }
 
-// Espelha o decideMode do dispatch.js: com mais de ~2min de folga o disparo é
+function templateEscolhido(base) {
+  const campo = document.querySelector(`.stepper input[data-grupo="${grupoDaBase(base)}"]`);
+  const prefixo = base.template.replace(/_\d{1,3}$/, '');
+
+  return `${prefixo}_${(campo?.value || '').padStart(2, '0')}`;
+}
+
+/* ------------------------------------------------ preparar: horario */
+
+// Espelha o decideMode do dispatch.js: com mais de ~2min de folga o disparo e
 // agendado; abaixo disso a plataforma manda na hora.
 function agendado() {
+  if (!$('hora').value) return null;
+
+  return alvoEmMinutos() > 2;
+}
+
+function alvoEmMinutos() {
   const [hh, mm] = ($('hora').value || '').split(':').map(Number);
-  if (Number.isNaN(hh)) return null;
+  if (Number.isNaN(hh)) return 0;
 
   const alvo = new Date();
   alvo.setHours(hh, mm, 0, 0);
 
-  return alvo.getTime() - Date.now() > 2 * 60 * 1000;
+  return Math.round((alvo.getTime() - Date.now()) / 60000);
 }
 
-function atualizarLancamento() {
+function textoRelativo() {
+  const minutos = alvoEmMinutos();
+
+  if (minutos < -1) return `horário já passou hoje (${-minutos} min atrás)`;
+  if (minutos <= 2) return 'envio imediato ao terminar a geração';
+  if (minutos < 60) return `hoje, daqui a ${minutos} minutos`;
+
+  return `hoje, daqui a ${Math.floor(minutos / 60)}h${String(minutos % 60).padStart(2, '0')}`;
+}
+
+function definirHora(data) {
+  $('hora').value = `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`;
+  atualizarResumo();
+}
+
+/* ------------------------------------------------ preparar: resumo */
+
+function atualizarResumo() {
   const contatos = total();
+  const cheias = estado.bases.filter((base) => base.contatos).length;
   const agenda = agendado();
 
-  const modoHora = $('hora-modo');
-  modoHora.textContent = agenda === null ? '' : agenda ? 'agendado' : 'envio imediato';
-  modoHora.classList.toggle('imediato', agenda === false);
+  const pilula = $('hora-modo');
+  pilula.textContent = agenda === null ? '—' : agenda ? 'agendado' : 'envio imediato';
+  pilula.className = `pilula ${agenda === null ? '' : agenda ? 'agendado' : 'imediato'}`;
 
-  const semContatos = estado.rodando || !contatos || !$('hora').value;
-  $('btn-disparar').disabled = semContatos;
+  $('hora-relativa').textContent = textoRelativo();
+  $('hora-data').textContent = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
-  const cheias = estado.bases.filter((base) => base.contatos).length;
-  $('btn-disparar-nota').textContent = contatos
-    ? `${plural(contatos, 'contato', 'contatos')} em ${plural(cheias, 'base', 'bases')}`
+  $('resumo-contatos').textContent = numero(contatos);
+  const vazias = estado.bases.length - cheias;
+  $('resumo-bases').textContent = contatos
+    ? `contatos em ${plural(cheias, 'base', 'bases')}${vazias ? ` · ${plural(vazias, 'base vazia', 'bases vazias')}` : ''}`
+    : 'nenhum contato nos CSVs atuais';
+
+  const numeros = [...new Set([...document.querySelectorAll('.stepper input')].map((campo) => campo.value))];
+
+  const linhas = [
+    ['Modo', estado.modo === 'producao' ? 'produção' : 'teste', estado.modo === 'producao'],
+    ['Horário', `${$('hora').value || '--:--'} · ${agenda === null ? '—' : agenda ? 'agendado' : 'imediato'}`, false],
+    ['Templates', numeros.join(' / ') || '—', false],
+    ['Filtro manual', estado.filtro.telefones ? `${numero(estado.filtro.telefones)} números` : 'vazio', false],
+    ['Última execução', estado.ultimaExecucao || '—', false],
+  ];
+
+  $('resumo-lista').innerHTML = linhas
+    .map(([rot, valor, destaque]) => `<div><dt>${rot}</dt><dd class="${destaque ? 'destaque' : ''}">${valor}</dd></div>`)
+    .join('');
+
+  const impedido = estado.rodando || !contatos || !$('hora').value;
+  $('btn-revisar').disabled = impedido;
+  $('btn-previa').disabled = estado.rodando || !$('gerar-base').checked;
+
+  $('btn-revisar-nota').textContent = contatos
+    ? `${plural(cheias, 'base', 'bases')} · ${plural(contatos, 'contato', 'contatos')}`
     : 'nenhum contato nos CSVs atuais';
 }
 
@@ -209,10 +331,10 @@ function trocarModo(modo) {
   }
 
   const faixa = $('faixa-modo');
-  faixa.className = `faixa ${modo}`;
-  faixa.textContent = modo === 'teste'
-    ? 'Modo teste — dispara as bases de 1 contato em auto/bases/. Nada chega a cliente real.'
-    : 'Modo produção — as mensagens vão para os clientes reais da base gerada.';
+  faixa.className = `faixa-modo ${modo}`;
+  faixa.innerHTML = modo === 'teste'
+    ? '<strong>Modo teste.</strong> Dispara as bases de 1 contato em auto/bases/ — nada chega a cliente real.<span class="complemento">Para valer, troque para Produção.</span>'
+    : '<strong>Modo produção.</strong> As mensagens vão para os clientes reais da base gerada.<span class="complemento">Para ensaiar, troque para Teste — 1 contato por base.</span>';
 
   carregarBases();
 }
@@ -223,16 +345,13 @@ async function carregarFiltro() {
   const dados = await fetch('/api/filtro').then((r) => r.json()).catch(() => null);
   if (!dados) return;
 
-  estado.filtroNumeros = dados.numeros || [];
+  estado.filtro = dados;
 
-  $('filtro-contagem').textContent = dados.telefones
-    ? plural(dados.telefones, 'telefone único no filtro', 'telefones únicos no filtro')
-    : 'Nenhum telefone no filtro.';
+  $('filtro-resumo').textContent = dados.telefones
+    ? `${plural(dados.arquivos.length, 'arquivo', 'arquivos')} · ${numero(dados.telefones)} telefones`
+    : 'nenhum arquivo em filtros/';
 
-  const lista = $('filtro-arquivos');
-  lista.innerHTML = dados.arquivos.length
-    ? dados.arquivos.map((arquivo) => `<li>${arquivo.nome}</li>`).join('')
-    : '<li class="vazio">Nenhum arquivo em filtros/</li>';
+  atualizarResumo();
 }
 
 // Digitos crus -> "(DD) 9 NNNN-NNNN" (celular) ou "(DD) NNNN-NNNN" (fixo, sem
@@ -246,31 +365,231 @@ function formatarTelefone(digitos) {
   return digitos;
 }
 
-function abrirModalNumerosFiltro() {
+function abrirModalFiltro() {
+  $('filtro-arquivos').textContent = estado.filtro.arquivos.length
+    ? `${estado.filtro.arquivos.map((arquivo) => arquivo.nome).join(' · ')} — em ${estado.filtro.pasta}`
+    : 'Nenhum arquivo na pasta filtros/.';
+
   const lista = $('filtro-numeros');
-  lista.innerHTML = estado.filtroNumeros.length
-    ? estado.filtroNumeros.map(({ telefone, nome }) => `
-        <li>
-          <span class="tel">${formatarTelefone(telefone)}</span>
-          <span class="nome">${nome || '—'}</span>
-        </li>
+  lista.innerHTML = (estado.filtro.numeros || []).length
+    ? estado.filtro.numeros.map(({ telefone, nome }) => `
+        <li><span class="tel">${formatarTelefone(telefone)}</span><span class="nome">${nome || '—'}</span></li>
       `).join('')
     : '<li class="vazio">Nenhum telefone no filtro.</li>';
 
-  $('modal-filtro-numeros').classList.add('aberto');
+  $('modal-filtro').classList.add('aberto');
 }
 
-function fecharModalNumerosFiltro() {
-  $('modal-filtro-numeros').classList.remove('aberto');
+/* ------------------------------------------------ painel de revisao */
+
+function montarChecklist(dryRun) {
+  const itens = [];
+  const vazias = estado.bases.filter((base) => !base.contatos);
+
+  if (estado.vpn?.ok) itens.push(['ok', `VPN conectada — ${estado.vpn.detalhe}.`]);
+  else itens.push(['erro', 'VPN sem resposta. A execução vai parar no primeiro passo.']);
+
+  if ($('gerar-base').checked) {
+    const inicio = $('data-inicio').value.split('-').reverse().join('/');
+    const fim = $('data-fim').value.split('-').reverse().join('/');
+    itens.push(['ok', `Base gerada agora do período <strong>${inicio} → ${fim}</strong>.`]);
+  } else {
+    itens.push(['alerta', 'Reaproveitando os CSVs que já estão na pasta — podem ser de outro dia.']);
+  }
+
+  if (estado.filtro.telefones) {
+    itens.push(['ok', `<strong>${numero(estado.filtro.telefones)} telefones</strong> do filtro manual serão removidos.`]);
+  } else {
+    itens.push(['alerta', 'Nenhum telefone no filtro manual (pasta filtros/ vazia).']);
+  }
+
+  if (vazias.length) {
+    itens.push(['alerta', `${plural(vazias.length, 'base fica', 'bases ficam')} de fora por CSV vazio: ${vazias.map((base) => rotulo(base.nome)).join(', ')}.`]);
+  } else {
+    itens.push(['ok', 'Todas as bases têm contatos.']);
+  }
+
+  if (dryRun) itens.push(['ok', 'Pré-visualização: nada é gravado em disco nem enviado.']);
+  else if (estado.modo === 'teste') itens.push(['ok', 'Modo teste: 1 contato por base, nenhum cliente real.']);
+  else itens.push(['alerta', 'Depois de criado no dashboard, o agendamento só é desfeito por lá.']);
+
+  return itens;
 }
 
-/* ------------------------------------------------ progresso */
+function abrirRevisao(dryRun) {
+  const contatos = total();
+  const agenda = agendado();
+  const producao = estado.modo === 'producao' && !dryRun;
 
-function trocarView(qual) {
-  $('view-menu').hidden = qual !== 'menu';
-  $('view-progresso').hidden = qual !== 'progresso';
-  $('subtitulo').textContent = qual === 'menu' ? 'Escolha os templates e o horário' : 'Disparo em andamento';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  $('revisao-modo').className = `pilula-modo ${estado.modo}`;
+  $('revisao-modo').textContent = dryRun
+    ? 'pré-visualização · nada é enviado'
+    : estado.modo === 'producao' ? 'produção · clientes reais' : 'teste · 1 contato por base';
+
+  $('revisao-titulo').textContent = dryRun
+    ? 'Rodar pré-visualização da base'
+    : `Confirmar o disparo de ${numero(contatos)} contatos`;
+
+  $('revisao-quando').innerHTML = dryRun
+    ? 'Gera as contagens do período sem escrever CSV, sem abrir o dashboard e sem enviar mensagem.'
+    : `${agenda ? 'Agendado para' : 'Envio imediato às'} <strong>${$('hora').value}</strong> — ${textoRelativo()}.`;
+
+  $('revisao-bases').innerHTML = estado.bases.map((base) => {
+    const vazia = !base.contatos;
+    return `
+      <div class="${vazia ? 'apagada' : ''}">
+        <span>${rotulo(base.nome)} · ${templateEscolhido(base)}</span>
+        <span>${vazia ? 'pulada' : numero(base.contatos)}</span>
+      </div>`;
+  }).join('');
+
+  $('revisao-checklist').innerHTML = montarChecklist(dryRun).map(([tipo, texto]) => `
+    <li>
+      <span class="sinal ${tipo === 'ok' ? '' : tipo}">${tipo === 'ok' ? '✓' : '!'}</span>
+      <span>${texto}</span>
+    </li>`).join('');
+
+  const botao = $('btn-confirmar');
+  botao.classList.toggle('simples', !producao);
+  botao.dataset.dryRun = String(dryRun);
+  $('btn-confirmar-texto').textContent = producao
+    ? 'Segure para disparar'
+    : dryRun ? 'Rodar pré-visualização' : 'Disparar em modo teste';
+  $('btn-confirmar-nota').textContent = producao ? 'solte para cancelar · 1,5s' : 'um clique';
+
+  $('painel-revisao').hidden = false;
+  botao.focus();
+}
+
+function fecharRevisao() {
+  abortarSegurar();
+  $('painel-revisao').hidden = true;
+  $('btn-revisar').focus();
+}
+
+let seguraTimer = null;
+
+function iniciarSegurar() {
+  if (seguraTimer) return;
+
+  const fita = $('btn-confirmar-fita');
+  fita.style.transition = `width ${SEGURAR_MS}ms linear`;
+  fita.style.width = '100%';
+  seguraTimer = setTimeout(confirmarRevisao, SEGURAR_MS);
+}
+
+function abortarSegurar() {
+  clearTimeout(seguraTimer);
+  seguraTimer = null;
+
+  const fita = $('btn-confirmar-fita');
+  fita.style.transition = 'width .15s';
+  fita.style.width = '0';
+}
+
+function confirmarRevisao() {
+  abortarSegurar();
+  const dryRun = $('btn-confirmar').dataset.dryRun === 'true';
+  $('painel-revisao').hidden = true;
+  executar(dryRun);
+}
+
+function acionarConfirmacao() {
+  if ($('btn-confirmar').classList.contains('simples')) confirmarRevisao();
+}
+
+/* ------------------------------------------------ monitorar */
+
+function prepararExecucao(dryRun) {
+  estado.execucao = {
+    inicio: Date.now(),
+    hora: $('hora').value,
+    modo: estado.modo,
+    dryRun,
+    agendado: agendado(),
+    contatos: total(),
+    bases: new Map(),
+    filtroRemovidos: 0,
+    tempoTotal: null,
+    status: 'rodando',
+  };
+
+  $('monitorar-vazio').hidden = true;
+  $('monitorar-conteudo').hidden = false;
+  $('ponto-monitorar').hidden = false;
+
+  for (const item of document.querySelectorAll('.trilha > li')) {
+    item.className = '';
+    item.querySelector('.texto > em').textContent = '';
+  }
+
+  $('subbases').innerHTML = '';
+  $('resultado').hidden = true;
+  $('cartao-porbase').hidden = true;
+  $('porbase').innerHTML = '';
+  $('cartao-arquivos').hidden = true;
+  $('arquivos').innerHTML = '';
+  $('acoes-fim').hidden = true;
+  $('log').textContent = '';
+  $('bloco-log').open = false;
+
+  $('cartao-metricas').hidden = true;
+  $('metricas').innerHTML = '';
+  $('cartao-tempos').hidden = true;
+  $('tempos-fase').innerHTML = '';
+
+  $('btn-cancelar').hidden = false;
+  $('btn-cancelar').disabled = false;
+
+  $('execucao-titulo').textContent = dryRun
+    ? 'Pré-visualização em andamento'
+    : `Execução em andamento · ${estado.modo}`;
+
+  atualizarSubtitulo();
+  pintarProgresso(2, '');
+  iniciarCronometro();
+}
+
+function atualizarSubtitulo() {
+  const execucao = estado.execucao;
+  if (!execucao) return;
+
+  const inicio = new Date(execucao.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const alvo = execucao.dryRun
+    ? 'sem disparo'
+    : `alvo ${execucao.hora} (${execucao.agendado ? 'agendado' : 'imediato'})`;
+
+  $('execucao-sub').textContent = `iniciada ${inicio} · ${alvo} · ${plural(execucao.contatos, 'contato', 'contatos')}`;
+}
+
+let cronometro = null;
+
+function iniciarCronometro() {
+  clearInterval(cronometro);
+
+  const passo = () => {
+    if (!estado.execucao) return;
+    const segundos = Math.floor((Date.now() - estado.execucao.inicio) / 1000);
+    $('cronometro').textContent = `${String(Math.floor(segundos / 60)).padStart(2, '0')}:${String(segundos % 60).padStart(2, '0')}`;
+  };
+
+  passo();
+  cronometro = setInterval(passo, 1000);
+}
+
+function pintarProgresso(porcento, situacao) {
+  const fita = $('progresso-fita');
+  fita.style.width = `${Math.min(porcento, 100)}%`;
+  fita.className = situacao || '';
+}
+
+function calcularProgresso() {
+  const bases = [...(estado.execucao?.bases.values() || [])];
+  if (!bases.length) return 45;
+
+  const prontas = bases.filter((base) => base.status && base.status !== 'rodando').length;
+
+  return 45 + (55 * prontas) / bases.length;
 }
 
 function marcarPasso(id, status, detalhe) {
@@ -279,31 +598,9 @@ function marcarPasso(id, status, detalhe) {
 
   item.className = status || '';
   if (detalhe !== undefined) item.querySelector('.texto > em').textContent = detalhe;
-}
 
-function prepararTrilha() {
-  for (const item of document.querySelectorAll('.trilha > li')) {
-    item.className = '';
-    item.querySelector('.texto > em').textContent = '';
-  }
-
-  $('subbases').innerHTML = '';
-  $('resultado').hidden = true;
-  $('resultado-extra').innerHTML = '';
-  $('log').textContent = '';
-  $('bloco-log').open = false;
-  $('btn-voltar').hidden = true;
-
-  $('cartao-metricas').hidden = true;
-  $('metricas').innerHTML = '';
-  $('cartao-tempos').hidden = true;
-  $('tempos-fase').innerHTML = '';
-
-  estado.tempoTotal = null;
-  estado.filtroRemovidos = 0;
-
-  $('btn-cancelar').hidden = false;
-  $('btn-cancelar').disabled = false;
+  if (id === 'vpn' && status === 'ok') pintarProgresso(15, '');
+  if (id === 'base' && (status === 'ok' || status === 'pulado')) pintarProgresso(45, '');
 }
 
 function desenharSubbases(bases) {
@@ -311,26 +608,66 @@ function desenharSubbases(bases) {
   lista.innerHTML = '';
 
   for (const base of bases) {
+    estado.execucao.bases.set(base.key, { ...base, status: '', etapa: null, duracao: null, detalhe: '' });
+
     const item = document.createElement('li');
     item.dataset.key = base.key;
-    item.innerHTML = '<span class="marcador"></span><span class="nome"></span><span class="estado"></span>';
-    item.querySelector('.nome').textContent = rotulo(base.nome);
-    item.querySelector('.estado').textContent = `${numero(base.contatos)} · ${base.template}`;
+    item.innerHTML = `
+      <span class="esquerda">
+        <strong></strong>
+        <span class="etapas"></span>
+      </span>
+      <span class="situacao"></span>
+    `;
+    item.querySelector('strong').textContent = rotulo(base.nome);
     lista.appendChild(item);
+
+    pintarSubbase(base.key);
   }
 }
 
-function atualizarSubbase({ key, status, etapa, detalhe, modo }) {
+function pintarSubbase(key) {
+  const dados = estado.execucao?.bases.get(key);
   const item = document.querySelector(`.subbases li[data-key="${key}"]`);
-  if (!item) return;
+  if (!dados || !item) return;
 
-  item.className = status;
-  const estado_ = item.querySelector('.estado');
+  item.className = dados.status || '';
 
-  if (status === 'rodando') estado_.textContent = detalhe || ETAPAS[etapa] || 'processando';
-  else if (status === 'ok') estado_.textContent = modo === 'agendado' ? 'agendado' : 'enviado';
-  else if (status === 'pulado') estado_.textContent = detalhe || 'pulado';
-  else if (status === 'erro') estado_.textContent = 'falhou';
+  const etapas = item.querySelector('.etapas');
+  if (estado.execucao.dryRun) {
+    etapas.innerHTML = '';
+  } else if (!dados.contatos) {
+    etapas.innerHTML = '<span>CSV vazio</span>';
+  } else {
+    const atual = ETAPAS.indexOf(dados.etapa);
+    etapas.innerHTML = ETAPAS.map((etapa, indice) => {
+      const situacao = dados.status === 'ok' || (atual >= 0 && indice < atual) ? 'ok'
+        : indice === atual && dados.status === 'rodando' ? 'rodando'
+          : '';
+      return `<span class="${situacao}">${etapa}</span>`;
+    }).join('');
+  }
+
+  const situacao = item.querySelector('.situacao');
+  if (estado.execucao.dryRun) situacao.textContent = dados.contatos ? 'prévia' : 'sem contatos';
+  else if (dados.status === 'ok') situacao.textContent = `${dados.modoEnvio === 'agendado' ? 'agendado' : 'enviado'}${dados.duracao ? ` · ${dados.duracao}` : ''}`;
+  else if (dados.status === 'erro') situacao.textContent = 'falhou';
+  else if (dados.status === 'pulado') situacao.textContent = dados.detalhe || 'pulada';
+  else if (dados.status === 'rodando') situacao.textContent = dados.detalhe || ROTULO_ETAPA[dados.etapa] || 'processando';
+  else situacao.textContent = dados.contatos ? 'na fila' : 'sem contatos';
+}
+
+function atualizarSubbase({ key, status, etapa, detalhe, modo }) {
+  const dados = estado.execucao?.bases.get(key);
+  if (!dados) return;
+
+  dados.status = status;
+  if (etapa) dados.etapa = etapa;
+  if (detalhe !== undefined) dados.detalhe = detalhe;
+  if (modo) dados.modoEnvio = modo;
+
+  pintarSubbase(key);
+  pintarProgresso(calcularProgresso(), '');
 
   if (status === 'erro' && detalhe) escreverLog(detalhe, 'erro');
 }
@@ -342,15 +679,19 @@ function atualizarMetrica({ chave, valor, rotulo: rotuloMetrica, por_grupo }) {
   if (!item) {
     item = document.createElement('li');
     item.dataset.chave = chave;
-    item.innerHTML = '<span class="rotulo"></span><strong></strong>';
+    item.innerHTML = '<span></span><strong></strong>';
     $('metricas').appendChild(item);
   }
 
-  item.querySelector('.rotulo').textContent = rotuloMetrica;
-  item.querySelector('strong').textContent = numero(valor);
+  // Metricas de corte aparecem com sinal negativo: sao subtracoes do funil.
+  const negativa = ['filtro', 'pagamento_recente_bloqueado'].includes(chave);
+
+  item.querySelector('span').textContent = rotuloMetrica;
+  item.querySelector('strong').textContent = `${negativa && valor ? '−' : ''}${numero(valor)}`;
+  item.querySelector('strong').className = negativa && valor ? 'menos' : '';
 
   if (chave === 'filtro') {
-    estado.filtroRemovidos = valor;
+    estado.execucao.filtroRemovidos = valor;
     if (por_grupo && Object.keys(por_grupo).length) {
       item.title = Object.entries(por_grupo).map(([grupo, qtd]) => `${grupo}: ${qtd}`).join(' · ');
     }
@@ -363,19 +704,26 @@ function atualizarMetrica({ chave, valor, rotulo: rotuloMetrica, por_grupo }) {
 
 function atualizarTempo({ escopo, chave, key, etapa, duracao }) {
   if (escopo === 'base' && chave === 'transmissao_completa') {
-    const item = document.querySelector(`.subbases li[data-key="${key}"]`);
-    if (item) item.querySelector('.estado').title = `Levou ${duracao}`;
+    const dados = estado.execucao?.bases.get(key);
+    if (dados) {
+      dados.duracao = duracao;
+      pintarSubbase(key);
+    }
   } else if (escopo === 'fase') {
     $('cartao-tempos').hidden = false;
+
     let item = document.querySelector(`#tempos-fase li[data-etapa="${etapa}"]`);
     if (!item) {
       item = document.createElement('li');
       item.dataset.etapa = etapa;
+      item.innerHTML = '<span></span><strong></strong>';
       $('tempos-fase').appendChild(item);
     }
-    item.textContent = `${etapa}: ${duracao}`;
+
+    item.querySelector('span').textContent = etapa;
+    item.querySelector('strong').textContent = duracao;
   } else if (escopo === 'total') {
-    estado.tempoTotal = duracao;
+    estado.execucao.tempoTotal = duracao;
   }
 }
 
@@ -390,7 +738,7 @@ function escreverLog(texto, tipo) {
 
 /* ------------------------------------------------ execucao */
 
-async function disparar({ dryRun = false } = {}) {
+async function executar(dryRun) {
   const salvos = await fetch('/api/templates', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -398,24 +746,15 @@ async function disparar({ dryRun = false } = {}) {
   });
 
   if (!salvos.ok) {
-    const erro = await salvos.json();
+    const erro = await salvos.json().catch(() => ({}));
     alert(erro.detail || 'Não consegui salvar os templates.');
     return;
   }
 
-  const quando = agendado() ? `agendar para ${$('hora').value}` : `enviar agora (${$('hora').value})`;
-  const aviso = dryRun
-    ? 'Rodar uma pré-visualização (sem gravar CSVs nem disparar)?'
-    : estado.modo === 'producao'
-      ? `Disparar ${numero(total())} contatos REAIS?\n\nVai ${quando}.`
-      : `Rodar o disparo de teste?\n\nVai ${quando}.`;
-
-  if (!confirm(aviso)) return;
-
   estado.rodando = true;
-  atualizarLancamento();
-  prepararTrilha();
-  trocarView('progresso');
+  atualizarResumo();
+  prepararExecucao(dryRun);
+  irPara('monitorar');
 
   const parametros = new URLSearchParams({
     hora: $('hora').value,
@@ -461,140 +800,253 @@ async function cancelarExecucao() {
   await fetch('/api/cancelar', { method: 'POST' }).catch(() => {});
 }
 
-const TEXTOS_RESULTADO = {
-  ok: ['Tudo certo', 'Os disparos foram criados no dashboard.'],
-  erro: ['Terminou com erro', 'Abra o log técnico abaixo para ver o que falhou.'],
-  cancelado: ['Execução cancelada', 'A execução foi interrompida a pedido.'],
-  'pre-visualizacao': ['Prévia gerada', 'Nenhum CSV foi gravado nem mensagem enviada.'],
-};
+const ICONES_RESULTADO = { ok: '✓', erro: '!', cancelado: '—', 'pre-visualizacao': '◔' };
 
 function encerrar(status) {
   estado.rodando = false;
+  estado.execucao.status = status;
+
+  clearInterval(cronometro);
   $('btn-cancelar').hidden = true;
+  $('ponto-monitorar').hidden = true;
+  $('execucao-titulo').textContent = estado.execucao.dryRun ? 'Pré-visualização concluída' : `Execução encerrada · ${estado.execucao.modo}`;
 
   for (const item of document.querySelectorAll('.trilha > li.rodando')) {
     item.className = status === 'ok' || status === 'pre-visualizacao' ? 'ok' : status === 'cancelado' ? 'cancelado' : 'erro';
   }
 
-  const [titulo, texto] = TEXTOS_RESULTADO[status] || TEXTOS_RESULTADO.erro;
+  pintarProgresso(100, status === 'ok' || status === 'pre-visualizacao' ? 'ok' : status === 'erro' ? 'erro' : '');
+  desenharResultado(status);
+  desenharPorBase();
+  desenharArquivos();
+
+  if (status === 'erro') $('bloco-log').open = true;
+
+  $('acoes-fim').hidden = false;
+  atualizarResumo();
+  carregarUltimaExecucao();
+}
+
+function desenharResultado(status) {
+  const execucao = estado.execucao;
+  const bases = [...execucao.bases.values()];
+  const ok = bases.filter((base) => base.status === 'ok');
+  const pulados = bases.filter((base) => base.status === 'pulado' || !base.contatos);
+  const erros = bases.filter((base) => base.status === 'erro');
+  const enviados = ok.reduce((soma, base) => soma + base.contatos, 0);
+  const tempo = execucao.tempoTotal ? ` · levou ${execucao.tempoTotal}` : '';
+
+  let titulo = '';
+  let sub = '';
+
+  if (status === 'ok') {
+    titulo = `${plural(ok.length, 'base', 'bases')} ${execucao.agendado ? `agendadas para ${execucao.hora}` : 'enviadas agora'}`;
+    sub = `${plural(enviados, 'contato', 'contatos')}${pulados.length ? ` · ${plural(pulados.length, 'base pulada', 'bases puladas')}` : ''}${tempo}`;
+  } else if (status === 'pre-visualizacao') {
+    titulo = 'Prévia gerada';
+    sub = `${plural(execucao.contatos, 'contato', 'contatos')} seriam disparados. Nenhum CSV gravado, nenhuma mensagem enviada${tempo}`;
+  } else if (status === 'cancelado') {
+    titulo = 'Execução cancelada';
+    sub = `${plural(ok.length, 'base já concluída', 'bases já concluídas')} antes da interrupção — confira o dashboard${tempo}`;
+  } else {
+    titulo = 'Terminou com erro';
+    sub = `${erros.length ? `${plural(erros.length, 'base falhou', 'bases falharam')} · ` : ''}abra o log técnico para ver o que aconteceu${tempo}`;
+  }
 
   const caixa = $('resultado');
   caixa.className = `resultado ${status}`;
   caixa.hidden = false;
-  caixa.innerHTML = '<strong></strong><span></span>';
-  caixa.querySelector('strong').textContent = titulo;
-  caixa.querySelector('span').textContent = texto + (estado.tempoTotal ? ` (${estado.tempoTotal})` : '');
-
-  if (status === 'erro') $('bloco-log').open = true;
-
-  const extra = $('resultado-extra');
-  extra.innerHTML = '';
-  if (estado.filtroRemovidos > 0) {
-    const link = document.createElement('a');
-    link.href = '/api/filtro/ultimo-removido';
-    link.textContent = 'Baixar números removidos pelo filtro (CSV)';
-    extra.appendChild(link);
-  }
-
-  $('btn-voltar').hidden = false;
-  carregarHistorico();
+  $('resultado-icone').textContent = ICONES_RESULTADO[status] || '!';
+  $('resultado-titulo').textContent = titulo;
+  $('resultado-sub').textContent = sub;
 }
 
-const HISTORICO_RECENTES = 5;
+function desenharPorBase() {
+  const bases = [...estado.execucao.bases.values()];
+  if (!bases.length) return;
 
-function desenharHistorico(idCorpo, linhas) {
-  const corpo = $(idCorpo);
-  corpo.innerHTML = '';
+  $('cartao-porbase').hidden = false;
+  $('porbase-dica').textContent = `${new Date(estado.execucao.inicio).toLocaleDateString('pt-BR')} · alvo ${estado.execucao.hora} · ${estado.execucao.modo}`;
+
+  $('porbase').innerHTML = bases.map((base) => {
+    const situacao = base.status || 'pulado';
+    const texto = estado.execucao.dryRun ? 'prévia'
+      : situacao === 'ok' ? (base.modoEnvio === 'agendado' ? 'agendada' : 'enviada')
+        : situacao;
+    const apagada = situacao === 'pulado' ? ' apagado' : '';
+
+    return `
+      <tr>
+        <td class="${apagada.trim()}">${rotulo(base.nome)}</td>
+        <td class="mono${apagada}">${base.contatos ? base.template : '—'}</td>
+        <td class="num${apagada}">${numero(base.contatos)}</td>
+        <td class="num${apagada}">${base.duracao || '—'}</td>
+        <td><span class="marcador-status ${situacao}">${texto}</span></td>
+      </tr>`;
+  }).join('');
+}
+
+function desenharArquivos() {
+  const itens = [];
+
+  if (estado.execucao.filtroRemovidos > 0) {
+    itens.push(`<a class="opcao acionavel" href="/api/filtro/ultimo-removido"><span>Removidos pelo filtro</span><strong>${numero(estado.execucao.filtroRemovidos)} números · CSV</strong></a>`);
+  }
+
+  if ($('com-relatorio').checked && !estado.execucao.dryRun) {
+    itens.push('<span class="opcao"><span>Relatório Excel</span><strong>pasta relatorio/</strong></span>');
+  }
+
+  const linhas = $('log').childElementCount;
+  if (linhas) itens.push(`<span class="opcao"><span>Log técnico</span><strong>${plural(linhas, 'linha', 'linhas')}</strong></span>`);
+
+  if (!itens.length) return;
+
+  $('cartao-arquivos').hidden = false;
+  $('arquivos').innerHTML = itens.join('');
+}
+
+/* ------------------------------------------------ historico */
+
+// O log grava o nome da campanha inteiro ("Contencioso - 25/08/2026 - 16H16");
+// data e hora ja tem coluna propria, entao a tabela mostra so a base.
+const nomeDaBase = (nome) => rotulo(String(nome || '').replace(/\s*-\s*\d{2}\/\d{2}\/\d{4}\s*-\s*\d{2}H\d{2}\s*$/i, ''));
+
+// hora_execucao vem em ISO do node; na tabela basta o relogio local.
+function horaCurta(valor) {
+  const momento = new Date(valor);
+
+  return Number.isNaN(momento.getTime())
+    ? valor || '—'
+    : momento.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function carregarHistorico() {
+  const parametros = new URLSearchParams({
+    limite: $('historico-limite').value,
+    busca: $('historico-busca').value || '',
+    status: $('historico-status').value || '',
+    modo: $('historico-modo').value || '',
+  });
+
+  const linhas = await fetch(`/api/historico?${parametros}`).then((r) => r.json()).catch(() => []);
+  const corpo = $('historico');
+
+  $('historico-contadores').innerHTML = `
+    <div><strong>${numero(linhas.length)}</strong><span>linhas</span></div>
+    <div><strong>${numero(linhas.filter((linha) => linha.status === 'ok').length)}</strong><span>ok</span></div>
+    <div><strong>${numero(linhas.filter((linha) => linha.status === 'erro').length)}</strong><span>com erro</span></div>
+  `;
 
   if (!linhas.length) {
-    corpo.innerHTML = '<tr><td colspan="5">Nenhum disparo registrado.</td></tr>';
+    corpo.innerHTML = '<tr><td colspan="7" class="apagado">Nenhum disparo registrado com esses filtros.</td></tr>';
     return;
   }
 
-  for (const linha of linhas) {
-    const item = document.createElement('tr');
-    item.innerHTML = '<td></td><td></td><td></td><td></td><td></td>';
-    const celulas = item.children;
-    celulas[0].textContent = linha.data;
-    celulas[1].textContent = linha.hora_alvo;
-    celulas[2].textContent = linha.tipo;
-    celulas[3].textContent = linha.modo;
-    celulas[4].textContent = linha.status;
-    celulas[4].className = `st-${linha.status}`;
-    celulas[4].title = linha.detalhe || '';
-    corpo.appendChild(item);
-  }
+  corpo.innerHTML = linhas.map((linha) => `
+    <tr>
+      <td class="mono">${linha.data || ''}</td>
+      <td class="mono">${linha.hora_alvo || ''}</td>
+      <td>${nomeDaBase(linha.nome || linha.tipo || '')}</td>
+      <td class="apagado">${linha.modo && linha.modo !== '-' ? linha.modo : '—'}</td>
+      <td class="mono apagado">${horaCurta(linha.hora_execucao)}</td>
+      <td><span class="marcador-status ${linha.status}">${linha.status}</span></td>
+      <td class="${linha.status === 'erro' ? 'detalhe-erro' : 'apagado'}">${linha.detalhe || '—'}</td>
+    </tr>`).join('');
 }
 
-// Card lateral: so os ultimos 5, sem filtro — pra ver mais e filtrar, o botao
-// abre o modal com a lista inteira.
-async function carregarHistorico() {
-  const linhas = await fetch(`/api/historico?limite=${HISTORICO_RECENTES}`).then((r) => r.json());
-  desenharHistorico('historico', linhas);
-}
-
-async function carregarHistoricoModal() {
-  const parametros = new URLSearchParams({
-    limite: 200,
-    busca: $('historico-busca')?.value || '',
-    status: $('historico-status')?.value || '',
-  });
-
-  const linhas = await fetch(`/api/historico?${parametros}`).then((r) => r.json());
-  desenharHistorico('historico-modal', linhas);
-}
-
-function abrirModalHistorico() {
-  $('modal-historico').classList.add('aberto');
-  carregarHistoricoModal();
-}
-
-function fecharModalHistorico() {
-  $('modal-historico').classList.remove('aberto');
+async function carregarUltimaExecucao() {
+  const linhas = await fetch('/api/historico?limite=1').then((r) => r.json()).catch(() => []);
+  estado.ultimaExecucao = linhas.length ? `${linhas[0].data} ${linhas[0].hora_alvo}` : null;
+  atualizarResumo();
 }
 
 /* ------------------------------------------------ boot */
 
 async function iniciar() {
+  aplicarTema(localStorage.getItem('tema') || '');
+
   const periodo = await fetch('/api/periodo-padrao').then((r) => r.json());
   $('data-inicio').value = periodo.data_inicio;
   $('data-fim').value = periodo.data_fim;
 
-  const agora = new Date(Date.now() + 15 * 60 * 1000);
-  $('hora').value = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
+  definirHora(new Date(Date.now() + 15 * 60 * 1000));
+
+  for (const botao of document.querySelectorAll('.aba')) {
+    botao.onclick = () => irPara(botao.dataset.aba);
+  }
+
+  for (const botao of document.querySelectorAll('[data-ir]')) {
+    botao.onclick = () => irPara(botao.dataset.ir);
+  }
+
+  window.onhashchange = () => irPara(location.hash.replace('#', ''));
 
   for (const botao of document.querySelectorAll('#segmento-modo button')) {
     botao.onclick = () => !estado.rodando && trocarModo(botao.dataset.modo);
   }
 
-  $('btn-vpn').onclick = verificarVpn;
-  $('btn-disparar').onclick = () => disparar();
+  $('btn-tema').onclick = alternarTema;
+  $('chip-vpn').onclick = verificarVpn;
+  $('btn-filtro').onclick = abrirModalFiltro;
   $('btn-cancelar').onclick = cancelarExecucao;
-  $('btn-voltar').onclick = () => { trocarView('menu'); carregarBases(); };
-  $('hora').oninput = atualizarLancamento;
-  $('gerar-base').onchange = atualizarLancamento;
 
-  $('bloco-filtro').addEventListener('toggle', () => { if ($('bloco-filtro').open) carregarFiltro(); });
-  $('btn-ver-numeros-filtro').onclick = abrirModalNumerosFiltro;
-  $('btn-fechar-modal-filtro').onclick = fecharModalNumerosFiltro;
+  $('hora').oninput = atualizarResumo;
+  $('gerar-base').onchange = atualizarResumo;
 
-  $('btn-ver-historico').onclick = abrirModalHistorico;
-  $('btn-fechar-modal-historico').onclick = fecharModalHistorico;
-  $('historico-busca').oninput = debounce(carregarHistoricoModal, 250);
-  $('historico-status').onchange = carregarHistoricoModal;
+  for (const botao of $('atalhos-hora').querySelectorAll('button')) {
+    botao.onclick = () => {
+      if (botao.dataset.hora) {
+        $('hora').value = botao.dataset.hora;
+        atualizarResumo();
+      } else {
+        definirHora(new Date(Date.now() + Number(botao.dataset.minutos) * 60 * 1000));
+      }
+    };
+  }
+
+  $('btn-revisar').onclick = () => abrirRevisao(false);
+  $('btn-previa').onclick = () => abrirRevisao(true);
+  $('btn-voltar-ajustar').onclick = fecharRevisao;
+
+  const confirmar = $('btn-confirmar');
+  confirmar.onpointerdown = (evento) => { evento.preventDefault(); confirmar.classList.contains('simples') ? acionarConfirmacao() : iniciarSegurar(); };
+  confirmar.onpointerup = abortarSegurar;
+  confirmar.onpointerleave = abortarSegurar;
+  confirmar.onpointercancel = abortarSegurar;
+  confirmar.onkeydown = (evento) => {
+    if (evento.repeat || (evento.key !== ' ' && evento.key !== 'Enter')) return;
+    evento.preventDefault();
+    confirmar.classList.contains('simples') ? acionarConfirmacao() : iniciarSegurar();
+  };
+  confirmar.onkeyup = abortarSegurar;
+
+  for (const botao of document.querySelectorAll('[data-fechar]')) {
+    botao.onclick = () => $(botao.dataset.fechar).classList.remove('aberto');
+  }
 
   for (const overlay of document.querySelectorAll('.modal-overlay')) {
     overlay.onclick = (evento) => { if (evento.target === overlay) overlay.classList.remove('aberto'); };
   }
+
+  $('painel-revisao').onclick = (evento) => { if (evento.target === $('painel-revisao')) fecharRevisao(); };
+
   document.addEventListener('keydown', (evento) => {
     if (evento.key !== 'Escape') return;
+    if (!$('painel-revisao').hidden) fecharRevisao();
     for (const overlay of document.querySelectorAll('.modal-overlay.aberto')) overlay.classList.remove('aberto');
   });
 
+  $('historico-busca').oninput = debounce(carregarHistorico, 250);
+  $('historico-status').onchange = carregarHistorico;
+  $('historico-modo').onchange = carregarHistorico;
+  $('historico-limite').onchange = carregarHistorico;
+
   trocarModo('producao');
   carregarFiltro();
-  carregarHistorico();
+  carregarUltimaExecucao();
   verificarVpn();
+  irPara(location.hash.replace('#', '') || 'preparar');
 }
 
 iniciar();
