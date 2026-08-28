@@ -431,6 +431,11 @@ def executar(
     _evento_cancelamento.clear()
     falhou = False
 
+    # Modo teste nunca escreve o relatorio Excel — so encheria relatorio/ de
+    # arquivo de ensaio. Vale pra tela e pro agendador.
+    if modo == "teste":
+        com_relatorio = False
+
     def marcar(passo: str, status: str, detalhe: str = ""):
         return ("passo", {"id": passo, "status": status, "detalhe": detalhe})
 

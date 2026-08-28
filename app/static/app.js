@@ -340,6 +340,11 @@ function trocarModo(modo) {
     ? '<strong>Modo teste.</strong> Dispara as bases de 1 contato em auto/bases/ — nada chega a cliente real.<span class="complemento">Para valer, troque para Produção.</span>'
     : '<strong>Modo produção.</strong> As mensagens vão para os clientes reais da base gerada.<span class="complemento">Para ensaiar, troque para Teste — 1 contato por base.</span>';
 
+  // Em teste o backend nunca escreve o relatorio; o check fica desabilitado.
+  const relatorio = $('com-relatorio');
+  relatorio.disabled = modo === 'teste';
+  relatorio.closest('.opcao').classList.toggle('desabilitada', modo === 'teste');
+
   carregarBases();
 }
 
@@ -961,7 +966,8 @@ function desenharArquivos() {
     itens.push(`<a class="opcao acionavel" href="/api/filtro/ultimo-removido"><span>Removidos pelo filtro</span><strong>${numero(estado.execucao.filtroRemovidos)} números · CSV</strong></a>`);
   }
 
-  if ($('com-relatorio').checked && !estado.execucao.dryRun) {
+  // Modo teste nunca escreve o relatorio (o backend bloqueia), entao nao anuncia.
+  if ($('com-relatorio').checked && !estado.execucao.dryRun && estado.execucao.modo === 'producao') {
     itens.push('<span class="opcao"><span>Relatório Excel</span><strong>pasta relatorio/</strong></span>');
   }
 

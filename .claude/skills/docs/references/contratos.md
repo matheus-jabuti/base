@@ -109,6 +109,8 @@ nem sabe que existem. Consequências:
 - Manter o pipeline **imprimindo** o progresso: `print` é a interface de log usada pela tela.
 - `dry_run=True` roda tudo (inclusive `aplicar_filtro`) mas não grava CSV/Excel — `resultado.grupos`
   já reflete o filtro aplicado, então a prévia é o número real pós-filtro, só não vai pro disco.
+- `passos.executar` **zera `com_relatorio` quando `modo == "teste"`** antes de chamar `gerar_base` —
+  ensaio não deixa Excel em `relatorio/`. É a única regra de negócio que `executar` aplica sozinho.
 - `deve_cancelar` é checado (`_checar_cancelamento`) entre chamadas bloqueantes de DB/pandas, nunca
   dentro delas — cancelar no meio de uma query só surte efeito quando ela retornar. Levanta
   `OperacaoCancelada`, que `app/passos.py:gerar_base` traduz em evento `("cancelado", True)`.

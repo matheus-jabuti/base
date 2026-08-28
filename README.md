@@ -45,6 +45,8 @@ rodada pra rodada. Abaixo, o horario (com atalhos: agora, +15min, +30min,
 estao em `out/`, desligar o relatorio Excel, mudar o periodo e ver os arquivos e
 telefones do filtro manual em `filtros/`. A coluna da direita resume o que vai
 sair — total de contatos, modo, horario, templates, filtro, ultima execucao.
+Em modo teste o relatorio Excel nunca e escrito (o check fica desabilitado) —
+ensaio nao deixa arquivo em `relatorio/`.
 
 **Revisao.** O botao **Revisar e disparar** nao dispara: abre um painel com a
 lista de bases e templates, o horario resolvido (agendado ou imediato) e uma

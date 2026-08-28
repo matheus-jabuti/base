@@ -119,10 +119,14 @@ bases de `auto/bases/` como estão.
   "teste"` — **nunca `producao` por omissão**.
 - **`modo`** (`teste` \| `producao`, default `teste`) — decide de onde saem as bases do disparo
   automático. `producao` = `out/` (clientes reais), gera a base do período antes de disparar.
-  `teste` = `auto/bases/` (1 contato por base), **não gera nada** (`gerar=False`, `com_relatorio=False`).
-  É o único gate do disparo automático — a tela força um `confirm()` pra trocar pra `producao` e mostra
-  um aviso vermelho enquanto estiver nele. O toggle de modo do topo da tela (`estado.modo`) é
-  **independente**: aquele vale só pro disparo manual (`/api/executar`).
+  `teste` = `auto/bases/` (1 contato por base), **não gera base** (`gerar=False`). É o único gate do
+  disparo automático — a tela força um `confirm()` pra trocar pra `producao` e mostra um aviso
+  vermelho enquanto estiver nele. O toggle de modo do topo da tela (`estado.modo`) é **independente**:
+  aquele vale só pro disparo manual (`/api/executar`).
+- **Modo teste nunca escreve o relatório Excel.** `passos.executar` zera `com_relatorio` quando
+  `modo == "teste"` (vale pra tela e pro agendador), pra não encher `relatorio/` de arquivo de
+  ensaio. Na tela, o check "Relatório Excel" fica desabilitado em modo teste e o resultado não
+  anuncia o arquivo.
 - **Estado** — `auto/logs/agenda_estado.json` (`{id: {situacao, quando, detalhe}}`), fora do
   versionamento como todo o resto de `auto/logs/`. Sobrevive a restart: item já disparado não roda de
   novo, item perdido não dispara atrasado.

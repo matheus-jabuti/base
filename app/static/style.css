@@ -404,6 +404,8 @@ h2 {
 
 .opcao input[type=checkbox] { position: absolute; opacity: 0; width: 0; height: 0; }
 
+.opcao.desabilitada { opacity: .45; cursor: not-allowed; }
+
 .marca-check {
   display: grid;
   place-items: center;

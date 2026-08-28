@@ -419,13 +419,14 @@ def _disparar_item(item: dict) -> None:
         _aplicar_templates(templates)
         _log(f"{item_id}: templates {templates}")
         inicio, fim = gerar_base.periodo_padrao()
-        # Em teste as bases sao as de auto/bases/ (1 contato); nao adianta gerar.
+        # Em teste as bases sao as de auto/bases/ (1 contato): nao gera nada, e o
+        # passos.executar ja bloqueia o relatorio Excel nesse modo.
         for tipo, dado in passos.executar(
             data_inicio=inicio,
             data_fim=fim,
             hora=item["hora"],
             modo=modo,
-            com_relatorio=(modo == "producao"),
+            com_relatorio=True,
             gerar=(modo == "producao"),
         ):
             if tipo == "erro":
