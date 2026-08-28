@@ -9,6 +9,7 @@ const estado = {
   filtro: { telefones: 0, arquivos: [], numeros: [] },
   ultimaExecucao: null,
   execucao: null,
+  agenda: { itens: [], sujo: false },
 };
 
 // A VPN as vezes demora a subir; tenta de novo antes de acusar erro.
@@ -72,7 +73,7 @@ function alternarTema() {
 /* ------------------------------------------------ abas */
 
 function irPara(aba) {
-  if (!['preparar', 'monitorar', 'historico'].includes(aba)) aba = 'preparar';
+  if (!['preparar', 'agenda', 'monitorar', 'historico'].includes(aba)) aba = 'preparar';
   estado.aba = aba;
 
   for (const botao of document.querySelectorAll('.aba')) {
@@ -83,11 +84,14 @@ function irPara(aba) {
   }
 
   $('view-preparar').hidden = aba !== 'preparar';
+  $('view-agenda').hidden = aba !== 'agenda';
   $('view-monitorar').hidden = aba !== 'monitorar';
   $('view-historico').hidden = aba !== 'historico';
 
   if (location.hash !== `#${aba}`) location.hash = aba;
   if (aba === 'historico') carregarHistorico();
+  if (aba === 'agenda') entrarAgenda();
+  else pararPollAgenda();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1025,6 +1029,172 @@ async function carregarUltimaExecucao() {
   atualizarResumo();
 }
 
+/* ------------------------------------------------ agenda */
+
+const ROTULO_SITUACAO = {
+  agendado: 'agendado',
+  pendente: 'disparando em breve',
+  disparado: 'disparado',
+  erro: 'falhou',
+  cancelado: 'cancelado',
+  perdido: 'perdido',
+  desativado: 'desativado',
+};
+
+let pollAgenda = null;
+
+function entrarAgenda() {
+  if (!$('agenda-data').value) $('agenda-data').value = new Date().toISOString().slice(0, 10);
+  carregarAgenda();
+  atualizarStatusAgenda();
+
+  clearInterval(pollAgenda);
+  pollAgenda = setInterval(() => {
+    atualizarStatusAgenda();
+    if (!estado.agenda.sujo) carregarAgenda();
+  }, 15000);
+}
+
+function pararPollAgenda() {
+  clearInterval(pollAgenda);
+  pollAgenda = null;
+}
+
+async function carregarAgenda() {
+  const itens = await fetch('/api/agenda').then((r) => r.json()).catch(() => null);
+  if (!itens) return;
+
+  estado.agenda = { itens, sujo: false };
+  desenharAgenda();
+}
+
+const dataBR = (iso) => (iso || '').split('-').reverse().join('/');
+
+function desenharAgenda() {
+  const { itens, sujo } = estado.agenda;
+  const corpo = $('agenda-linhas');
+
+  if (!itens.length) {
+    corpo.innerHTML = '<tr><td colspan="5" class="apagado">Nenhum horário na agenda. Adicione data e hora acima.</td></tr>';
+  } else {
+    corpo.innerHTML = itens.map((item) => {
+      const situacao = item.ativo ? item.situacao : 'desativado';
+      const rearmavel = !sujo && (situacao === 'erro' || situacao === 'perdido' || situacao === 'cancelado');
+      const detalhe = item.detalhe || (item.quando ? `em ${horaCurta(item.quando)}` : '—');
+
+      return `
+        <tr data-id="${item.id}">
+          <td class="mono">${dataBR(item.data)}</td>
+          <td class="mono">${item.hora}</td>
+          <td><span class="marcador-status ${situacao}">${ROTULO_SITUACAO[situacao] || situacao}</span></td>
+          <td class="apagado">${detalhe}</td>
+          <td class="acoes-col">
+            <button type="button" class="link-mini" data-acao="toggle">${item.ativo ? 'desativar' : 'ativar'}</button>
+            ${rearmavel ? '<button type="button" class="link-mini" data-acao="rearmar">re-armar</button>' : ''}
+            <button type="button" class="link-mini perigo" data-acao="remover">remover</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    for (const botao of corpo.querySelectorAll('button[data-acao]')) {
+      const id = botao.closest('tr').dataset.id;
+      botao.onclick = () => acaoAgenda(botao.dataset.acao, id);
+    }
+  }
+
+  $('agenda-acoes').hidden = !sujo;
+  $('agenda-dica').textContent = sujo
+    ? 'mudanças não salvas'
+    : `${plural(itens.filter((i) => i.ativo).length, 'horário ativo', 'horários ativos')}`;
+}
+
+function acaoAgenda(acao, id) {
+  if (acao === 'rearmar') return rearmarItem(id);
+
+  const item = estado.agenda.itens.find((i) => i.id === id);
+  if (!item) return;
+
+  if (acao === 'toggle') item.ativo = !item.ativo;
+  else if (acao === 'remover') estado.agenda.itens = estado.agenda.itens.filter((i) => i.id !== id);
+
+  estado.agenda.sujo = true;
+  desenharAgenda();
+}
+
+function adicionarHorario() {
+  const data = $('agenda-data').value;
+  const hora = $('agenda-hora').value;
+  if (!data || !hora) return alert('Escolha data e hora.');
+
+  const id = `${data} ${hora}`;
+  if (estado.agenda.itens.some((i) => i.id === id)) return alert('Esse horário já está na agenda.');
+
+  estado.agenda.itens.push({ id, data, hora, ativo: true, situacao: 'agendado', quando: null, detalhe: '' });
+  estado.agenda.itens.sort((a, b) => a.id.localeCompare(b.id));
+  estado.agenda.sujo = true;
+  $('agenda-hora').value = '';
+  desenharAgenda();
+}
+
+async function salvarAgenda() {
+  const corpo = estado.agenda.itens.map(({ data, hora, ativo }) => ({ data, hora, ativo }));
+
+  const resposta = await fetch('/api/agenda', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corpo),
+  });
+
+  if (!resposta.ok) {
+    const erro = await resposta.json().catch(() => ({}));
+    return alert(erro.detail || 'Não consegui salvar a agenda.');
+  }
+
+  estado.agenda = { itens: await resposta.json(), sujo: false };
+  desenharAgenda();
+  atualizarStatusAgenda();
+}
+
+async function rearmarItem(id) {
+  if (!confirm(`Re-armar ${id}?\n\nO disparo vai acontecer de novo se o horário ainda estiver dentro da janela de tolerância.`)) return;
+
+  const resposta = await fetch('/api/agenda/rearmar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  }).catch(() => null);
+
+  if (!resposta || !resposta.ok) return alert('Não consegui re-armar o item.');
+
+  estado.agenda = { itens: await resposta.json(), sujo: false };
+  desenharAgenda();
+}
+
+async function atualizarStatusAgenda() {
+  const status = await fetch('/api/agenda/status').then((r) => r.json()).catch(() => null);
+  if (!status) return;
+
+  if (status.em_execucao) {
+    $('agenda-proximo-hora').textContent = 'agora';
+    $('agenda-proximo-quando').textContent = `disparo automático rodando (${status.em_execucao.id})`;
+  } else if (status.proximo) {
+    const min = status.proximo.em_minutos;
+    $('agenda-proximo-hora').textContent = status.proximo.hora;
+    $('agenda-proximo-quando').textContent = `${dataBR(status.proximo.data)} · ${
+      min < 60 ? `em ${min} min` : `em ${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`
+    }`;
+  } else {
+    $('agenda-proximo-hora').textContent = '—';
+    $('agenda-proximo-quando').textContent = 'nenhum disparo agendado';
+  }
+
+  $('agenda-status-lista').innerHTML = [
+    ['Agendador', status.ligado ? 'ligado' : 'parado', !status.ligado],
+    ['Servidor desde', status.desde ? horaCurta(status.desde) : '—', false],
+    ['Atraso tolerado', `${status.tolerancia_min} min`, false],
+  ].map(([rot, val, alerta]) => `<div><dt>${rot}</dt><dd class="${alerta ? 'destaque' : ''}">${val}</dd></div>`).join('');
+}
+
 /* ------------------------------------------------ boot */
 
 async function iniciar() {
@@ -1100,6 +1270,10 @@ async function iniciar() {
     if (!$('painel-revisao').hidden) fecharRevisao();
     for (const overlay of document.querySelectorAll('.modal-overlay.aberto')) overlay.classList.remove('aberto');
   });
+
+  $('agenda-add').onclick = adicionarHorario;
+  $('agenda-salvar').onclick = salvarAgenda;
+  $('agenda-descartar').onclick = carregarAgenda;
 
   $('historico-busca').oninput = debounce(carregarHistorico, 250);
   $('historico-status').onchange = carregarHistorico;

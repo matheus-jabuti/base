@@ -116,3 +116,8 @@ nem sabe que existem. Consequências:
 
 O `dispatch.js` tem a mesma restrição em espírito: só pergunta no terminal quando `--hora` não vem, e a
 tela sempre passa a flag.
+
+O `app/agendador.py` é o segundo consumidor de `passos.executar()` (a tela é o primeiro). As mesmas
+regras valem: assinatura aditiva, pipeline imprimindo o progresso, nada de `input()`. Os dois
+compartilham `passos.LOCK_EXECUCAO` — só um disparo roda de cada vez. `auto/config/agenda.json`
+(`[{data, hora, ativo}]`) é escrito só pela aba Agenda via `PUT /api/agenda`; o `dispatch.js` não o lê.

@@ -32,8 +32,9 @@ origem para `auto/bases/`, que tem um contato por base.
    Detalhes: `geracao.md`.
 2. **Disparo** (Node + Playwright, `auto/`) — lê esses CSVs e opera o dashboard pela interface.
    Detalhes: `disparo.md`.
-3. **Tela** (`app/`) — junta as duas num fluxo de browser e transmite o progresso por SSE.
-   Detalhes: `app.md`.
+3. **Tela** (`app/`) — junta as duas num fluxo de browser e transmite o progresso por SSE. Inclui o
+   **agendador** (`app/agendador.py`): uma thread que dispara a pipeline inteira sozinha nos horários
+   de `auto/config/agenda.json` enquanto o servidor estiver de pé. Detalhes: `app.md`.
 
 As metades se falam por arquivo e por stdout, nunca por import. O que atravessa a fronteira está em
 `contratos.md` — é a parte que quebra em silêncio quando só um lado muda.
@@ -62,14 +63,16 @@ Caminho manual (planilha pronta em vez de banco): `python extract.py`.
 | `gerar_base.py` | Pipeline banco → CSV (orquestrador + regras de elegibilidade) |
 | `extract.py` | Pipeline Excel → CSV (caminho manual) |
 | `contatos.py` | Núcleo compartilhado: normalização, rating, dedup, escrita dos CSVs |
-| `app/server.py` | HTTP: validação, lock de execução única, framing SSE |
-| `app/passos.py` | Os passos de verdade: VPN, geração, templates, disparo |
+| `app/server.py` | HTTP: validação, framing SSE, endpoints da agenda |
+| `app/passos.py` | Os passos de verdade: VPN, geração, templates, disparo; a trava `LOCK_EXECUCAO` |
+| `app/agendador.py` | Thread que dispara sozinha nos horários de `auto/config/agenda.json` |
 | `app/static/` | Tela sem build (HTML/CSS/JS) |
 | `auto/dispatch.js` | Orquestrador Playwright |
 | `auto/lib/dispatch-logic.js` | Lógica pura, testável (`npm test`) |
 | `auto/config/dispatches.json` | Configuração das cinco bases |
+| `auto/config/agenda.json` | Horários dos disparos automáticos (`[{data, hora, ativo}]`) |
 | `auto/bases/` | Bases de teste, um contato cada (versionadas) |
-| `tests/` | Suíte pytest do lado Python (`contatos.py`, `gerar_base.py`) |
+| `tests/` | Suíte pytest do lado Python (`contatos.py`, `gerar_base.py`, `agendador.py`) |
 | `filtros/` | Planilhas (xlsx/csv) com telefones a excluir das bases; lida a cada geração |
 | `in/`, `out/`, `relatorio/`, `auto/logs/` | Dados, todos fora do versionamento |
 

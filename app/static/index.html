@@ -17,6 +17,7 @@
 
     <nav class="abas" id="abas" aria-label="Seções">
       <button type="button" class="aba ativa" data-aba="preparar" aria-current="page">Preparar</button>
+      <button type="button" class="aba" data-aba="agenda">Agenda</button>
       <button type="button" class="aba" data-aba="monitorar">
         <span class="ponto-aba" id="ponto-monitorar" hidden></span>Monitorar
       </button>
@@ -220,6 +221,49 @@
           </div>
         </aside>
       </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== AGENDA ===================================================== -->
+  <section class="view" id="view-agenda" hidden>
+    <div class="colunas">
+      <div class="coluna-principal">
+        <div class="cartao">
+          <div class="cartao-topo">
+            <h2>Disparos agendados</h2>
+            <span class="dica" id="agenda-dica">o servidor dispara sozinho nos horários abaixo</span>
+          </div>
+          <div class="filtros">
+            <input type="date" id="agenda-data" aria-label="Data do disparo">
+            <input type="time" id="agenda-hora" step="60" aria-label="Horário do disparo">
+            <button type="button" class="botao-fantasma" id="agenda-add">Adicionar horário</button>
+          </div>
+          <div class="tabela-scroll">
+            <table class="tabela">
+              <thead>
+                <tr><th>Data</th><th>Hora</th><th>Situação</th><th>Detalhe</th><th class="acoes-col"></th></tr>
+              </thead>
+              <tbody id="agenda-linhas"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="acoes-fim" id="agenda-acoes" hidden>
+          <button type="button" class="botao-principal" id="agenda-salvar"><span>Salvar agenda</span></button>
+          <button type="button" class="botao-fantasma" id="agenda-descartar">Descartar mudanças</button>
+        </div>
+      </div>
+
+      <aside class="coluna-lateral">
+        <div class="cartao resumo">
+          <div class="resumo-total">
+            <strong id="agenda-proximo-hora">—</strong>
+            <span id="agenda-proximo-quando">nenhum disparo agendado</span>
+          </div>
+          <dl class="resumo-lista" id="agenda-status-lista"></dl>
+          <p class="dica centro">Os disparos automáticos usam os templates configurados em <button type="button" class="link" data-ir="preparar">Preparar</button> e só acontecem com o servidor rodando nesta máquina e a VPN ligada.</p>
+        </div>
+      </aside>
     </div>
   </section>
 

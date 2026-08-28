@@ -11,7 +11,6 @@ EventSource — assim a tela mostra o log ao vivo em vez de um spinner mudo.
 from __future__ import annotations
 
 import json
-import threading
 from dataclasses import asdict
 from datetime import date, datetime
 from pathlib import Path
@@ -20,22 +19,20 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import passos
+from app import agendador, passos
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(title="Disparo Porto")
 
-# Gerar base e disparar mexem nos mesmos CSVs; dois cliques em paralelo dariam
-# base pela metade ou disparo duplicado. Um por vez, e so.
-_execucao = threading.Lock()
+# Uma execucao por vez (tela ou agendador): a trava mora em passos.LOCK_EXECUCAO.
 
 
 def _sse(gerador):
     """Empacota (tipo, dado) como evento SSE."""
 
     def fluxo():
-        if not _execucao.acquire(blocking=False):
+        if not passos.LOCK_EXECUCAO.acquire(blocking=False):
             yield _evento("erro", "Ja tem uma execucao em andamento.")
             yield _evento("fim", {"status": "ocupado"})
             return
@@ -44,7 +41,7 @@ def _sse(gerador):
             for tipo, dado in gerador:
                 yield _evento(tipo, dado)
         finally:
-            _execucao.release()
+            passos.LOCK_EXECUCAO.release()
 
     return StreamingResponse(
         fluxo(),
@@ -162,12 +159,43 @@ def executar(
 
 @app.post("/api/cancelar")
 def cancelar():
-    if not _execucao.locked():
+    if not passos.LOCK_EXECUCAO.locked():
         raise HTTPException(409, "Nenhuma execucao em andamento.")
 
     passos.cancelar()
 
     return {"ok": True}
+
+
+@app.get("/api/agenda")
+def agenda():
+    return agendador.agenda_para_tela()
+
+
+@app.put("/api/agenda")
+def salvar_agenda(itens: list[dict]):
+    try:
+        agendador.gravar_agenda(itens)
+    except ValueError as erro:
+        raise HTTPException(400, str(erro))
+
+    return agendador.agenda_para_tela()
+
+
+@app.get("/api/agenda/status")
+def agenda_status():
+    return agendador.status()
+
+
+@app.post("/api/agenda/rearmar")
+def agenda_rearmar(corpo: dict):
+    item_id = str(corpo.get("id", "")).strip()
+    if not item_id:
+        raise HTTPException(400, "Informe o id do item da agenda.")
+
+    agendador.rearmar(item_id)
+
+    return agendador.agenda_para_tela()
 
 
 @app.get("/api/filtro")
@@ -195,6 +223,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def main() -> None:
     import uvicorn
 
+    agendador.iniciar()
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
 
 

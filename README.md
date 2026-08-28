@@ -32,10 +32,10 @@ cd auto && npm test   # regras de auto/lib/dispatch-logic.js
 python -m app.server
 ```
 
-Abre em <http://127.0.0.1:8000>. Sao tres abas fixas no topo — **Preparar**,
-**Monitorar** e **Historico** —, cada uma com endereco proprio (`#preparar`,
-`#monitorar`, `#historico`). O modo (producao/teste) e o estado da VPN ficam
-sempre visiveis na barra do topo, em qualquer aba.
+Abre em <http://127.0.0.1:8000>. Sao quatro abas fixas no topo — **Preparar**,
+**Agenda**, **Monitorar** e **Historico** —, cada uma com endereco proprio
+(`#preparar`, `#agenda`, `#monitorar`, `#historico`). O modo (producao/teste) e o
+estado da VPN ficam sempre visiveis na barra do topo, em qualquer aba.
 
 **Preparar.** Uma linha por base, com o volume de contatos em barra, e o numero
 do template por grupo — Amigavel (as quatro bases amigaveis usam sempre o mesmo
@@ -51,6 +51,22 @@ lista de bases e templates, o horario resolvido (agendado ou imediato) e uma
 checagem do que da pra checar antes (VPN, periodo, filtro manual, bases vazias).
 Em producao o disparo exige **segurar o botao por 1,5s**; em teste e na
 pre-visualizacao e um clique so.
+
+**Agenda.** A lista de disparos automaticos: uma linha por data + hora. Enquanto
+`python -m app.server` estiver rodando nesta maquina (com a VPN ligada), o
+servidor dispara sozinho em cada horario — roda a pipeline inteira (VPN, gera a
+base do periodo padrao, dispara as cinco bases) com os templates configurados na
+aba Preparar. Adicione data e hora, clique em **Adicionar horario**, depois
+**Salvar agenda**. Cada linha mostra a situacao: `agendado`, `disparado`,
+`falhou`, `perdido` (servidor estava fora do ar ou ocupado por mais de 20min
+depois da hora) ou `desativado`. Item que falhou ou se perdeu tem um botao
+**re-armar** pra ele tentar de novo (se ainda estiver dentro dos 20min). A coluna
+da direita mostra o proximo disparo e se o agendador esta ligado.
+
+O disparo automatico acontece na hora exata do item (envio imediato, nao
+agendamento na plataforma). Ele **nao aparece na aba Monitorar** — o resultado
+fica no Historico. Um atraso de ate ~20min entre o horario e a mensagem chegar e
+esperado (a pipeline leva alguns minutos e a plataforma tem fila).
 
 **Monitorar.** Acompanhamento ao vivo: VPN, geracao da base e disparo, com as
 cinco bases mostrando em qual etapa cada uma esta (lista, campanha,
@@ -169,7 +185,9 @@ Telefone com menos de 10 digitos e descartado, porque nao e discavel.
 | `sql/` | Queries |
 | `app/server.py` | Servidor da tela (FastAPI); `/api/executar` transmite o progresso por SSE |
 | `app/passos.py` | VPN, geracao, templates e disparo, um passo por funcao |
+| `app/agendador.py` | Thread que dispara sozinha nos horarios de `auto/config/agenda.json` |
 | `app/static/` | A tela: HTML, CSS e JS sem build |
+| `auto/config/agenda.json` | Horarios dos disparos automaticos (`[{data, hora, ativo}]`) |
 | `auto/` | Automacao Playwright do dashboard (veja `auto/CLAUDE.md`) |
 
 ## Disparo pela linha de comando

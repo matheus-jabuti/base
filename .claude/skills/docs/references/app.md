@@ -1,7 +1,9 @@
 # Tela (`app/`, FastAPI + JS sem build)
 
-Caminho normal de uso: três abas fixas (Preparar / Monitorar / Histórico), um painel de revisão antes
-do disparo, e o acompanhamento ao vivo alimentado por SSE — que, ao terminar, vira a tela de resultado.
+Caminho normal de uso: quatro abas fixas (Preparar / Agenda / Monitorar / Histórico), um painel de
+revisão antes do disparo, e o acompanhamento ao vivo alimentado por SSE — que, ao terminar, vira a
+tela de resultado. A aba **Agenda** gerencia a lista de disparos automáticos; quem dispara é a thread
+do `app/agendador.py` (ver "Agendador" abaixo), não a tela.
 
 ```bash
 python -m app.server      # http://127.0.0.1:8000
@@ -13,7 +15,12 @@ python -m app.server      # http://127.0.0.1:8000
 | --- | --- |
 | `app/server.py` | HTTP fino: validação de entrada, lock de execução única, framing SSE. Nenhuma regra. |
 | `app/passos.py` | Os passos de verdade, um gerador por passo. Toda a lógica mora aqui. |
+| `app/agendador.py` | Thread que dispara sozinha nos horários de `auto/config/agenda.json`. |
 | `app/static/` | `index.html`, `style.css`, `app.js`. Sem build, sem dependência externa. |
+
+A trava de execução única mora em `passos.LOCK_EXECUCAO` (não mais em `server.py`): a tela
+(`server._sse`) e o agendador (`agendador._disparar_item`) a compartilham, então só há um disparo
+rodando de cada vez, venha da tela ou do horário.
 
 `app/passos.py` insere a raiz do projeto no `sys.path` para importar `config` e `gerar_base`, que ficam
 um nível acima. Os imports desses módulos são **dentro das funções**, de propósito: o servidor sobe
@@ -34,6 +41,10 @@ mesmo sem `.env` preenchido.
 | `GET /api/filtro` | Arquivos, contagem e lista dos telefones (`numeros`) em `filtros/`, sem precisar de VPN/DB |
 | `GET /api/filtro/ultimo-removido` | Download do CSV mais recente de removidos pelo filtro (`relatorio/filtro_removidos_*.csv`); `404` se nenhum existe |
 | `GET /api/historico?limite=&busca=&status=&modo=` | Últimas linhas de `auto/logs/disparos.csv`, mais recente primeiro, com filtro opcional |
+| `GET /api/agenda` | A agenda com a situação calculada de cada item (`agendador.agenda_para_tela()`) |
+| `PUT /api/agenda` | Regrava a agenda inteira (`[{data, hora, ativo}]`); valida formato e horário repetido, ordena, poda o estado órfão |
+| `GET /api/agenda/status` | Estado do agendador: `ligado`, `desde`, `em_execucao`, `proximo`, `tolerancia_min`, `antecedencia_min` |
+| `POST /api/agenda/rearmar` | `{id}` — tira o item do estado pra ele poder disparar de novo (item que falhou ou se perdeu) |
 
 Validações em `server.py`: `hora` no formato `HH:MM` com faixa válida (normalizada para dois dígitos),
 `modo` restrito às chaves de `passos.BASES_DIR`, datas em `AAAA-MM-DD` com início ≤ fim, `dry_run=true`
@@ -87,13 +98,47 @@ Cada passo é um gerador que produz tuplas `(tipo, dado)`; `server.py` só as em
 `BASES_DIR` define os dois modos: `producao` → `out/`, `teste` → `auto/bases/`. É o único lugar onde
 essa escolha existe; a tela só manda o nome do modo.
 
+## Agendador (`app/agendador.py`)
+
+Uma thread daemon, iniciada em `server.main()` (só no caminho `python -m app.server`). De
+`INTERVALO_TICK_S` em `INTERVALO_TICK_S` segundos (30) confere `auto/config/agenda.json` e, quando um
+item chega na hora, roda `passos.executar(...)` inteiro (VPN → base → disparo) em `modo="producao"`,
+`gerar=True`, com o período de `gerar_base.periodo_padrao()` calculado na hora e a `hora` do próprio
+item passada adiante (é ela que nomeia lista/campanha/transmissão e decide agendado × imediato no
+`dispatch.js`).
+
+- **`agenda.json`** — lista de `{data: "AAAA-MM-DD", hora: "HH:MM", ativo: bool}`. Editada só pela aba
+  Agenda (`PUT /api/agenda`). O id de um item é `"data hora"` — mexer no horário cria um item novo.
+- **Estado** — `auto/logs/agenda_estado.json` (`{id: {situacao, quando, detalhe}}`), fora do
+  versionamento como todo o resto de `auto/logs/`. Sobrevive a restart: item já disparado não roda de
+  novo, item perdido não dispara atrasado.
+- **`ANTECEDENCIA_MIN`** (0) — dispara este tanto de minutos antes do horário. 0 = na hora exata, o
+  que sempre cai em envio imediato no `dispatch.js`. Acima de ~2 viraria agendamento na plataforma.
+- **`TOLERANCIA_ATRASO_MIN`** (20) — servidor desligado ou ocupado no horário: passou disso da hora
+  sem disparar, o item vira `perdido` e não roda mais. Dentro da janela, dispara no próximo tick.
+- **Um disparo por ciclo** — `_disparar_item` bloqueia por minutos; o ciclo seguinte relê o estado e
+  pega o próximo item. Se a trava `passos.LOCK_EXECUCAO` estiver tomada (disparo manual), sai e tenta
+  no próximo ciclo.
+- **Decisão pura e testada** — `situacao_do_item`, `itens_a_disparar`, `proximo_disparo` não têm IO;
+  `tests/test_agendador.py` cobre. O resto lê/grava arquivo e roda a pipeline.
+- **Sem view ao vivo** — um disparo automático não aparece na aba Monitorar (não há broker de SSE
+  para um cliente que conecta no meio); a aba Agenda mostra "disparo automático rodando" via
+  `GET /api/agenda/status` e o resultado fica no histórico e no `agenda_estado.json`.
+
 ## Front (`app/static/app.js`)
 
-- **Três views no mesmo documento** (`view-preparar` / `view-monitorar` / `view-historico`), trocadas
-  por `irPara(aba)`, que sincroniza o `location.hash` (`#preparar`, `#monitorar`, `#historico`), marca
-  a aba ativa e recarrega o histórico ao entrar nele. `window.onhashchange` chama o mesmo `irPara`, e
-  o boot entra pela hash da URL. Preparar e Monitorar usam o wrapper `.colunas` (coluna principal +
-  lateral fixa de 300px, grid a partir de 980px — abaixo disso empilha).
+- **Quatro views no mesmo documento** (`view-preparar` / `view-agenda` / `view-monitorar` /
+  `view-historico`), trocadas por `irPara(aba)`, que sincroniza o `location.hash`, marca a aba ativa,
+  recarrega o histórico ao entrar nele e, ao entrar/sair de Agenda, liga/desliga o poll de status
+  (`entrarAgenda` / `pararPollAgenda`). `window.onhashchange` chama o mesmo `irPara`, e o boot entra
+  pela hash da URL. Preparar, Agenda e Monitorar usam o wrapper `.colunas` (coluna principal + lateral
+  fixa de 300px, grid a partir de 980px — abaixo disso empilha).
+- **Aba Agenda**: `estado.agenda = { itens, sujo }` é a cópia de trabalho. Adicionar/remover/ativar
+  linha é local e liga `sujo` (mostra as ações Salvar/Descartar); "Salvar agenda" faz `PUT /api/agenda`
+  mandando `[{data, hora, ativo}]` e substitui a cópia pela resposta. "Re-armar" (só para item que
+  falhou/perdeu, e só com a agenda salva) é um `POST /api/agenda/rearmar` imediato. Enquanto a aba
+  está aberta, um poll de 15s atualiza a lateral (`GET /api/agenda/status`) e, se não houver edição
+  pendente, recarrega as linhas.
 - **Contexto sempre visível**: barra superior fixa (`position: sticky`) com marca, abas, chip de VPN
   (clicável, refaz a checagem), segmento de modo e alternador de tema; logo abaixo, a faixa de modo.
   A aba Monitorar ganha um ponto pulsante (`#ponto-monitorar`) enquanto há execução rodando.

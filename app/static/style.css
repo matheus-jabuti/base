@@ -860,10 +860,38 @@ body.modo-producao .botao-principal { background: var(--perigo); }
   font-weight: 500;
 }
 
-.marcador-status.ok { background: var(--ok-suave); color: var(--ok); }
-.marcador-status.erro { background: var(--perigo-suave); color: var(--perigo); }
-.marcador-status.pulado { background: var(--painel-2); color: var(--fraco); border: 1px solid var(--linha-forte); }
-.marcador-status.cancelado { background: var(--alerta-suave); color: var(--alerta); }
+.marcador-status.ok, .marcador-status.disparado { background: var(--ok-suave); color: var(--ok); }
+.marcador-status.erro, .marcador-status.perdido { background: var(--perigo-suave); color: var(--perigo); }
+.marcador-status.pulado, .marcador-status.desativado { background: var(--painel-2); color: var(--fraco); border: 1px solid var(--linha-forte); }
+.marcador-status.cancelado, .marcador-status.pendente { background: var(--alerta-suave); color: var(--alerta); }
+.marcador-status.agendado { background: var(--acento-suave); color: var(--acento); }
+
+/* ---------------- agenda ---------------- */
+
+#view-agenda .filtros input[type=date],
+#view-agenda .filtros input[type=time] {
+  padding: 7px 11px;
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio-p);
+  background: var(--painel-2);
+  font-size: 12.5px;
+  font-family: var(--mono);
+}
+
+.acoes-col { text-align: right; white-space: nowrap; }
+
+.link-mini {
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  color: var(--fraco);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-mini:hover { color: var(--acento); }
+.link-mini.perigo:hover { color: var(--perigo); }
 
 /* ---------------- filtros do historico ---------------- */
 

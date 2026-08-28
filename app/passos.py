@@ -52,9 +52,14 @@ MARCA_ETAPA = "[ETAPA] "
 # Mesmo esquema, so que emitido pelo gerar_base.py pras contagens intermediarias.
 MARCA_METRICA = "[METRICA] "
 
-# Estado de cancelamento: uma execucao por vez (o lock em server.py garante
-# isso), entao um Event/Popen a nivel de modulo basta pra sinalizar "pare" pro
-# passo que estiver rodando no momento.
+# Uma execucao por vez: geracao e disparo mexem nos mesmos CSVs. A tela
+# (server._sse) e o agendador (agendador._disparar_item) compartilham esta trava
+# pra so haver um disparo rodando de cada vez, venha da tela ou do horario.
+LOCK_EXECUCAO = threading.Lock()
+
+# Estado de cancelamento: uma execucao por vez (LOCK_EXECUCAO garante isso),
+# entao um Event/Popen a nivel de modulo basta pra sinalizar "pare" pro passo
+# que estiver rodando no momento.
 _evento_cancelamento = threading.Event()
 _lock_processo = threading.Lock()
 _processo_disparo: subprocess.Popen | None = None

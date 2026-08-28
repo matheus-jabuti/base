@@ -13,7 +13,9 @@ dashboard. Three halves that chain into one pipeline:
    create distribution list → campaign → broadcast, per base. Has its own `auto/CLAUDE.md`
    — **read it before touching anything under `auto/`**.
 3. **UI** (`app/`, FastAPI + vanilla JS) — a four-step browser flow that runs 1 and 2 in sequence
-   and streams progress over SSE.
+   and streams progress over SSE. Includes `app/agendador.py`: a background thread that fires the
+   whole pipeline on its own at the times listed in `auto/config/agenda.json` (managed from the
+   **Agenda** tab), for as long as the server process is running.
 
 `../` is a workspace of independent repos (see `../CLAUDE.md` for the Porto tools repo). This repo
 is self-contained; the parent's Porto-tools guidance does not apply here.
@@ -95,8 +97,9 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
 
 ### UI
 
-`app/server.py` is thin: validation, a global `threading.Lock` so only one run happens at a time, and
-SSE framing. All real work is in `app/passos.py`, one generator per step yielding `(tipo, dado)`
+`app/server.py` is thin: validation, SSE framing, and the agenda CRUD endpoints. The "one run at a
+time" lock lives in `passos.LOCK_EXECUCAO` — shared by the UI (`server._sse`) and the scheduler
+(`agendador._disparar_item`). All real work is in `app/passos.py`, one generator per step yielding `(tipo, dado)`
 tuples; `executar()` chains VPN → base → dispatch and **stops at the first failure, at cancellation
 (`POST /api/cancelar`), or — in dry-run mode — right after the base preview**. Generation reuses
 `gerar_base.gerar()` as-is by capturing its stdout (`_FilaDeLinhas`) rather than duplicating logic —
@@ -104,6 +107,15 @@ keep `gerar_base.py` print-based so this keeps working; `dry_run`/`deve_cancelar
 params on `gerar()`. `app/static/` is plain HTML/CSS/JS, no build step. Template editing writes back
 only `template_prefix`/`template_numero` into `auto/config/dispatches.json`; `key`/`nome`/`csv` are
 structure, not configuration.
+
+`app/agendador.py` is the second consumer of `passos.executar()`: a daemon thread started in
+`server.main()` that ticks every 30s over `auto/config/agenda.json` (`[{data, hora, ativo}]`, edited
+only via `PUT /api/agenda`) and runs the full pipeline when an item is due — `modo="producao"`,
+fresh `periodo_padrao()`, the item's `hora` passed through. Fires at the exact time (immediate send);
+an item not dispatched within `TOLERANCIA_ATRASO_MIN` (20) of its time is marked `perdido` and
+skipped. Decision logic (`situacao_do_item`, `itens_a_disparar`, `proximo_disparo`) is pure and
+covered by `tests/test_agendador.py`. Runtime state: `auto/logs/agenda_estado.json` (gitignored).
+Full detail in the `docs` skill (`references/app.md`).
 
 ## Conventions
 
