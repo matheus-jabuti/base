@@ -30,10 +30,11 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   built as `<prefix>_<numero>` (`buildTemplateName`), because in practice only the trailing number
   changes between rounds — the UI edits that number without retyping the whole name. Edit this file to
   change templates or to add/remove bases — no code change needed.
-- `config/agenda.json` — **not read by `dispatch.js`**. Horários + templates dos disparos automáticos
-  (`[{data, hora, ativo, templates}]`), gerenciados pela aba Agenda da tela e disparados pela thread
-  `app/agendador.py`, que grava os `templates` da linha neste `dispatches.json` antes de cada disparo.
-  Vive aqui só por proximidade com `dispatches.json`; runtime state fica em `logs/agenda_estado.json`.
+- `config/agenda.json` — **not read by `dispatch.js`**. Modo + horários + templates dos disparos
+  automáticos (`{modo, itens: [{data, hora, ativo, templates}]}`), gerenciados pela aba Agenda da tela
+  e disparados pela thread `app/agendador.py`, que grava os `templates` da linha neste
+  `dispatches.json` antes de cada disparo. `modo` default `teste` (bases de `bases/`); `producao` lê
+  `../out`. Vive aqui só por proximidade com `dispatches.json`; runtime state em `logs/agenda_estado.json`.
 - `dispatch.js` — orchestrator. Takes the target time from `--hora HH:MM` (falls back to a terminal
   prompt when the flag is absent) and the CSV folder from `--bases-dir` (default `../out`), reuses that
   time for all 5 entries in `config/dispatches.json`. Runs **phase-batched, not per-base**: creates all 5

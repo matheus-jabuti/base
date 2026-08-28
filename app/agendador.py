@@ -152,9 +152,38 @@ def _ler_json(caminho: Path, padrao):
         return padrao
 
 
+MODOS = ("teste", "producao")
+
+
+def _ler_arquivo() -> dict:
+    """Conteudo do agenda.json normalizado: {modo, itens}.
+
+    Aceita o formato antigo (so a lista de itens) e assume modo "teste" nesse
+    caso — nunca "producao" por omissao.
+    """
+    dados = _ler_json(AGENDA_FILE, {})
+
+    if isinstance(dados, list):
+        return {"modo": "teste", "itens": dados}
+    if not isinstance(dados, dict):
+        return {"modo": "teste", "itens": []}
+
+    modo = dados.get("modo")
+    itens = dados.get("itens")
+
+    return {
+        "modo": modo if modo in MODOS else "teste",
+        "itens": itens if isinstance(itens, list) else [],
+    }
+
+
 def ler_agenda() -> list[dict]:
-    dados = _ler_json(AGENDA_FILE, [])
-    return dados if isinstance(dados, list) else []
+    return _ler_arquivo()["itens"]
+
+
+def ler_modo() -> str:
+    """producao = clientes reais (bases de out/); teste = 1 contato por base (auto/bases/)."""
+    return _ler_arquivo()["modo"]
 
 
 def _ler_estado() -> dict:
@@ -220,8 +249,11 @@ def _validar_templates(bruto, grupos: list[str]) -> dict:
     return limpo
 
 
-def gravar_agenda(itens: list[dict]) -> list[dict]:
+def gravar_agenda(itens: list[dict], modo: str = "teste") -> dict:
     """Valida, ordena e regrava a agenda. Poda o estado de itens que sumiram."""
+    if modo not in MODOS:
+        raise ValueError(f"Modo invalido: '{modo}'. Use 'producao' ou 'teste'.")
+
     grupos = passos.grupos_templates()
     limpos: list[dict] = []
     vistos: set[str] = set()
@@ -245,7 +277,10 @@ def gravar_agenda(itens: list[dict]) -> list[dict]:
         })
 
     limpos.sort(key=lambda entrada: (entrada["data"], entrada["hora"]))
-    AGENDA_FILE.write_text(json.dumps(limpos, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    AGENDA_FILE.write_text(
+        json.dumps({"modo": modo, "itens": limpos}, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
 
     with _trava_estado:
         estado = _ler_estado()
@@ -253,28 +288,46 @@ def gravar_agenda(itens: list[dict]) -> list[dict]:
         if podado != estado:
             _gravar_estado(podado)
 
-    return limpos
+    return agenda_para_tela()
 
 
-def agenda_para_tela() -> list[dict]:
-    """A agenda com a situacao calculada de cada item, pro GET /api/agenda."""
+def gravar_modo(modo: str) -> dict:
+    """Troca so o modo (producao/teste), sem mexer nos itens ja gravados."""
+    if modo not in MODOS:
+        raise ValueError(f"Modo invalido: '{modo}'. Use 'producao' ou 'teste'.")
+
+    arquivo = _ler_arquivo()
+    AGENDA_FILE.write_text(
+        json.dumps({"modo": modo, "itens": arquivo["itens"]}, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    _log(f"modo dos disparos automaticos: {modo}")
+
+    return agenda_para_tela()
+
+
+def agenda_para_tela() -> dict:
+    """A agenda (modo + itens com situacao calculada), pro GET /api/agenda."""
     itens = ler_agenda()
     estado = _ler_estado()
     agora = datetime.now()
 
-    return [
-        {
-            "id": id_do_item(item),
-            "data": item["data"],
-            "hora": item["hora"],
-            "ativo": item.get("ativo", True),
-            "templates": item.get("templates", {}),
-            "situacao": situacao_do_item(item, estado, agora),
-            "quando": estado.get(id_do_item(item), {}).get("quando"),
-            "detalhe": estado.get(id_do_item(item), {}).get("detalhe", ""),
-        }
-        for item in itens
-    ]
+    return {
+        "modo": ler_modo(),
+        "itens": [
+            {
+                "id": id_do_item(item),
+                "data": item["data"],
+                "hora": item["hora"],
+                "ativo": item.get("ativo", True),
+                "templates": item.get("templates", {}),
+                "situacao": situacao_do_item(item, estado, agora),
+                "quando": estado.get(id_do_item(item), {}).get("quando"),
+                "detalhe": estado.get(id_do_item(item), {}).get("detalhe", ""),
+            }
+            for item in itens
+        ],
+    }
 
 
 def rearmar(item_id: str) -> None:
@@ -298,6 +351,7 @@ def status() -> dict:
     return {
         "ligado": _thread is not None and _thread.is_alive(),
         "desde": _iniciado_em.isoformat(timespec="seconds") if _iniciado_em else None,
+        "modo": ler_modo(),
         "em_execucao": execucao,
         "proximo": proximo_disparo(itens, estado, datetime.now()),
         "tolerancia_min": TOLERANCIA_ATRASO_MIN,
@@ -347,11 +401,17 @@ def _disparar_item(item: dict) -> None:
         _log(f"{item_id}: servidor ocupado com outra execucao, tenta no proximo ciclo")
         return
 
+    modo = ler_modo()
+
     global _execucao_atual
     with _trava_estado:
-        _execucao_atual = {"id": item_id, "desde": datetime.now().isoformat(timespec="seconds")}
+        _execucao_atual = {
+            "id": item_id,
+            "desde": datetime.now().isoformat(timespec="seconds"),
+            "modo": modo,
+        }
 
-    _log(f"{item_id}: iniciando disparo automatico")
+    _log(f"{item_id}: iniciando disparo automatico (modo {modo})")
     situacao = "erro"
     erros: list[str] = []
 
@@ -359,13 +419,14 @@ def _disparar_item(item: dict) -> None:
         _aplicar_templates(templates)
         _log(f"{item_id}: templates {templates}")
         inicio, fim = gerar_base.periodo_padrao()
+        # Em teste as bases sao as de auto/bases/ (1 contato); nao adianta gerar.
         for tipo, dado in passos.executar(
             data_inicio=inicio,
             data_fim=fim,
             hora=item["hora"],
-            modo="producao",
-            com_relatorio=True,
-            gerar=True,
+            modo=modo,
+            com_relatorio=(modo == "producao"),
+            gerar=(modo == "producao"),
         ):
             if tipo == "erro":
                 erros.append(str(dado))
@@ -382,8 +443,9 @@ def _disparar_item(item: dict) -> None:
         with _trava_estado:
             _execucao_atual = None
 
-    _registrar(item_id, situacao, " | ".join(erros[-3:]))
-    _log(f"{item_id}: fim ({situacao})")
+    prefixo = "" if modo == "producao" else "[teste] "
+    _registrar(item_id, situacao, prefixo + " | ".join(erros[-3:]))
+    _log(f"{item_id}: fim ({situacao}, modo {modo})")
 
 
 def _rodar_pendencias() -> None:

@@ -9,7 +9,7 @@ const estado = {
   filtro: { telefones: 0, arquivos: [], numeros: [] },
   ultimaExecucao: null,
   execucao: null,
-  agenda: { itens: [], sujo: false },
+  agenda: { itens: [], sujo: false, modo: 'teste' },
 };
 
 // A VPN as vezes demora a subir; tenta de novo antes de acusar erro.
@@ -1089,11 +1089,39 @@ const templatesPadrao = () =>
   }));
 
 async function carregarAgenda() {
-  const itens = await fetch('/api/agenda').then((r) => r.json()).catch(() => null);
-  if (!itens) return;
+  const dados = await fetch('/api/agenda').then((r) => r.json()).catch(() => null);
+  if (!dados) return;
 
-  estado.agenda = { ...estado.agenda, itens, sujo: false };
+  estado.agenda = { ...estado.agenda, itens: dados.itens || [], modo: dados.modo || 'teste', sujo: false };
+  pintarModoAgenda(estado.agenda.modo);
   desenharAgenda();
+}
+
+function pintarModoAgenda(modo) {
+  for (const botao of document.querySelectorAll('#agenda-segmento-modo button')) {
+    botao.classList.toggle('ativo', botao.dataset.modo === modo);
+  }
+  $('agenda-aviso-modo').hidden = modo !== 'producao';
+}
+
+async function definirModoAgenda(modo) {
+  if (modo === estado.agenda.modo) return;
+
+  if (modo === 'producao' && !confirm('Modo produção: cada horário da agenda vai gerar a base e ENVIAR para os clientes reais.\n\nConfirmar?')) {
+    return;
+  }
+
+  const resposta = await fetch('/api/agenda/modo', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ modo }),
+  }).catch(() => null);
+
+  if (!resposta || !resposta.ok) return alert('Não consegui trocar o modo dos disparos automáticos.');
+
+  const dados = await resposta.json();
+  estado.agenda = { ...estado.agenda, modo: dados.modo };
+  pintarModoAgenda(dados.modo);
 }
 
 const dataBR = (iso) => (iso || '').split('-').reverse().join('/');
@@ -1195,7 +1223,10 @@ function adicionarHorario() {
 }
 
 async function salvarAgenda() {
-  const corpo = estado.agenda.itens.map(({ data, hora, ativo, templates }) => ({ data, hora, ativo, templates }));
+  const corpo = {
+    modo: estado.agenda.modo,
+    itens: estado.agenda.itens.map(({ data, hora, ativo, templates }) => ({ data, hora, ativo, templates })),
+  };
 
   const resposta = await fetch('/api/agenda', {
     method: 'PUT',
@@ -1208,7 +1239,9 @@ async function salvarAgenda() {
     return alert(erro.detail || 'Não consegui salvar a agenda.');
   }
 
-  estado.agenda = { ...estado.agenda, itens: await resposta.json(), sujo: false };
+  const dados = await resposta.json();
+  estado.agenda = { ...estado.agenda, itens: dados.itens || [], modo: dados.modo || estado.agenda.modo, sujo: false };
+  pintarModoAgenda(estado.agenda.modo);
   desenharAgenda();
   atualizarStatusAgenda();
 }
@@ -1224,7 +1257,8 @@ async function rearmarItem(id) {
 
   if (!resposta || !resposta.ok) return alert('Não consegui re-armar o item.');
 
-  estado.agenda = { ...estado.agenda, itens: await resposta.json(), sujo: false };
+  const dados = await resposta.json();
+  estado.agenda = { ...estado.agenda, itens: dados.itens || [], modo: dados.modo || estado.agenda.modo, sujo: false };
   desenharAgenda();
 }
 
@@ -1232,9 +1266,14 @@ async function atualizarStatusAgenda() {
   const status = await fetch('/api/agenda/status').then((r) => r.json()).catch(() => null);
   if (!status) return;
 
+  if (!estado.agenda.sujo && status.modo && status.modo !== estado.agenda.modo) {
+    estado.agenda.modo = status.modo;
+    pintarModoAgenda(status.modo);
+  }
+
   if (status.em_execucao) {
     $('agenda-proximo-hora').textContent = 'agora';
-    $('agenda-proximo-quando').textContent = `disparo automático rodando (${status.em_execucao.id})`;
+    $('agenda-proximo-quando').textContent = `disparo automático rodando · ${status.em_execucao.modo || ''} (${status.em_execucao.id})`;
   } else if (status.proximo) {
     const min = status.proximo.em_minutos;
     $('agenda-proximo-hora').textContent = status.proximo.hora;
@@ -1248,6 +1287,7 @@ async function atualizarStatusAgenda() {
 
   $('agenda-status-lista').innerHTML = [
     ['Agendador', status.ligado ? 'ligado' : 'parado', !status.ligado],
+    ['Modo', status.modo === 'producao' ? 'produção' : 'teste', status.modo === 'producao'],
     ['Servidor desde', status.desde ? horaCurta(status.desde) : '—', false],
     ['Atraso tolerado', `${status.tolerancia_min} min`, false],
   ].map(([rot, val, alerta]) => `<div><dt>${rot}</dt><dd class="${alerta ? 'destaque' : ''}">${val}</dd></div>`).join('');
@@ -1332,6 +1372,10 @@ async function iniciar() {
   $('agenda-add').onclick = adicionarHorario;
   $('agenda-salvar').onclick = salvarAgenda;
   $('agenda-descartar').onclick = carregarAgenda;
+
+  for (const botao of document.querySelectorAll('#agenda-segmento-modo button')) {
+    botao.onclick = () => definirModoAgenda(botao.dataset.modo);
+  }
 
   $('historico-busca').oninput = debounce(carregarHistorico, 250);
   $('historico-status').onchange = carregarHistorico;

@@ -41,9 +41,10 @@ mesmo sem `.env` preenchido.
 | `GET /api/filtro` | Arquivos, contagem e lista dos telefones (`numeros`) em `filtros/`, sem precisar de VPN/DB |
 | `GET /api/filtro/ultimo-removido` | Download do CSV mais recente de removidos pelo filtro (`relatorio/filtro_removidos_*.csv`); `404` se nenhum existe |
 | `GET /api/historico?limite=&busca=&status=&modo=` | Últimas linhas de `auto/logs/disparos.csv`, mais recente primeiro, com filtro opcional |
-| `GET /api/agenda` | A agenda com a situação calculada de cada item (`agendador.agenda_para_tela()`) |
-| `PUT /api/agenda` | Regrava a agenda inteira (`[{data, hora, ativo, templates}]`); valida formato, horário repetido e template por grupo, ordena, poda o estado órfão |
-| `GET /api/agenda/status` | Estado do agendador: `ligado`, `desde`, `em_execucao`, `proximo`, `tolerancia_min`, `antecedencia_min` |
+| `GET /api/agenda` | `{modo, itens}` — o modo dos disparos automáticos e a lista com a situação calculada de cada item (`agendador.agenda_para_tela()`) |
+| `PUT /api/agenda` | Regrava a agenda inteira (`{modo, itens: [{data, hora, ativo, templates}]}`); valida modo, formato, horário repetido e template por grupo, ordena, poda o estado órfão |
+| `PUT /api/agenda/modo` | Troca só o modo (`{modo}`, `producao`/`teste`), sem mexer nos itens |
+| `GET /api/agenda/status` | Estado do agendador: `ligado`, `desde`, `modo`, `em_execucao`, `proximo`, `tolerancia_min`, `antecedencia_min` |
 | `POST /api/agenda/rearmar` | `{id}` — tira o item do estado pra ele poder disparar de novo (item que falhou ou se perdeu) |
 
 Validações em `server.py`: `hora` no formato `HH:MM` com faixa válida (normalizada para dois dígitos),
@@ -102,18 +103,26 @@ essa escolha existe; a tela só manda o nome do modo.
 
 Uma thread daemon, iniciada em `server.main()` (só no caminho `python -m app.server`). De
 `INTERVALO_TICK_S` em `INTERVALO_TICK_S` segundos (30) confere `auto/config/agenda.json` e, quando um
-item chega na hora, roda `passos.executar(...)` inteiro (VPN → base → disparo) em `modo="producao"`,
-`gerar=True`, com o período de `gerar_base.periodo_padrao()` calculado na hora e a `hora` do próprio
+item chega na hora, roda `passos.executar(...)` inteiro no `modo` da agenda, com a `hora` do próprio
 item passada adiante (é ela que nomeia lista/campanha/transmissão e decide agendado × imediato no
-`dispatch.js`).
+`dispatch.js`). Em `producao` gera a base de `gerar_base.periodo_padrao()` antes; em `teste` usa as
+bases de `auto/bases/` como estão.
 
-- **`agenda.json`** — lista de `{data: "AAAA-MM-DD", hora: "HH:MM", ativo: bool, templates: {grupo:
-  "NN"}}`. Editada só pela aba Agenda (`PUT /api/agenda`). O id de um item é `"data hora"` — mexer no
-  horário cria um item novo. `templates` é obrigatório e tem um número (1 a 3 dígitos, `zfill(2)`) por
-  grupo de `passos.grupos_templates()` (hoje `amigavel` e `contencioso`, a mesma divisão dos steppers
-  de Preparar). Antes de cada disparo, `_aplicar_templates` grava esses números no `dispatches.json`
-  via `passos.gravar_templates` — cada base mantém o próprio prefixo, só o número (compartilhado pelo
-  grupo) vem da linha da agenda. Item sem `templates` completo é registrado como `erro` e não dispara.
+- **`agenda.json`** — `{modo, itens}`. `itens` é lista de `{data: "AAAA-MM-DD", hora: "HH:MM", ativo:
+  bool, templates: {grupo: "NN"}}`. Editada só pela aba Agenda. O id de um item é `"data hora"` —
+  mexer no horário cria um item novo. `templates` é obrigatório e tem um número (1 a 3 dígitos,
+  `zfill(2)`) por grupo de `passos.grupos_templates()` (hoje `amigavel` e `contencioso`, a mesma
+  divisão dos steppers de Preparar). Antes de cada disparo, `_aplicar_templates` grava esses números
+  no `dispatches.json` via `passos.gravar_templates` — cada base mantém o próprio prefixo, só o número
+  (compartilhado pelo grupo) vem da linha da agenda. Item sem `templates` completo é registrado como
+  `erro` e não dispara. Formato antigo (lista sem `modo`) é migrado na leitura assumindo `modo:
+  "teste"` — **nunca `producao` por omissão**.
+- **`modo`** (`teste` \| `producao`, default `teste`) — decide de onde saem as bases do disparo
+  automático. `producao` = `out/` (clientes reais), gera a base do período antes de disparar.
+  `teste` = `auto/bases/` (1 contato por base), **não gera nada** (`gerar=False`, `com_relatorio=False`).
+  É o único gate do disparo automático — a tela força um `confirm()` pra trocar pra `producao` e mostra
+  um aviso vermelho enquanto estiver nele. O toggle de modo do topo da tela (`estado.modo`) é
+  **independente**: aquele vale só pro disparo manual (`/api/executar`).
 - **Estado** — `auto/logs/agenda_estado.json` (`{id: {situacao, quando, detalhe}}`), fora do
   versionamento como todo o resto de `auto/logs/`. Sobrevive a restart: item já disparado não roda de
   novo, item perdido não dispara atrasado.
@@ -138,15 +147,17 @@ item passada adiante (é ela que nomeia lista/campanha/transmissão e decide age
   (`entrarAgenda` / `pararPollAgenda`). `window.onhashchange` chama o mesmo `irPara`, e o boot entra
   pela hash da URL. Preparar, Agenda e Monitorar usam o wrapper `.colunas` (coluna principal + lateral
   fixa de 300px, grid a partir de 980px — abaixo disso empilha).
-- **Aba Agenda**: `estado.agenda = { itens, sujo, grupos }` é a cópia de trabalho. `grupos` (rótulo +
-  número atual por grupo) vem de `GET /api/templates` em `carregarGruposAgenda`, e monta os campos de
-  template do formulário de adicionar e de cada linha. Adicionar/remover/ativar linha e digitar
-  número de template é local e liga `sujo`; os inputs de template usam `oninput` **sem redesenhar** (a
-  linha inteira redesenharia e perderia o foco). "Salvar agenda" faz `PUT /api/agenda` mandando
-  `[{data, hora, ativo, templates}]` e substitui a cópia pela resposta. "Re-armar" (só para item que
-  falhou/perdeu, e só com a agenda salva) é um `POST /api/agenda/rearmar` imediato. Enquanto a aba
-  está aberta, um poll de 15s atualiza a lateral (`GET /api/agenda/status`) e, se não houver edição
-  pendente, recarrega as linhas.
+- **Aba Agenda**: `estado.agenda = { itens, sujo, grupos, modo }` é a cópia de trabalho. `grupos`
+  (rótulo + número atual por grupo) vem de `GET /api/templates` em `carregarGruposAgenda`, e monta os
+  campos de template do formulário de adicionar e de cada linha. Adicionar/remover/ativar linha e
+  digitar número de template é local e liga `sujo`; os inputs de template usam `oninput` **sem
+  redesenhar** (a linha inteira redesenharia e perderia o foco). "Salvar agenda" faz `PUT /api/agenda`
+  mandando `{modo, itens}` e substitui a cópia pela resposta. O toggle de modo (`#agenda-segmento-modo`)
+  é **imediato e à parte do `sujo`**: `definirModoAgenda` faz `PUT /api/agenda/modo` na hora, com
+  `confirm()` pra ir pra `producao`; `pintarModoAgenda` acende o botão e mostra/esconde o aviso
+  vermelho. "Re-armar" (só para item que falhou/perdeu, e só com a agenda salva) é um
+  `POST /api/agenda/rearmar` imediato. Enquanto a aba está aberta, um poll de 15s atualiza a lateral
+  (`GET /api/agenda/status`), sincroniza o `modo` se não houver edição pendente, e recarrega as linhas.
 - **Contexto sempre visível**: barra superior fixa (`position: sticky`) com marca, abas, chip de VPN
   (clicável, refaz a checagem), segmento de modo e alternador de tema; logo abaixo, a faixa de modo.
   A aba Monitorar ganha um ponto pulsante (`#ponto-monitorar`) enquanto há execução rodando.

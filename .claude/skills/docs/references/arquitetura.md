@@ -70,7 +70,7 @@ Caminho manual (planilha pronta em vez de banco): `python extract.py`.
 | `auto/dispatch.js` | Orquestrador Playwright |
 | `auto/lib/dispatch-logic.js` | Lógica pura, testável (`npm test`) |
 | `auto/config/dispatches.json` | Configuração das cinco bases |
-| `auto/config/agenda.json` | Horários + templates dos disparos automáticos (`[{data, hora, ativo, templates}]`) |
+| `auto/config/agenda.json` | Modo + horários + templates dos disparos automáticos (`{modo, itens}`) |
 | `auto/bases/` | Bases de teste, um contato cada (versionadas) |
 | `tests/` | Suíte pytest do lado Python (`contatos.py`, `gerar_base.py`, `agendador.py`) |
 | `filtros/` | Planilhas (xlsx/csv) com telefones a excluir das bases; lida a cada geração |

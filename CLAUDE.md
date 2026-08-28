@@ -109,15 +109,18 @@ only `template_prefix`/`template_numero` into `auto/config/dispatches.json`; `ke
 structure, not configuration.
 
 `app/agendador.py` is the second consumer of `passos.executar()`: a daemon thread started in
-`server.main()` that ticks every 30s over `auto/config/agenda.json` (`[{data, hora, ativo, templates}]`,
-edited only via `PUT /api/agenda`) and runs the full pipeline when an item is due — `modo="producao"`,
-fresh `periodo_padrao()`, the item's `hora` passed through. `templates` (one number per group from
-`passos.grupos_templates()`, required) is written into `dispatches.json` before each run, so an agenda
-dispatch overrides whatever the Preparar tab last saved. Fires at the exact time (immediate send);
-an item not dispatched within `TOLERANCIA_ATRASO_MIN` (20) of its time is marked `perdido` and
-skipped. Decision logic (`situacao_do_item`, `itens_a_disparar`, `proximo_disparo`) is pure and
-covered by `tests/test_agendador.py`. Runtime state: `auto/logs/agenda_estado.json` (gitignored).
-Full detail in the `docs` skill (`references/app.md`).
+`server.main()` that ticks every 30s over `auto/config/agenda.json` (`{modo, itens: [{data, hora,
+ativo, templates}]}`, edited only via `PUT /api/agenda` and `PUT /api/agenda/modo`) and runs the full
+pipeline when an item is due — in the agenda's own `modo` (default `teste`, **never `producao` by
+omission**; `teste` uses `auto/bases/` and skips generation, `producao` regenerates `out/` from
+`periodo_padrao()` and sends for real), the item's `hora` passed through. `templates` (one number per
+group from `passos.grupos_templates()`, required) is written into `dispatches.json` before each run,
+so an agenda dispatch overrides whatever the Preparar tab last saved. The agenda `modo` is separate
+from the header toggle (`estado.modo`), which only governs manual `/api/executar` runs. Fires at the
+exact time (immediate send); an item not dispatched within `TOLERANCIA_ATRASO_MIN` (20) of its time is
+marked `perdido` and skipped. Decision logic (`situacao_do_item`, `itens_a_disparar`,
+`proximo_disparo`) is pure and covered by `tests/test_agendador.py`. Runtime state:
+`auto/logs/agenda_estado.json` (gitignored). Full detail in the `docs` skill (`references/app.md`).
 
 ## Conventions
 

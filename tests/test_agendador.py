@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pytest
 
+from app import agendador
 from app.agendador import (
     _validar_templates,
     alvo_do_item,
@@ -47,6 +48,37 @@ def test_validar_templates_numero_invalido():
 def test_validar_templates_nao_e_dict():
     with pytest.raises(ValueError):
         _validar_templates(None, GRUPOS)
+
+
+# ------------------------------------------------------------- modo / migracao
+
+def test_ler_arquivo_migra_lista_antiga_como_teste(tmp_path, monkeypatch):
+    arq = tmp_path / "agenda.json"
+    arq.write_text('[{"data": "2099-01-01", "hora": "08:00", "ativo": true, "templates": {}}]', encoding="utf-8")
+    monkeypatch.setattr(agendador, "AGENDA_FILE", arq)
+
+    assert agendador.ler_modo() == "teste"
+    assert len(agendador.ler_agenda()) == 1
+
+
+def test_ler_modo_default_teste_sem_arquivo(tmp_path, monkeypatch):
+    monkeypatch.setattr(agendador, "AGENDA_FILE", tmp_path / "nao-existe.json")
+    assert agendador.ler_modo() == "teste"
+
+
+def test_ler_modo_ignora_valor_invalido(tmp_path, monkeypatch):
+    arq = tmp_path / "agenda.json"
+    arq.write_text('{"modo": "banana", "itens": []}', encoding="utf-8")
+    monkeypatch.setattr(agendador, "AGENDA_FILE", arq)
+    assert agendador.ler_modo() == "teste"
+
+
+def test_gravar_modo_rejeita_invalido(tmp_path, monkeypatch):
+    arq = tmp_path / "agenda.json"
+    arq.write_text('{"modo": "teste", "itens": []}', encoding="utf-8")
+    monkeypatch.setattr(agendador, "AGENDA_FILE", arq)
+    with pytest.raises(ValueError):
+        agendador.gravar_modo("banana")
 
 
 def test_id_do_item_e_data_mais_hora():

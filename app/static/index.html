@@ -257,12 +257,20 @@
 
       <aside class="coluna-lateral">
         <div class="cartao resumo">
+          <div class="agenda-modo">
+            <span class="rotulo">Modo dos disparos automáticos</span>
+            <div class="segmento" id="agenda-segmento-modo" role="group" aria-label="Modo dos disparos automáticos">
+              <button type="button" data-modo="teste">Teste</button>
+              <button type="button" data-modo="producao">Produção</button>
+            </div>
+            <p class="agenda-aviso-modo" id="agenda-aviso-modo" hidden>Cada horário envia para os <strong>clientes reais</strong> da base gerada.</p>
+          </div>
           <div class="resumo-total">
             <strong id="agenda-proximo-hora">—</strong>
             <span id="agenda-proximo-quando">nenhum disparo agendado</span>
           </div>
           <dl class="resumo-lista" id="agenda-status-lista"></dl>
-          <p class="dica centro">Os disparos automáticos usam os templates configurados em <button type="button" class="link" data-ir="preparar">Preparar</button> e só acontecem com o servidor rodando nesta máquina e a VPN ligada.</p>
+          <p class="dica centro">Só acontece com <code>python -m app.server</code> rodando nesta máquina e a VPN ligada.</p>
         </div>
       </aside>
     </div>

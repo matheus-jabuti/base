@@ -909,6 +909,21 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 
 .tpl-cel { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 
+.agenda-modo { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--linha); }
+.agenda-modo .rotulo { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--fraco); }
+#agenda-segmento-modo { width: 100%; }
+#agenda-segmento-modo button { flex: 1; }
+
+.agenda-aviso-modo {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: var(--raio-p);
+  background: var(--perigo-suave);
+  color: var(--perigo);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
 .link-mini {
   border: 0;
   background: none;

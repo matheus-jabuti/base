@@ -173,13 +173,19 @@ def agenda():
 
 
 @app.put("/api/agenda")
-def salvar_agenda(itens: list[dict]):
+def salvar_agenda(corpo: dict):
     try:
-        agendador.gravar_agenda(itens)
+        return agendador.gravar_agenda(corpo.get("itens", []), corpo.get("modo", "teste"))
     except ValueError as erro:
         raise HTTPException(400, str(erro))
 
-    return agendador.agenda_para_tela()
+
+@app.put("/api/agenda/modo")
+def salvar_agenda_modo(corpo: dict):
+    try:
+        return agendador.gravar_modo(corpo.get("modo", "teste"))
+    except ValueError as erro:
+        raise HTTPException(400, str(erro))
 
 
 @app.get("/api/agenda/status")
