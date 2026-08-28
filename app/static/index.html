@@ -236,12 +236,13 @@
           <div class="filtros">
             <input type="date" id="agenda-data" aria-label="Data do disparo">
             <input type="time" id="agenda-hora" step="60" aria-label="Horário do disparo">
+            <span class="agenda-tpl-add" id="agenda-add-tpl"></span>
             <button type="button" class="botao-fantasma" id="agenda-add">Adicionar horário</button>
           </div>
           <div class="tabela-scroll">
             <table class="tabela">
               <thead>
-                <tr><th>Data</th><th>Hora</th><th>Situação</th><th>Detalhe</th><th class="acoes-col"></th></tr>
+                <tr><th>Data</th><th>Hora</th><th>Templates</th><th>Situação</th><th>Detalhe</th><th class="acoes-col"></th></tr>
               </thead>
               <tbody id="agenda-linhas"></tbody>
             </table>

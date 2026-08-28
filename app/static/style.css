@@ -880,6 +880,35 @@ body.modo-producao .botao-principal { background: var(--perigo); }
 
 .acoes-col { text-align: right; white-space: nowrap; }
 
+#view-agenda tr.linha-off td:not(.acoes-col) { opacity: .5; }
+
+.agenda-tpl-add { display: inline-flex; gap: 8px; }
+
+.agenda-tpl-add label,
+.tpl-cel label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--fraco);
+}
+
+.agenda-tpl-add input,
+.tpl-cel input {
+  width: 42px;
+  padding: 5px 6px;
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio-p);
+  background: var(--painel-2);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--texto);
+}
+
+.tpl-cel { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+
 .link-mini {
   border: 0;
   background: none;

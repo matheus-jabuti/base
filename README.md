@@ -52,12 +52,14 @@ checagem do que da pra checar antes (VPN, periodo, filtro manual, bases vazias).
 Em producao o disparo exige **segurar o botao por 1,5s**; em teste e na
 pre-visualizacao e um clique so.
 
-**Agenda.** A lista de disparos automaticos: uma linha por data + hora. Enquanto
-`python -m app.server` estiver rodando nesta maquina (com a VPN ligada), o
-servidor dispara sozinho em cada horario — roda a pipeline inteira (VPN, gera a
-base do periodo padrao, dispara as cinco bases) com os templates configurados na
-aba Preparar. Adicione data e hora, clique em **Adicionar horario**, depois
-**Salvar agenda**. Cada linha mostra a situacao: `agendado`, `disparado`,
+**Agenda.** A lista de disparos automaticos: uma linha por data + hora, com o
+numero de template de cada grupo (amigavel e contencioso, igual a aba Preparar).
+Enquanto `python -m app.server` estiver rodando nesta maquina (com a VPN ligada),
+o servidor dispara sozinho em cada horario — roda a pipeline inteira (VPN, gera a
+base do periodo padrao, aplica os templates da linha e dispara as cinco bases).
+Preencha data, hora e os templates, clique em **Adicionar horario**, depois
+**Salvar agenda** (os campos de template ja vem preenchidos com o valor atual, so
+ajuste). Cada linha mostra a situacao: `agendado`, `disparado`,
 `falhou`, `perdido` (servidor estava fora do ar ou ocupado por mais de 20min
 depois da hora) ou `desativado`. Item que falhou ou se perdeu tem um botao
 **re-armar** pra ele tentar de novo (se ainda estiver dentro dos 20min). A coluna

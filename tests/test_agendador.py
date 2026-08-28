@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 
 from app.agendador import (
+    _validar_templates,
     alvo_do_item,
     id_do_item,
     itens_a_disparar,
@@ -17,6 +18,35 @@ from app.agendador import (
 
 def item(data="2026-09-01", hora="15:30", ativo=True):
     return {"data": data, "hora": hora, "ativo": ativo}
+
+
+# ------------------------------------------------------------- _validar_templates
+
+GRUPOS = ["amigavel", "contencioso"]
+
+
+def test_validar_templates_completo_com_zfill():
+    assert _validar_templates({"amigavel": "2", "contencioso": "04"}, GRUPOS) == {
+        "amigavel": "02",
+        "contencioso": "04",
+    }
+
+
+def test_validar_templates_falta_grupo():
+    with pytest.raises(ValueError):
+        _validar_templates({"amigavel": "02"}, GRUPOS)
+
+
+def test_validar_templates_numero_invalido():
+    with pytest.raises(ValueError):
+        _validar_templates({"amigavel": "abc", "contencioso": "04"}, GRUPOS)
+    with pytest.raises(ValueError):
+        _validar_templates({"amigavel": "1234", "contencioso": "04"}, GRUPOS)
+
+
+def test_validar_templates_nao_e_dict():
+    with pytest.raises(ValueError):
+        _validar_templates(None, GRUPOS)
 
 
 def test_id_do_item_e_data_mais_hora():

@@ -205,8 +205,24 @@ def _validar_hora(valor: str) -> str:
     return f"{horas:02d}:{minutos:02d}"
 
 
+def _validar_templates(bruto, grupos: list[str]) -> dict:
+    """Um numero de template (1 a 3 digitos, zfill 2) por grupo. Todos obrigatorios."""
+    if not isinstance(bruto, dict):
+        raise ValueError("Item da agenda sem 'templates' — informe um numero por grupo.")
+
+    limpo: dict[str, str] = {}
+    for grupo in grupos:
+        numero = str(bruto.get(grupo, "")).strip()
+        if not numero.isdigit() or len(numero) > 3:
+            raise ValueError(f"Template invalido para '{grupo}': '{numero}'. Use de 1 a 3 digitos.")
+        limpo[grupo] = numero.zfill(2)
+
+    return limpo
+
+
 def gravar_agenda(itens: list[dict]) -> list[dict]:
     """Valida, ordena e regrava a agenda. Poda o estado de itens que sumiram."""
+    grupos = passos.grupos_templates()
     limpos: list[dict] = []
     vistos: set[str] = set()
 
@@ -221,7 +237,12 @@ def gravar_agenda(itens: list[dict]) -> list[dict]:
             raise ValueError(f"Horario repetido na agenda: {data} {hora}.")
         vistos.add(chave)
 
-        limpos.append({"data": data, "hora": hora, "ativo": bool(entrada.get("ativo", True))})
+        limpos.append({
+            "data": data,
+            "hora": hora,
+            "ativo": bool(entrada.get("ativo", True)),
+            "templates": _validar_templates(entrada.get("templates"), grupos),
+        })
 
     limpos.sort(key=lambda entrada: (entrada["data"], entrada["hora"]))
     AGENDA_FILE.write_text(json.dumps(limpos, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -247,6 +268,7 @@ def agenda_para_tela() -> list[dict]:
             "data": item["data"],
             "hora": item["hora"],
             "ativo": item.get("ativo", True),
+            "templates": item.get("templates", {}),
             "situacao": situacao_do_item(item, estado, agora),
             "quando": estado.get(id_do_item(item), {}).get("quando"),
             "detalhe": estado.get(id_do_item(item), {}).get("detalhe", ""),
@@ -288,11 +310,36 @@ def status() -> dict:
 _SITUACAO_FIM = {"ok": "disparado", "erro": "erro", "cancelado": "cancelado"}
 
 
+def _aplicar_templates(templates: dict) -> None:
+    """Grava o numero de cada grupo no dispatches.json antes do disparo.
+
+    Cada base mantem o proprio prefixo; so o numero, compartilhado pelo grupo,
+    vem da linha da agenda. Mesma divisao da tela Preparar.
+    """
+    entradas = [
+        {
+            "key": cfg["key"],
+            "template_prefix": cfg["template_prefix"],
+            "template_numero": templates[cfg.get("grupo", cfg["key"])],
+        }
+        for cfg in passos.ler_templates()
+    ]
+    passos.gravar_templates(entradas)
+
+
 def _disparar_item(item: dict) -> None:
     """Roda a pipeline pra um item da agenda e registra como foi."""
     import gerar_base
 
     item_id = id_do_item(item)
+
+    grupos = passos.grupos_templates()
+    templates = item.get("templates") or {}
+    faltando = [grupo for grupo in grupos if not str(templates.get(grupo, "")).strip()]
+    if faltando:
+        _registrar(item_id, "erro", f"linha sem template para: {', '.join(faltando)}")
+        _log(f"{item_id}: sem template para {faltando}, nao disparou")
+        return
 
     # A mesma trava que a tela usa: se ha disparo manual rodando, sai e tenta no
     # proximo ciclo (ou vira "perdido" se estourar a tolerancia ate la).
@@ -309,6 +356,8 @@ def _disparar_item(item: dict) -> None:
     erros: list[str] = []
 
     try:
+        _aplicar_templates(templates)
+        _log(f"{item_id}: templates {templates}")
         inicio, fim = gerar_base.periodo_padrao()
         for tipo, dado in passos.executar(
             data_inicio=inicio,

@@ -42,7 +42,7 @@ mesmo sem `.env` preenchido.
 | `GET /api/filtro/ultimo-removido` | Download do CSV mais recente de removidos pelo filtro (`relatorio/filtro_removidos_*.csv`); `404` se nenhum existe |
 | `GET /api/historico?limite=&busca=&status=&modo=` | Últimas linhas de `auto/logs/disparos.csv`, mais recente primeiro, com filtro opcional |
 | `GET /api/agenda` | A agenda com a situação calculada de cada item (`agendador.agenda_para_tela()`) |
-| `PUT /api/agenda` | Regrava a agenda inteira (`[{data, hora, ativo}]`); valida formato e horário repetido, ordena, poda o estado órfão |
+| `PUT /api/agenda` | Regrava a agenda inteira (`[{data, hora, ativo, templates}]`); valida formato, horário repetido e template por grupo, ordena, poda o estado órfão |
 | `GET /api/agenda/status` | Estado do agendador: `ligado`, `desde`, `em_execucao`, `proximo`, `tolerancia_min`, `antecedencia_min` |
 | `POST /api/agenda/rearmar` | `{id}` — tira o item do estado pra ele poder disparar de novo (item que falhou ou se perdeu) |
 
@@ -107,8 +107,13 @@ item chega na hora, roda `passos.executar(...)` inteiro (VPN → base → dispar
 item passada adiante (é ela que nomeia lista/campanha/transmissão e decide agendado × imediato no
 `dispatch.js`).
 
-- **`agenda.json`** — lista de `{data: "AAAA-MM-DD", hora: "HH:MM", ativo: bool}`. Editada só pela aba
-  Agenda (`PUT /api/agenda`). O id de um item é `"data hora"` — mexer no horário cria um item novo.
+- **`agenda.json`** — lista de `{data: "AAAA-MM-DD", hora: "HH:MM", ativo: bool, templates: {grupo:
+  "NN"}}`. Editada só pela aba Agenda (`PUT /api/agenda`). O id de um item é `"data hora"` — mexer no
+  horário cria um item novo. `templates` é obrigatório e tem um número (1 a 3 dígitos, `zfill(2)`) por
+  grupo de `passos.grupos_templates()` (hoje `amigavel` e `contencioso`, a mesma divisão dos steppers
+  de Preparar). Antes de cada disparo, `_aplicar_templates` grava esses números no `dispatches.json`
+  via `passos.gravar_templates` — cada base mantém o próprio prefixo, só o número (compartilhado pelo
+  grupo) vem da linha da agenda. Item sem `templates` completo é registrado como `erro` e não dispara.
 - **Estado** — `auto/logs/agenda_estado.json` (`{id: {situacao, quando, detalhe}}`), fora do
   versionamento como todo o resto de `auto/logs/`. Sobrevive a restart: item já disparado não roda de
   novo, item perdido não dispara atrasado.
@@ -133,9 +138,12 @@ item passada adiante (é ela que nomeia lista/campanha/transmissão e decide age
   (`entrarAgenda` / `pararPollAgenda`). `window.onhashchange` chama o mesmo `irPara`, e o boot entra
   pela hash da URL. Preparar, Agenda e Monitorar usam o wrapper `.colunas` (coluna principal + lateral
   fixa de 300px, grid a partir de 980px — abaixo disso empilha).
-- **Aba Agenda**: `estado.agenda = { itens, sujo }` é a cópia de trabalho. Adicionar/remover/ativar
-  linha é local e liga `sujo` (mostra as ações Salvar/Descartar); "Salvar agenda" faz `PUT /api/agenda`
-  mandando `[{data, hora, ativo}]` e substitui a cópia pela resposta. "Re-armar" (só para item que
+- **Aba Agenda**: `estado.agenda = { itens, sujo, grupos }` é a cópia de trabalho. `grupos` (rótulo +
+  número atual por grupo) vem de `GET /api/templates` em `carregarGruposAgenda`, e monta os campos de
+  template do formulário de adicionar e de cada linha. Adicionar/remover/ativar linha e digitar
+  número de template é local e liga `sujo`; os inputs de template usam `oninput` **sem redesenhar** (a
+  linha inteira redesenharia e perderia o foco). "Salvar agenda" faz `PUT /api/agenda` mandando
+  `[{data, hora, ativo, templates}]` e substitui a cópia pela resposta. "Re-armar" (só para item que
   falhou/perdeu, e só com a agenda salva) é um `POST /api/agenda/rearmar` imediato. Enquanto a aba
   está aberta, um poll de 15s atualiza a lateral (`GET /api/agenda/status`) e, se não houver edição
   pendente, recarrega as linhas.

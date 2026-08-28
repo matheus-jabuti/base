@@ -109,9 +109,11 @@ only `template_prefix`/`template_numero` into `auto/config/dispatches.json`; `ke
 structure, not configuration.
 
 `app/agendador.py` is the second consumer of `passos.executar()`: a daemon thread started in
-`server.main()` that ticks every 30s over `auto/config/agenda.json` (`[{data, hora, ativo}]`, edited
-only via `PUT /api/agenda`) and runs the full pipeline when an item is due — `modo="producao"`,
-fresh `periodo_padrao()`, the item's `hora` passed through. Fires at the exact time (immediate send);
+`server.main()` that ticks every 30s over `auto/config/agenda.json` (`[{data, hora, ativo, templates}]`,
+edited only via `PUT /api/agenda`) and runs the full pipeline when an item is due — `modo="producao"`,
+fresh `periodo_padrao()`, the item's `hora` passed through. `templates` (one number per group from
+`passos.grupos_templates()`, required) is written into `dispatches.json` before each run, so an agenda
+dispatch overrides whatever the Preparar tab last saved. Fires at the exact time (immediate send);
 an item not dispatched within `TOLERANCIA_ATRASO_MIN` (20) of its time is marked `perdido` and
 skipped. Decision logic (`situacao_do_item`, `itens_a_disparar`, `proximo_disparo`) is pure and
 covered by `tests/test_agendador.py`. Runtime state: `auto/logs/agenda_estado.json` (gitignored).

@@ -1045,6 +1045,7 @@ let pollAgenda = null;
 
 function entrarAgenda() {
   if (!$('agenda-data').value) $('agenda-data').value = new Date().toISOString().slice(0, 10);
+  carregarGruposAgenda();
   carregarAgenda();
   atualizarStatusAgenda();
 
@@ -1060,22 +1061,62 @@ function pararPollAgenda() {
   pollAgenda = null;
 }
 
+// Os grupos de template (amigavel/contencioso) e o numero atual de cada um saem
+// do dispatches.json; e a mesma divisao dos steppers da aba Preparar.
+async function carregarGruposAgenda() {
+  const templates = await fetch('/api/templates').then((r) => r.json()).catch(() => null);
+  if (!templates) return;
+
+  const grupos = [];
+  for (const base of templates) {
+    const chave = base.grupo || base.key.split('_')[0];
+    if (!grupos.some((g) => g.grupo === chave)) {
+      grupos.push({ grupo: chave, rotulo: GRUPOS[chave] || chave, numero: base.template_numero || '01' });
+    }
+  }
+
+  estado.agenda.grupos = grupos;
+  $('agenda-add-tpl').innerHTML = grupos.map((g) => `
+    <label>${g.rotulo}<input type="text" inputmode="numeric" maxlength="3" data-grupo="${g.grupo}" value="${g.numero}"></label>
+  `).join('');
+  desenharAgenda();
+}
+
+const templatesPadrao = () =>
+  Object.fromEntries((estado.agenda.grupos || []).map((g) => {
+    const campo = $('agenda-add-tpl').querySelector(`input[data-grupo="${g.grupo}"]`);
+    return [g.grupo, (campo?.value || g.numero || '').trim()];
+  }));
+
 async function carregarAgenda() {
   const itens = await fetch('/api/agenda').then((r) => r.json()).catch(() => null);
   if (!itens) return;
 
-  estado.agenda = { itens, sujo: false };
+  estado.agenda = { ...estado.agenda, itens, sujo: false };
   desenharAgenda();
 }
 
 const dataBR = (iso) => (iso || '').split('-').reverse().join('/');
+
+function marcarAgendaSuja() {
+  estado.agenda.sujo = true;
+  $('agenda-acoes').hidden = false;
+  $('agenda-dica').textContent = 'mudanças não salvas';
+}
+
+function celulaTemplates(item) {
+  return (estado.agenda.grupos || []).map((g) => `
+    <label>${g.rotulo}<input type="text" inputmode="numeric" maxlength="3"
+      data-grupo="${g.grupo}" value="${(item.templates && item.templates[g.grupo]) || ''}"></label>
+  `).join('');
+}
 
 function desenharAgenda() {
   const { itens, sujo } = estado.agenda;
   const corpo = $('agenda-linhas');
 
   if (!itens.length) {
-    corpo.innerHTML = '<tr><td colspan="5" class="apagado">Nenhum horário na agenda. Adicione data e hora acima.</td></tr>';
+    corpo.innerHTML = '<tr><td colspan="6" class="apagado">Nenhum horário na agenda. Adicione data e hora acima.</td></tr>';
   } else {
     corpo.innerHTML = itens.map((item) => {
       const situacao = item.ativo ? item.situacao : 'desativado';
@@ -1083,9 +1124,10 @@ function desenharAgenda() {
       const detalhe = item.detalhe || (item.quando ? `em ${horaCurta(item.quando)}` : '—');
 
       return `
-        <tr data-id="${item.id}">
+        <tr data-id="${item.id}" class="${item.ativo ? '' : 'linha-off'}">
           <td class="mono">${dataBR(item.data)}</td>
           <td class="mono">${item.hora}</td>
+          <td class="tpl-cel">${celulaTemplates(item)}</td>
           <td><span class="marcador-status ${situacao}">${ROTULO_SITUACAO[situacao] || situacao}</span></td>
           <td class="apagado">${detalhe}</td>
           <td class="acoes-col">
@@ -1096,9 +1138,22 @@ function desenharAgenda() {
         </tr>`;
     }).join('');
 
-    for (const botao of corpo.querySelectorAll('button[data-acao]')) {
-      const id = botao.closest('tr').dataset.id;
-      botao.onclick = () => acaoAgenda(botao.dataset.acao, id);
+    for (const linha of corpo.querySelectorAll('tr[data-id]')) {
+      const id = linha.dataset.id;
+
+      for (const botao of linha.querySelectorAll('button[data-acao]')) {
+        botao.onclick = () => acaoAgenda(botao.dataset.acao, id);
+      }
+
+      // oninput nao redesenha (perderia o foco); so atualiza o modelo.
+      for (const campo of linha.querySelectorAll('.tpl-cel input')) {
+        campo.oninput = () => {
+          const item = estado.agenda.itens.find((i) => i.id === id);
+          if (!item) return;
+          item.templates = { ...item.templates, [campo.dataset.grupo]: campo.value.trim() };
+          marcarAgendaSuja();
+        };
+      }
     }
   }
 
@@ -1129,7 +1184,10 @@ function adicionarHorario() {
   const id = `${data} ${hora}`;
   if (estado.agenda.itens.some((i) => i.id === id)) return alert('Esse horário já está na agenda.');
 
-  estado.agenda.itens.push({ id, data, hora, ativo: true, situacao: 'agendado', quando: null, detalhe: '' });
+  const templates = templatesPadrao();
+  if (Object.values(templates).some((n) => !n)) return alert('Preencha o número de template de cada grupo.');
+
+  estado.agenda.itens.push({ id, data, hora, ativo: true, templates, situacao: 'agendado', quando: null, detalhe: '' });
   estado.agenda.itens.sort((a, b) => a.id.localeCompare(b.id));
   estado.agenda.sujo = true;
   $('agenda-hora').value = '';
@@ -1137,7 +1195,7 @@ function adicionarHorario() {
 }
 
 async function salvarAgenda() {
-  const corpo = estado.agenda.itens.map(({ data, hora, ativo }) => ({ data, hora, ativo }));
+  const corpo = estado.agenda.itens.map(({ data, hora, ativo, templates }) => ({ data, hora, ativo, templates }));
 
   const resposta = await fetch('/api/agenda', {
     method: 'PUT',
@@ -1150,7 +1208,7 @@ async function salvarAgenda() {
     return alert(erro.detail || 'Não consegui salvar a agenda.');
   }
 
-  estado.agenda = { itens: await resposta.json(), sujo: false };
+  estado.agenda = { ...estado.agenda, itens: await resposta.json(), sujo: false };
   desenharAgenda();
   atualizarStatusAgenda();
 }
@@ -1166,7 +1224,7 @@ async function rearmarItem(id) {
 
   if (!resposta || !resposta.ok) return alert('Não consegui re-armar o item.');
 
-  estado.agenda = { itens: await resposta.json(), sujo: false };
+  estado.agenda = { ...estado.agenda, itens: await resposta.json(), sujo: false };
   desenharAgenda();
 }
 

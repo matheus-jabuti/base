@@ -137,6 +137,21 @@ def ler_templates() -> list[dict]:
     return json.loads(DISPATCHES_FILE.read_text(encoding="utf-8"))
 
 
+def grupos_templates() -> list[str]:
+    """Grupos distintos de template, na ordem em que aparecem no dispatches.json.
+
+    E a mesma divisao que a tela Preparar usa nos steppers: um numero por grupo,
+    cada base do grupo mantendo o proprio prefixo.
+    """
+    vistos: list[str] = []
+    for cfg in ler_templates():
+        grupo = cfg.get("grupo", cfg["key"])
+        if grupo not in vistos:
+            vistos.append(grupo)
+
+    return vistos
+
+
 def gravar_templates(entradas: list[dict]) -> list[dict]:
     """Regrava so prefixo e numero; key/nome/csv sao estrutura, nao configuracao."""
     atuais = ler_templates()

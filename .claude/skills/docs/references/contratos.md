@@ -120,4 +120,7 @@ tela sempre passa a flag.
 O `app/agendador.py` é o segundo consumidor de `passos.executar()` (a tela é o primeiro). As mesmas
 regras valem: assinatura aditiva, pipeline imprimindo o progresso, nada de `input()`. Os dois
 compartilham `passos.LOCK_EXECUCAO` — só um disparo roda de cada vez. `auto/config/agenda.json`
-(`[{data, hora, ativo}]`) é escrito só pela aba Agenda via `PUT /api/agenda`; o `dispatch.js` não o lê.
+(`[{data, hora, ativo, templates}]`) é escrito só pela aba Agenda via `PUT /api/agenda`; o
+`dispatch.js` não o lê. Antes de cada disparo automático o agendador grava os números de `templates`
+da linha no `dispatches.json` (via `passos.gravar_templates`) — então um disparo pela agenda
+sobrescreve o que estiver salvo na aba Preparar.
