@@ -36,7 +36,9 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   `dispatches.json` antes de cada disparo. `modo` default `teste` (bases de `bases/`); `producao` lê
   `../out`. Vive aqui só por proximidade com `dispatches.json`; runtime state em `logs/agenda_estado.json`.
 - `dispatch.js` — orchestrator. Takes the target time from `--hora HH:MM` (falls back to a terminal
-  prompt when the flag is absent) and the CSV folder from `--bases-dir` (default `../out`), reuses that
+  prompt when the flag is absent), the CSV folder from `--bases-dir` (default `../out`), and the phases
+  to create from `--fases` (comma list of `lista`/`campanha`/`transmissao`, any order; default all
+  three — `parseFases` in `lib/dispatch-logic.js` normalizes and rejects unknown/empty). Reuses that
   time for all 5 entries in `config/dispatches.json`. Runs **phase-batched, not per-base**: creates all 5
   distribution lists (uploads each CSV), then all 5 campaigns, then all 5 broadcasts (list + campaign +
   template, scheduled via `Agendar Transmissão` or sent immediately via `Enviar Transmissão` depending on
@@ -51,9 +53,11 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   tell. A base whose CSV has zero contacts is marked `falhou` up front and logged `pulado` without
   entering any phase. Session: reuses `scripts/out/auth.json` if still valid, otherwise logs in with
   `JABUTI_EMAIL`/`JABUTI_PASSWORD` env vars (falls back to the known test account) and persists the new
-  session once after all 3 phases finish. All paths are resolved from `__dirname`, not the cwd, because
-  the UI spawns this as a subprocess. Progress is reported on stdout as `[ETAPA] {json}` lines
-  (`progresso()`) — events `plano` (the 5 bases about to run), `login`, `base` (per base: `rodando`
+  session once after all phases finish. A phase left out of `--fases` is skipped entirely (its
+  `rodarFase` call is guarded); the final `ok` log line carries `detalhe: 'fases: ...'` and `modo: '-'`
+  when `transmissao` was skipped (no send mode). All paths are resolved from `__dirname`, not the cwd,
+  because the UI spawns this as a subprocess. Progress is reported on stdout as `[ETAPA] {json}` lines
+  (`progresso()`) — events `plano` (the 5 bases about to run, plus `fases`), `login`, `base` (per base: `rodando`
   with an `etapa` of lista/campanha/transmissao — optionally `detalhe: 'retentando apos as outras bases'`
   on the end-of-phase retry — then `ok`/`erro`/`pulado`), and `tempo` (timing, emitted alongside every
   existing `[tempo] ...` console.log — `escopo: base|fase|total`, `ms`, `duracao` already formatted by

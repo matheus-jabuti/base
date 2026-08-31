@@ -35,9 +35,9 @@ sem esse prefixo continua sendo log livre — o script segue legível no termina
 
 | Evento | Campos | Quem consome |
 | --- | --- | --- |
-| `plano` | `bases[]` com `key`, `nome`, `contatos`, `template` | `app.js` escreve no log |
+| `plano` | `fases[]` (fases que vão ser criadas) e `bases[]` com `key`, `nome`, `contatos`, `template` | `app.js` escreve no log |
 | `login` | `status`: `rodando` \| `ok` | `app.js` atualiza o passo `disparo` |
-| `base` | `key`, `status`: `rodando` \| `ok` \| `erro` \| `pulado`; em `rodando` um `etapa` de `lista` \| `campanha` \| `transmissao`; opcionalmente `detalhe` e `modo` | `app.js:atualizarSubbase` |
+| `base` | `key`, `status`: `rodando` \| `ok` \| `erro` \| `pulado`; em `rodando` um `etapa` de `lista` \| `campanha` \| `transmissao`; opcionalmente `detalhe`, `modo` e `fases` (em `ok`) | `app.js:atualizarSubbase` |
 
 Regras: o prefixo é `[ETAPA] ` com espaço (constante `MARCA_ETAPA`); o payload cabe em **uma linha**;
 `key` tem que existir em `config/dispatches.json`, senão a tela não acha a linha para atualizar.
@@ -118,6 +118,13 @@ nem sabe que existem. Consequências:
 
 O `dispatch.js` tem a mesma restrição em espírito: só pergunta no terminal quando `--hora` não vem, e a
 tela sempre passa a flag.
+
+`passos.executar` e `passos.disparar` têm um parâmetro opcional `fases: list[str] | None` (aditivo,
+default `None`): quais das três fases criar (`lista`/`campanha`/`transmissao`). Vira `--fases` no
+`dispatch.js`; `None` ou as três não passa a flag. Só o disparo manual usa — `GET /api/executar` recebe
+`fases` (querystring, default `lista,campanha,transmissao`, validado por `server._validar_fases`) e a
+aba Preparar tem os checkboxes. O `agendador` chama `executar` sem `fases`, então disparo automático
+sempre cria as três.
 
 O `app/agendador.py` é o segundo consumidor de `passos.executar()` (a tela é o primeiro). As mesmas
 regras valem: assinatura aditiva, pipeline imprimindo o progresso, nada de `input()`. Os dois

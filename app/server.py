@@ -82,6 +82,21 @@ def _validar_modo(modo: str) -> str:
     return modo
 
 
+FASES_VALIDAS = ("lista", "campanha", "transmissao")
+
+
+def _validar_fases(fases: str) -> list[str]:
+    """Lista separada por virgula -> fases na ordem canonica. Vazio ou nome desconhecido e 400."""
+    pedidas = [f.strip().lower() for f in fases.split(",") if f.strip()]
+    invalidas = [f for f in pedidas if f not in FASES_VALIDAS]
+    if invalidas:
+        raise HTTPException(400, f"Fase invalida: {', '.join(invalidas)}. Use lista, campanha, transmissao.")
+    if not pedidas:
+        raise HTTPException(400, "Escolha ao menos uma fase para criar.")
+
+    return [f for f in FASES_VALIDAS if f in pedidas]
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")
@@ -130,6 +145,7 @@ def executar(
     data_fim: str | None = None,
     com_relatorio: bool = True,
     dry_run: bool = False,
+    fases: str = "lista,campanha,transmissao",
 ):
     """VPN, geracao da base e disparo num stream so — o botao unico da tela."""
     import gerar_base
@@ -153,6 +169,7 @@ def executar(
             com_relatorio=com_relatorio,
             gerar=gerar,
             dry_run=dry_run,
+            fases=_validar_fases(fases),
         )
     )
 

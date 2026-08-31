@@ -10,6 +10,8 @@ const {
   buildDispatchName,
   buildTemplateName,
   listOptionRegex,
+  FASES_VALIDAS,
+  parseFases,
   targetDateTime,
   decideMode,
   formatDuracao,
@@ -39,12 +41,13 @@ function ask(question) {
 }
 
 function parseArgs(argv) {
-  const args = { hora: null, basesDir: DEFAULT_BASES_DIR };
+  const args = { hora: null, basesDir: DEFAULT_BASES_DIR, fases: FASES_VALIDAS.slice() };
 
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--hora') args.hora = argv[++i];
     else if (argv[i] === '--bases-dir') args.basesDir = path.resolve(argv[++i] || '');
-    else throw new Error(`Argumento desconhecido: "${argv[i]}". Use --hora HH:MM [--bases-dir <pasta>].`);
+    else if (argv[i] === '--fases') args.fases = parseFases(argv[++i]);
+    else throw new Error(`Argumento desconhecido: "${argv[i]}". Use --hora HH:MM [--bases-dir <pasta>] [--fases lista,campanha,transmissao].`);
   }
 
   return args;
@@ -355,12 +358,16 @@ async function main() {
   for (const cfg of configs) {
     console.log(`  ${cfg.nome} -> ${cfg.contatos} contatos, template ${cfg.template}`);
   }
+  if (args.fases.length < FASES_VALIDAS.length) {
+    console.log(`Fases: só ${args.fases.join(', ')} (as outras não serão criadas)`);
+  }
 
   const target = targetDateTime(today, hh, mm);
   const horaAlvoLabel = `${pad2(hh)}H${pad2(mm)}`;
 
   progresso({
     evento: 'plano',
+    fases: args.fases,
     bases: configs.map((cfg) => ({ key: cfg.key, nome: cfg.nome, contatos: cfg.contatos, template: cfg.template })),
   });
 
@@ -432,18 +439,27 @@ async function main() {
       console.log(`[tempo] etapa "${etapa}" levou ${formatDuracao(msFase)}`);
     }
 
-    await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
-    await rodarFase('campanha', (estado) => createCampaign(page, estado.nome));
-    await rodarFase('transmissao', async (estado) => {
-      estado.modo = await createBroadcast(page, { key: estado.cfg.key, nome: estado.nome, template: estado.cfg.template, target });
-    });
+    if (args.fases.includes('lista')) {
+      await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
+    }
+    if (args.fases.includes('campanha')) {
+      await rodarFase('campanha', (estado) => createCampaign(page, estado.nome));
+    }
+    if (args.fases.includes('transmissao')) {
+      await rodarFase('transmissao', async (estado) => {
+        estado.modo = await createBroadcast(page, { key: estado.cfg.key, nome: estado.nome, template: estado.cfg.template, target });
+      });
+    }
 
     await context.storageState({ path: AUTH_PATH });
+    // Sem a fase de transmissao nao ha modo de envio: registra as fases criadas
+    // no detalhe pra ficar claro no historico o que essa execucao fez.
+    const detalheFases = args.fases.includes('transmissao') ? '' : `fases: ${args.fases.join(', ')}`;
     for (const estado of estados) {
       if (estado.falhou) continue;
-      logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: estado.cfg.key, nome: estado.nome, modo: estado.modo, status: 'ok' });
-      progresso({ evento: 'base', key: estado.cfg.key, status: 'ok', modo: estado.modo });
-      console.log(`[OK] ${estado.nome} -> ${estado.modo}`);
+      logDispatch({ date: today, horaAlvo: horaAlvoLabel, key: estado.cfg.key, nome: estado.nome, modo: estado.modo || '-', status: 'ok', detalhe: detalheFases });
+      progresso({ evento: 'base', key: estado.cfg.key, status: 'ok', modo: estado.modo, fases: args.fases });
+      console.log(`[OK] ${estado.nome} -> ${estado.modo || args.fases.join('+')}`);
     }
   } finally {
     await browser.close();

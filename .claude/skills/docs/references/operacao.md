@@ -27,12 +27,14 @@ python extract.py [--manter-excel]        # caminho manual: in/*.xlsx -> out/*.c
 
 python -m pytest -q                       # suíte Python (contatos.py, gerar_base.py)
 cd auto && npm test                       # suíte Node (dispatch-logic.js)
-cd auto && node dispatch.js --hora 14:30                    # lê de ../out (PRODUÇÃO)
-cd auto && node dispatch.js --hora 14:30 --bases-dir bases  # bases de teste
+cd auto && node dispatch.js --hora 14:30                        # lê de ../out (PRODUÇÃO)
+cd auto && node dispatch.js --hora 14:30 --bases-dir bases      # bases de teste
+cd auto && node dispatch.js --hora 14:30 --fases lista,campanha # só cria lista e campanha
 ```
 
 Sem `--hora`, o `dispatch.js` pergunta no terminal. Sem `--data-*`, o `gerar_base.py` usa ontem→hoje
-(na segunda-feira, sexta→hoje).
+(na segunda-feira, sexta→hoje). `--fases` (vírgula, subconjunto de `lista`/`campanha`/`transmissao`,
+qualquer ordem) escolhe o que criar; padrão as três. Uma fase de fora não roda.
 
 ## Modo teste
 

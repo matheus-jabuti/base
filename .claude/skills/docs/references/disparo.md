@@ -8,7 +8,7 @@ arquitetura; o **passo a passo literal** (URLs, seletores, ordem, timeouts) fica
 
 | Arquivo | Contém |
 | --- | --- |
-| `lib/dispatch-logic.js` | Lógica **pura**: formatação de data/hora, nome do disparo, nome do template, regex da opção de lista, decisão agendado × imediato. Sem Playwright, sem rede, sem `fs`. |
+| `lib/dispatch-logic.js` | Lógica **pura**: formatação de data/hora, nome do disparo, nome do template, regex da opção de lista, decisão agendado × imediato, `parseFases` (normaliza `--fases`). Sem Playwright, sem rede, sem `fs`. |
 | `lib/dispatch-logic.test.js` | Checagens com `assert`, rodadas por `npm test`. A suíte do lado Node — o lado Python tem a dele em `tests/` (`pytest`, ver `padroes.md`). |
 | `dispatch.js` | Orquestração: browser, login, formulários, retries, log, códigos de saída. |
 | `config/dispatches.json` | As cinco bases (dados, não código). |
@@ -36,14 +36,17 @@ Adicionar, remover ou renomear base é edição deste arquivo; não deve exigir 
 ## Execução (`main()`)
 
 1. Garante `logs/disparos.csv` (com header) e a pasta de `auth.json`.
-2. `parseArgs`: `--hora HH:MM` e `--bases-dir <pasta>` (padrão `../out`). Argumento desconhecido é erro.
+2. `parseArgs`: `--hora HH:MM`, `--bases-dir <pasta>` (padrão `../out`) e `--fases <lista>` (fases a
+   criar, separadas por vírgula: `lista`/`campanha`/`transmissao`, qualquer ordem; padrão as três,
+   normalizado por `parseFases` — vazio ou nome desconhecido é erro). Argumento desconhecido é erro.
 3. `resolverBases`: valida que a pasta e os cinco CSVs existem e conta os contatos **antes** de abrir o
    browser — CSV faltando falha cedo, e não no meio do disparo.
 4. Sem `--hora`, pergunta no terminal. O horário vale para as cinco.
 5. Emite `[ETAPA] {"evento":"plano", ...}` e abre o Chromium (`headless: true`).
 6. Login (`ensureLoggedIn`) — **fora** do try/catch por base: falhou aqui, o processo inteiro cai.
 7. Roda por **fase em lote**, não por base: todas as 5 listas, depois as 5 campanhas, depois as 5
-   transmissões (`rodarFase`). Dentro de uma fase, quem falhar entra numa fila de retry só dessa fase e
+   transmissões (`rodarFase`). Cada `rodarFase` só roda se a fase está em `--fases` — fase de fora é
+   pulada por inteiro (nenhum evento `base` pra ela). Dentro de uma fase, quem falhar entra numa fila de retry só dessa fase e
    tenta de novo no final — depois das outras bases já terem passado, o que já dá folga de indexação sem
    precisar de sleep artificial. Falhou de novo, a base é marcada `falhou` (loga `erro`, tira screenshot)
    e some das fases seguintes — falhar na lista significa nunca tentar campanha nem transmissão. Uma
@@ -118,6 +121,7 @@ caminho de sucesso quanto no `main().catch` de erro fatal (`interrompido: true`)
 - Descrição dos três: `by automação` — é o que identifica o que veio da automação.
 - Erro em uma base gera screenshot em `scripts/out/erro-<key>-<timestamp>.png`.
 - `logs/disparos.csv`, colunas na ordem: `data`, `hora_alvo`, `tipo` (recebe a `key` da base), `nome`,
-  `modo` (`agendado`/`imediato`/`-`), `hora_execucao` (ISO), `status` (`ok`/`erro`/`pulado`),
-  `detalhe`. Vírgula e quebra de linha do detalhe viram espaço — é CSV concatenado à mão, não há
+  `modo` (`agendado`/`imediato`/`-`; `-` também quando a fase `transmissao` ficou de fora), `hora_execucao` (ISO),
+  `status` (`ok`/`erro`/`pulado`), `detalhe` (`fases: lista, campanha` quando não criou as três).
+  Vírgula e quebra de linha do detalhe viram espaço — é CSV concatenado à mão, não há
   escaping; mantenha os campos livres de vírgula.

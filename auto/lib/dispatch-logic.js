@@ -42,6 +42,32 @@ function buildTemplateName(prefix, numero) {
   return `${limpo}_${pad2(Number(digitos))}`;
 }
 
+// As 3 fases que o disparo cria no dashboard, na ordem em que rodam.
+const FASES_VALIDAS = ['lista', 'campanha', 'transmissao'];
+
+// Quais fases criar. Aceita lista separada por vírgula, em qualquer ordem, e
+// devolve na ordem canônica (lista → campanha → transmissao), sem repetição.
+// Vazio ou nome desconhecido é erro — melhor falhar aqui do que criar menos do
+// que o operador esperava.
+function parseFases(texto) {
+  const pedidas = String(texto == null ? '' : texto)
+    .split(',')
+    .map((f) => f.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!pedidas.length) {
+    throw new Error('Nenhuma fase escolhida. Use --fases lista,campanha,transmissao.');
+  }
+
+  for (const fase of pedidas) {
+    if (!FASES_VALIDAS.includes(fase)) {
+      throw new Error(`Fase desconhecida: "${fase}". Use lista, campanha e/ou transmissao.`);
+    }
+  }
+
+  return FASES_VALIDAS.filter((fase) => pedidas.includes(fase));
+}
+
 function targetDateTime(baseDate, hh, mm) {
   const d = new Date(baseDate);
   d.setHours(hh, mm, 0, 0);
@@ -84,6 +110,8 @@ module.exports = {
   buildDispatchName,
   buildTemplateName,
   listOptionRegex,
+  FASES_VALIDAS,
+  parseFases,
   targetDateTime,
   decideMode,
   formatDuracao,

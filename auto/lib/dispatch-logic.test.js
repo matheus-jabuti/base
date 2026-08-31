@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, targetDateTime, decideMode, formatDateISO, formatDuracao } = require('./dispatch-logic');
+const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, parseFases, targetDateTime, decideMode, formatDateISO, formatDuracao } = require('./dispatch-logic');
 
 const { hh, mm } = parseHora('09:30');
 assert.strictEqual(hh, 9);
@@ -28,6 +28,13 @@ assert.strictEqual(buildTemplateName('WPP_rating_c', '123'), 'WPP_rating_c_123')
 assert.throws(() => buildTemplateName('', '08'));
 assert.throws(() => buildTemplateName('WPP_A_E_B', ''));
 assert.throws(() => buildTemplateName('WPP_A_E_B', '8a'));
+
+assert.deepStrictEqual(parseFases('lista,campanha,transmissao'), ['lista', 'campanha', 'transmissao']);
+assert.deepStrictEqual(parseFases('transmissao, lista'), ['lista', 'transmissao']); // reordena pra ordem canonica
+assert.deepStrictEqual(parseFases('CAMPANHA'), ['campanha']); // case-insensitive
+assert.deepStrictEqual(parseFases('lista,lista'), ['lista']); // dedupe
+assert.throws(() => parseFases(''));
+assert.throws(() => parseFases('lista,foo'));
 
 const target = targetDateTime(date, hh, mm);
 assert.strictEqual(decideMode(target, new Date(target.getTime() + 10 * 60 * 1000)), 'imediato');

@@ -32,6 +32,11 @@ const ROTULO_ETAPA = {
   transmissao: 'criando transmissão',
 };
 
+const ROTULO_FASE = { lista: 'lista', campanha: 'campanha', transmissao: 'transmissão' };
+
+// Fases marcadas na aba Preparar, na ordem canônica (a ordem dos checkboxes no HTML).
+const fasesEscolhidas = () => [...document.querySelectorAll('.fase:checked')].map((campo) => campo.value);
+
 const total = () => estado.bases.reduce((soma, base) => soma + base.contatos, 0);
 const numero = (valor) => Number(valor || 0).toLocaleString('pt-BR');
 const plural = (qtd, um, muitos) => `${numero(qtd)} ${qtd === 1 ? um : muitos}`;
@@ -305,9 +310,15 @@ function atualizarResumo() {
 
   const numeros = [...new Set([...document.querySelectorAll('.stepper input')].map((campo) => campo.value))];
 
+  const fases = fasesEscolhidas();
+  const criar = fases.length === 3
+    ? 'lista, campanha e transmissão'
+    : fases.map((fase) => ROTULO_FASE[fase]).join(', ') || 'nada selecionado';
+
   const linhas = [
     ['Modo', estado.modo === 'producao' ? 'produção' : 'teste', estado.modo === 'producao'],
     ['Horário', `${$('hora').value || '--:--'} · ${agenda === null ? '—' : agenda ? 'agendado' : 'imediato'}`, false],
+    ['Criar', criar, fases.length < 3],
     ['Templates', numeros.join(' / ') || '—', false],
     ['Filtro manual', estado.filtro.telefones ? `${numero(estado.filtro.telefones)} números` : 'vazio', false],
     ['Última execução', estado.ultimaExecucao || '—', false],
@@ -317,7 +328,7 @@ function atualizarResumo() {
     .map(([rot, valor, destaque]) => `<div><dt>${rot}</dt><dd class="${destaque ? 'destaque' : ''}">${valor}</dd></div>`)
     .join('');
 
-  const impedido = estado.rodando || !contatos || !$('hora').value;
+  const impedido = estado.rodando || !contatos || !$('hora').value || !fases.length;
   $('btn-revisar').disabled = impedido;
   $('btn-previa').disabled = estado.rodando || !$('gerar-base').checked;
 
@@ -422,6 +433,16 @@ function montarChecklist(dryRun) {
   else if (estado.modo === 'teste') itens.push(['ok', 'Modo teste: 1 contato por base, nenhum cliente real.']);
   else itens.push(['alerta', 'Depois de criado no dashboard, o agendamento só é desfeito por lá.']);
 
+  if (!dryRun) {
+    const fases = fasesEscolhidas();
+    if (fases.length < 3) {
+      itens.push(['alerta', `Só vai criar: <strong>${fases.map((fase) => ROTULO_FASE[fase]).join(', ') || 'nada'}</strong>.`]);
+      if (fases.includes('transmissao') && !(fases.includes('lista') && fases.includes('campanha'))) {
+        itens.push(['alerta', 'A transmissão usa a lista e a campanha que já estiverem no dashboard — se não foram criadas antes, ela falha.']);
+      }
+    }
+  }
+
   return itens;
 }
 
@@ -515,6 +536,7 @@ function prepararExecucao(dryRun) {
     hora: $('hora').value,
     modo: estado.modo,
     dryRun,
+    fases: dryRun ? ETAPAS.slice() : fasesEscolhidas(),
     agendado: agendado(),
     contatos: total(),
     bases: new Map(),
@@ -694,14 +716,15 @@ function pintarSubbase(key) {
 
   item.className = dados.status || '';
 
+  const fases = estado.execucao.fases && estado.execucao.fases.length ? estado.execucao.fases : ETAPAS;
   const etapas = item.querySelector('.etapas');
   if (estado.execucao.dryRun) {
     etapas.innerHTML = '';
   } else if (!dados.contatos) {
     etapas.innerHTML = '<span>CSV vazio</span>';
   } else {
-    const atual = ETAPAS.indexOf(dados.etapa);
-    etapas.innerHTML = ETAPAS.map((etapa, indice) => {
+    const atual = fases.indexOf(dados.etapa);
+    etapas.innerHTML = fases.map((etapa, indice) => {
       const situacao = dados.status === 'ok' || (atual >= 0 && indice < atual) ? 'ok'
         : indice === atual && dados.status === 'rodando' ? 'rodando'
           : '';
@@ -713,7 +736,10 @@ function pintarSubbase(key) {
   const anterior = situacao.textContent;
 
   if (estado.execucao.dryRun) situacao.textContent = dados.contatos ? 'prévia' : 'sem contatos';
-  else if (dados.status === 'ok') situacao.textContent = `${dados.modoEnvio === 'agendado' ? 'agendado' : 'enviado'}${dados.duracao ? ` · ${dados.duracao}` : ''}`;
+  else if (dados.status === 'ok') {
+    const acao = fases.includes('transmissao') ? (dados.modoEnvio === 'agendado' ? 'agendado' : 'enviado') : 'criado';
+    situacao.textContent = `${acao}${dados.duracao ? ` · ${dados.duracao}` : ''}`;
+  }
   else if (dados.status === 'erro') situacao.textContent = 'falhou';
   else if (dados.status === 'pulado') situacao.textContent = dados.detalhe || 'pulada';
   else if (dados.status === 'rodando') situacao.textContent = dados.detalhe || ROTULO_ETAPA[dados.etapa] || 'processando';
@@ -837,6 +863,7 @@ async function executar(dryRun) {
     data_inicio: $('data-inicio').value,
     data_fim: $('data-fim').value,
     dry_run: dryRun,
+    fases: fasesEscolhidas().join(','),
   });
 
   const fonte = new EventSource(`/api/executar?${parametros}`);
@@ -849,7 +876,7 @@ async function executar(dryRun) {
     else if (tipo === 'metrica') atualizarMetrica(dado);
     else if (tipo === 'etapa' && dado.evento === 'base') atualizarSubbase(dado);
     else if (tipo === 'etapa' && dado.evento === 'login') marcarPasso('disparo', 'rodando', dado.status === 'ok' ? 'conectado ao dashboard' : 'entrando no dashboard...');
-    else if (tipo === 'etapa' && dado.evento === 'plano') escreverLog(`Plano: ${dado.bases.length} bases`);
+    else if (tipo === 'etapa' && dado.evento === 'plano') escreverLog(`Plano: ${dado.bases.length} bases${dado.fases && dado.fases.length < 3 ? ` · fases: ${dado.fases.join(', ')}` : ''}`);
     else if (tipo === 'etapa' && dado.evento === 'tempo') atualizarTempo(dado);
     else if (tipo === 'log') escreverLog(String(dado));
     else if (tipo === 'erro') escreverLog(String(dado), 'erro');
@@ -908,12 +935,15 @@ function desenharResultado(status) {
   const erros = bases.filter((base) => base.status === 'erro');
   const enviados = ok.reduce((soma, base) => soma + base.contatos, 0);
   const tempo = execucao.tempoTotal ? ` · levou ${execucao.tempoTotal}` : '';
+  const semTransmissao = execucao.fases && !execucao.fases.includes('transmissao');
 
   let titulo = '';
   let sub = '';
 
   if (status === 'ok') {
-    titulo = `${plural(ok.length, 'base', 'bases')} ${execucao.agendado ? `agendadas para ${execucao.hora}` : 'enviadas agora'}`;
+    titulo = semTransmissao
+      ? `${plural(ok.length, 'base preparada', 'bases preparadas')} · ${execucao.fases.map((fase) => ROTULO_FASE[fase]).join(' + ')}`
+      : `${plural(ok.length, 'base', 'bases')} ${execucao.agendado ? `agendadas para ${execucao.hora}` : 'enviadas agora'}`;
     sub = `${plural(enviados, 'contato', 'contatos')}${pulados.length ? ` · ${plural(pulados.length, 'base pulada', 'bases puladas')}` : ''}${tempo}`;
   } else if (status === 'pre-visualizacao') {
     titulo = 'Prévia gerada';
@@ -941,10 +971,12 @@ function desenharPorBase() {
   $('cartao-porbase').hidden = false;
   $('porbase-dica').textContent = `${new Date(estado.execucao.inicio).toLocaleDateString('pt-BR')} · alvo ${estado.execucao.hora} · ${estado.execucao.modo}`;
 
+  const semTransmissao = estado.execucao.fases && !estado.execucao.fases.includes('transmissao');
+
   $('porbase').innerHTML = bases.map((base) => {
     const situacao = base.status || 'pulado';
     const texto = estado.execucao.dryRun ? 'prévia'
-      : situacao === 'ok' ? (base.modoEnvio === 'agendado' ? 'agendada' : 'enviada')
+      : situacao === 'ok' ? (semTransmissao ? 'criada' : (base.modoEnvio === 'agendado' ? 'agendada' : 'enviada'))
         : situacao;
     const apagada = situacao === 'pulado' ? ' apagado' : '';
 
@@ -1331,6 +1363,7 @@ async function iniciar() {
 
   $('hora').oninput = atualizarResumo;
   $('gerar-base').onchange = atualizarResumo;
+  for (const campo of document.querySelectorAll('.fase')) campo.onchange = atualizarResumo;
 
   for (const botao of $('atalhos-hora').querySelectorAll('button')) {
     botao.onclick = () => {

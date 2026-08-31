@@ -41,10 +41,18 @@ estado da VPN ficam sempre visiveis na barra do topo, em qualquer aba.
 do template por grupo — Amigavel (as quatro bases amigaveis usam sempre o mesmo
 numero) e Contencioso (tem o proprio). O prefixo fica fixo, so o numero muda de
 rodada pra rodada. Abaixo, o horario (com atalhos: agora, +15min, +30min,
-+60min) e as opcoes de geracao: pular a geracao reaproveitando os CSVs que ja
++60min), o card **O que criar no dashboard** (lista de distribuicao, campanha e
+transmissao — as tres marcadas por padrao; desmarque as que nao quer criar nesta
+rodada) e as opcoes de geracao: pular a geracao reaproveitando os CSVs que ja
 estao em `out/`, desligar o relatorio Excel, mudar o periodo e ver os arquivos e
 telefones do filtro manual em `filtros/`. A coluna da direita resume o que vai
-sair — total de contatos, modo, horario, templates, filtro, ultima execucao.
+sair — total de contatos, modo, horario, o que vai criar, templates, filtro,
+ultima execucao.
+
+Marcar so `lista` e `campanha` (sem `transmissao`) e util pra deixar tudo
+montado e disparar a transmissao depois. Marcar `transmissao` sem `lista`/`campanha`
+so funciona se elas ja tiverem sido criadas antes no dashboard — o painel de
+revisao avisa.
 Em modo teste o relatorio Excel nunca e escrito (o check fica desabilitado) —
 ensaio nao deixa arquivo em `relatorio/`.
 
@@ -205,8 +213,14 @@ Telefone com menos de 10 digitos e descartado, porque nao e discavel.
 
 ```bash
 cd auto
-node dispatch.js --hora 14:30                    # le de ../out
-node dispatch.js --hora 14:30 --bases-dir bases  # bases de teste
+node dispatch.js --hora 14:30                        # le de ../out
+node dispatch.js --hora 14:30 --bases-dir bases      # bases de teste
+node dispatch.js --hora 14:30 --fases lista,campanha # so lista e campanha
 ```
 
 Sem `--hora`, o script pergunta o horario no terminal.
+
+| Opcao | Efeito |
+| --- | --- |
+| `--bases-dir <pasta>` | De onde ler os CSVs (padrao `../out`; `bases` para o modo teste) |
+| `--fases <lista>` | Quais fases criar, separadas por virgula: `lista`, `campanha`, `transmissao`. Padrao: as tres. Ordem nao importa |

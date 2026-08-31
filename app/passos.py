@@ -362,7 +362,7 @@ def gerar_base(data_inicio: date, data_fim: date, com_relatorio: bool = True, dr
     yield ("total", resultado.get("total", 0))
 
 
-def disparar(hora: str, modo: str):
+def disparar(hora: str, modo: str, fases: list[str] | None = None):
     """Chama o dispatch.js do auto/ e repassa a saida dele em tempo real."""
     global _processo_disparo
 
@@ -374,8 +374,12 @@ def disparar(hora: str, modo: str):
 
     pasta = BASES_DIR[modo]
     comando = [node, str(DISPATCH_SCRIPT), "--hora", hora, "--bases-dir", str(pasta)]
+    if fases:
+        comando += ["--fases", ",".join(fases)]
 
     yield ("log", f"Modo {modo}: lendo bases de {pasta}")
+    if fases and len(fases) < 3:
+        yield ("log", f"Fases: so {', '.join(fases)}")
 
     processo = subprocess.Popen(
         comando,
@@ -420,7 +424,7 @@ def disparar(hora: str, modo: str):
 
 def executar(
     data_inicio: date, data_fim: date, hora: str, modo: str, com_relatorio: bool, gerar: bool,
-    dry_run: bool = False,
+    dry_run: bool = False, fases: list[str] | None = None,
 ):
     """O disparo inteiro num evento so: VPN, base e disparo, em sequencia.
 
@@ -497,7 +501,7 @@ def executar(
 
     yield marcar("disparo", "rodando")
 
-    for tipo, dado in disparar(hora, modo):
+    for tipo, dado in disparar(hora, modo, fases):
         if tipo == "falhou":
             falhou = True
             yield ("erro", dado)

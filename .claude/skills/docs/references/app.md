@@ -36,7 +36,7 @@ mesmo sem `.env` preenchido.
 | `PUT /api/templates` | Regrava **apenas** `template_prefix` e `template_numero` |
 | `GET /api/bases?modo=` | Por base: nome, csv, template montado, contatos, se o CSV existe |
 | `GET /api/periodo-padrao` | Reusa `gerar_base.periodo_padrao()` |
-| `GET /api/executar` | O botão único — SSE com a execução inteira. Aceita `dry_run=true` (exige `gerar=true`) |
+| `GET /api/executar` | O botão único — SSE com a execução inteira. Aceita `dry_run=true` (exige `gerar=true`) e `fases` (lista separada por vírgula: `lista`/`campanha`/`transmissao`, default as três, validado por `_validar_fases`) |
 | `POST /api/cancelar` | Sinaliza cancelamento da execução em andamento. `409` se não há nenhuma rodando |
 | `GET /api/filtro` | Arquivos, contagem e lista dos telefones (`numeros`) em `filtros/`, sem precisar de VPN/DB |
 | `GET /api/filtro/ultimo-removido` | Download do CSV mais recente de removidos pelo filtro (`relatorio/filtro_removidos_*.csv`); `404` se nenhum existe |
@@ -49,7 +49,8 @@ mesmo sem `.env` preenchido.
 
 Validações em `server.py`: `hora` no formato `HH:MM` com faixa válida (normalizada para dois dígitos),
 `modo` restrito às chaves de `passos.BASES_DIR`, datas em `AAAA-MM-DD` com início ≤ fim, `dry_run=true`
-sem `gerar=true` é `400` (pré-visualizar sem gerar base não faz sentido).
+sem `gerar=true` é `400` (pré-visualizar sem gerar base não faz sentido), `fases` só aceita
+`lista`/`campanha`/`transmissao` e não pode ficar vazia (`_validar_fases`, devolve na ordem canônica).
 
 **Lock de execução única**: um `threading.Lock` global; geração e disparo mexem nos mesmos CSVs, e dois
 cliques em paralelo dariam base pela metade ou disparo duplicado. Segunda chamada concorrente responde
@@ -79,12 +80,13 @@ Cada passo é um gerador que produz tuplas `(tipo, dado)`; `server.py` só as em
   `contatos.CSV_PARA_GRUPO` pra mapear `csv` → grupo.
 - **`filtro_atual()` / `ultimo_arquivo_filtro_removidos()`** — dados por trás de `/api/filtro` e
   `/api/filtro/ultimo-removido`.
-- **`disparar(hora, modo)`** — `subprocess.Popen` do `node dispatch.js`, lendo o stdout linha a linha.
+- **`disparar(hora, modo, fases=None)`** — `subprocess.Popen` do `node dispatch.js`, lendo o stdout linha a linha.
+  `fases` (lista de `lista`/`campanha`/`transmissao`) vira `--fases`; `None` ou as três não passa a flag.
   Linha com o prefixo `[ETAPA] ` vira evento `etapa` com o JSON já decodificado (inclusive o novo
   evento `tempo`, ver `contratos.md`); linha começando com `[ERRO]`/`[FATAL]` vira `erro`; o resto vira
   `log`. `returncode != 0` emite `falhou`; cancelado via `_matar_processo` emite `("cancelado", True)`.
   Node ausente no PATH é tratado antes de tentar.
-- **`executar(..., dry_run=False)`** — encadeia os passos e **para na primeira falha, no cancelamento,
+- **`executar(..., dry_run=False, fases=None)`** — encadeia os passos e **para na primeira falha, no cancelamento,
   ou (em dry-run) após a prévia** — sem VPN não adianta gerar, sem base não adianta disparar. Emite
   `("passo", {id, status, detalhe})` a cada troca de etapa (`vpn`, `base`, `disparo`; status
   `rodando`/`ok`/`erro`/`pulado`/`cancelado`) e fecha com `("fim", {status})`, onde `status` é
@@ -173,6 +175,12 @@ bases de `auto/bases/` como estão.
 - Uma linha por base em Preparar, com barra de volume proporcional ao maior CSV e o rótulo
   `contatos` / `CSV vazio` / `sem CSV`. Base vazia continua listada (o `dispatch.js` espera os cinco
   arquivos).
+- **O que criar no dashboard**: três checkboxes (`.fase`, valores `lista`/`campanha`/`transmissao`),
+  todas marcadas por padrão. `fasesEscolhidas()` lê as marcadas na ordem do DOM (que é a canônica) e o
+  resultado entra na querystring de `/api/executar` como `fases`, no resumo lateral (linha "Criar") e
+  em `estado.execucao.fases`. Nenhuma marcada desabilita "Revisar e disparar". O painel de revisão
+  avisa quando não são as três, e avisa de novo se `transmissao` está marcada sem `lista`+`campanha`
+  (a transmissão precisa que elas já existam no dashboard). A pré-visualização ignora as fases.
 - O stepper de template edita só o número; o prefixo vem do servidor e vai de volta intacto.
 - **Um número por grupo** (`grupoDaBase()` + mapa `GRUPOS`), mesmo com uma linha por base: mexer no
   stepper (ou digitar no campo) de uma amigável replica nas outras do grupo; o contencioso tem o dele.
@@ -198,9 +206,11 @@ bases de `auto/bases/` como estão.
 - **Estado da execução** vive em `estado.execucao` (início, hora, modo, dryRun, `bases` como `Map`,
   métricas de filtro, tempo total). É o que permite sair da aba e voltar sem perder nada, e é a fonte
   da tela de resultado.
-- **Etapas por base**: cada `<li>` das sub-bases mostra os chips `lista`/`campanha`/`transmissao`
-  (`pintarSubbase`) — os anteriores à etapa atual ficam `ok`, o atual `rodando`. Base sem contatos
-  mostra `CSV vazio`; em dry-run os chips somem e a situação vira `prévia`.
+- **Etapas por base**: cada `<li>` das sub-bases mostra um chip por fase de `estado.execucao.fases`
+  (`pintarSubbase`) — os anteriores à etapa atual ficam `ok`, o atual `rodando`. Sem a fase
+  `transmissao`, o status final da base vira `criado` (em vez de `enviado`/`agendado`), e o mesmo no
+  resultado e na tabela por base. Base sem contatos mostra `CSV vazio`; em dry-run os chips somem e a
+  situação vira `prévia`.
 - **Cronômetro e fita de progresso**: `iniciarCronometro()` conta o tempo decorrido de segundo em
   segundo; `calcularProgresso()` vai de 15% (VPN) a 45% (base gerada) e daí proporcional às bases já
   concluídas.
