@@ -5,7 +5,7 @@
     "csv": "amigavel_ABW.csv",
     "grupo": "amigavel",
     "template_prefix": "WPP_A_E_B",
-    "template_numero": "01"
+    "template_numero": "04"
   },
   {
     "key": "amigavel_c",
@@ -13,7 +13,7 @@
     "csv": "amigavel_C.csv",
     "grupo": "amigavel",
     "template_prefix": "WPP_rating_c",
-    "template_numero": "01"
+    "template_numero": "04"
   },
   {
     "key": "amigavel_dez",
@@ -21,7 +21,7 @@
     "csv": "amigavel_DEZ.csv",
     "grupo": "amigavel",
     "template_prefix": "WPP_A_E_B",
-    "template_numero": "01"
+    "template_numero": "04"
   },
   {
     "key": "amigavel_na_rating",
@@ -29,7 +29,7 @@
     "csv": "amigavel_na_rating.csv",
     "grupo": "amigavel",
     "template_prefix": "WPP_A_E_B",
-    "template_numero": "01"
+    "template_numero": "04"
   },
   {
     "key": "contencioso",
