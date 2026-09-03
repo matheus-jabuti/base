@@ -113,8 +113,8 @@ bases de `auto/bases/` como estão.
 - **`agenda.json`** — `{modo, itens}`. `itens` é lista de `{data: "AAAA-MM-DD", hora: "HH:MM", ativo:
   bool, templates: {grupo: "NN"}}`. Editada só pela aba Agenda. O id de um item é `"data hora"` —
   mexer no horário cria um item novo. `templates` é obrigatório e tem um número (1 a 3 dígitos,
-  `zfill(2)`) por grupo de `passos.grupos_templates()` (hoje `amigavel` e `contencioso`, a mesma
-  divisão dos steppers de Preparar). Antes de cada disparo, `_aplicar_templates` grava esses números
+  `zfill(2)`) por grupo de `passos.grupos_templates()` (hoje `amigavel`, `amigavel_dez` e
+  `contencioso`, a mesma divisão dos steppers de Preparar). Antes de cada disparo, `_aplicar_templates` grava esses números
   no `dispatches.json` via `passos.gravar_templates` — cada base mantém o próprio prefixo, só o número
   (compartilhado pelo grupo) vem da linha da agenda. Item sem `templates` completo é registrado como
   `erro` e não dispara. Formato antigo (lista sem `modo`) é migrado na leitura assumindo `modo:
@@ -183,7 +183,8 @@ bases de `auto/bases/` como estão.
   (a transmissão precisa que elas já existam no dashboard). A pré-visualização ignora as fases.
 - O stepper de template edita só o número; o prefixo vem do servidor e vai de volta intacto.
 - **Um número por grupo** (`grupoDaBase()` + mapa `GRUPOS`), mesmo com uma linha por base: mexer no
-  stepper (ou digitar no campo) de uma amigável replica nas outras do grupo; o contencioso tem o dele.
+  stepper (ou digitar no campo) de uma amigável A/B/W, C ou N/A Rating replica nas outras do grupo; a
+  D/E/Z (`amigavel_dez`) tem o dela e o contencioso o dele.
   `lerTemplates()` monta uma entrada por base antes do `PUT`, repetindo o número do grupo e mandando o
   prefixo de cada uma.
 - **Painel de revisão** (`#painel-revisao`) no lugar do `confirm()` do navegador: `abrirRevisao(dryRun)`

@@ -38,8 +38,9 @@ Abre em <http://127.0.0.1:8000>. Sao quatro abas fixas no topo — **Preparar**,
 estado da VPN ficam sempre visiveis na barra do topo, em qualquer aba.
 
 **Preparar.** Uma linha por base, com o volume de contatos em barra, e o numero
-do template por grupo — Amigavel (as quatro bases amigaveis usam sempre o mesmo
-numero) e Contencioso (tem o proprio). O prefixo fica fixo, so o numero muda de
+do template por grupo — Amigavel (A/B/W, C e N/A Rating usam sempre o mesmo
+numero), Amigavel D/E/Z (numero proprio) e Contencioso (tem o proprio). O
+prefixo fica fixo, so o numero muda de
 rodada pra rodada. Abaixo, o horario (com atalhos: agora, +15min, +30min,
 +60min), o card **O que criar no dashboard** (lista de distribuicao, campanha e
 transmissao — as tres marcadas por padrao; desmarque as que nao quer criar nesta
@@ -63,7 +64,7 @@ Em producao o disparo exige **segurar o botao por 1,5s**; em teste e na
 pre-visualizacao e um clique so.
 
 **Agenda.** A lista de disparos automaticos: uma linha por data + hora, com o
-numero de template de cada grupo (amigavel e contencioso, igual a aba Preparar).
+numero de template de cada grupo (amigavel, amigavel D/E/Z e contencioso, igual a aba Preparar).
 Enquanto `python -m app.server` estiver rodando nesta maquina (com a VPN ligada),
 o servidor dispara sozinho em cada horario. Preencha data, hora e os templates,
 clique em **Adicionar horario**, depois **Salvar agenda** (os campos de template

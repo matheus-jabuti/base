@@ -23,9 +23,10 @@ página, fica em `dispatch.js`.
 Uma entrada por base, com `key`, `nome` (prefixo do nome do disparo), `csv` (**só o nome do arquivo** —
 a pasta vem de `--bases-dir`), `grupo`, `template_prefix` e `template_numero`.
 
-`grupo` (`amigavel` / `contencioso`) só é lido pela tela, que edita **um número por grupo** em vez de um
-por base — as quatro bases amigáveis sempre saem com o mesmo número, o contencioso com o dele. O
-`dispatch.js` ignora o campo e continua tratando as cinco bases uma a uma.
+`grupo` (`amigavel` / `amigavel_dez` / `contencioso`) só é lido pela tela, que edita **um número por
+grupo** em vez de um por base — as três bases amigáveis A/B/W, C e N/A Rating saem com o mesmo número,
+a D/E/Z tem o dela (recebe um template com número diferente) e o contencioso o dele. O `dispatch.js`
+ignora o campo e continua tratando as cinco bases uma a uma.
 
 O template é quebrado em prefixo + número porque na prática só o número muda de rodada para rodada
 (`WPP_A_E_B_07` → `WPP_A_E_B_08`). `buildTemplateName` junta os dois com `pad2`, aceitando de 1 a 3

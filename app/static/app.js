@@ -21,6 +21,7 @@ const SEGURAR_MS = 1500;
 
 const GRUPOS = {
   amigavel: 'Amigável',
+  amigavel_dez: 'Amigável D/E/Z',
   contencioso: 'Contencioso',
 };
 

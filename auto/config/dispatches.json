@@ -19,8 +19,8 @@
     "key": "amigavel_dez",
     "nome": "Disparo amigavel D/E/Z",
     "csv": "amigavel_DEZ.csv",
-    "grupo": "amigavel",
-    "template_prefix": "WPP_A_E_B",
+    "grupo": "amigavel_dez",
+    "template_prefix": "Wpp_rating_d_e_",
     "template_numero": "07"
   },
   {
