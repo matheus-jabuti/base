@@ -28,6 +28,7 @@ WITH dados AS (
     WHERE updated_at::date BETWEEN CAST(:data_inicio AS date) AND CAST(:data_fim AS date)
       AND attributes->>'phone_number' IS NOT NULL
       AND attributes->'campos'->>'nom_clien' IS NOT NULL
+      AND attributes->'campos'->>'operacao' is null
 ),
 telefones_unicos AS (
     SELECT
