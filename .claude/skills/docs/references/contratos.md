@@ -86,9 +86,11 @@ Escrito por dois lados: à mão (estrutura) e pela tela (`PUT /api/templates`).
 Um único `HH:MM` atravessa tudo: nome de lista/campanha/transmissão e o agendamento. A tela valida
 e normaliza, e passa como `--hora HH:MM` ao `dispatch.js`.
 
-A decisão agendado × imediato (buffer de ~2min) existe em dois lugares: `decideMode`
-(`auto/lib/dispatch-logic.js`), que **decide**, e `agendado()` (`app/static/app.js`), que só **avisa**
-o operador. Mudou o buffer, mude os dois — e o `README.md`, que cita o comportamento.
+Todo disparo é **sempre agendado** (nunca envio imediato), pra sempre sobrar janela de cancelamento.
+`horarioAgendamento(target, now, margem = 10min)` (`auto/lib/dispatch-logic.js`) resolve o horário:
+mantém o alvo se está a 10min+ no futuro, senão agenda `now + 10min`. `agendado()`
+(`app/static/app.js`) só **avisa** o operador (sempre "agendado", sinalizando quando o horário será
+empurrado). Mudou a margem ou o comportamento, mude os dois — e o `README.md`, que cita.
 
 ## 6. `auto/logs/disparos.csv`
 

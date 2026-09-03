@@ -3,8 +3,9 @@
 ## O que o projeto faz
 
 Cobrança da Porto por WhatsApp. Uma rodada de disparo produz cinco bases de contatos, cria lista de
-distribuição + campanha + transmissão para cada uma no dashboard Jabuti, e agenda (ou envia) as
-mensagens. O repo cobre a rodada inteira: do banco de dados até a transmissão criada.
+distribuição + campanha + transmissão para cada uma no dashboard Jabuti, e agenda as mensagens
+(sempre agendadas, nunca enviadas na hora). O repo cobre a rodada inteira: do banco de dados até a
+transmissão criada.
 
 **Isso dispara mensagem real para cliente real.** Qualquer caminho que rode `dispatch.js` apontando
 para `out/` envia de verdade. O modo teste (`--bases-dir bases` / botão "teste" na tela) troca a

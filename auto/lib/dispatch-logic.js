@@ -85,9 +85,14 @@ function listOptionRegex(nome) {
   return new RegExp(`^${escapeRegExp(nome)} - \\([\\d.,]+ registros?\\)$`);
 }
 
-// ponytail: buffer fixo de 2min, virar config se precisar ajustar por base
-function decideMode(target, now, bufferMs = 2 * 60 * 1000) {
-  return target.getTime() - now.getTime() > bufferMs ? 'agendado' : 'imediato';
+// Todo disparo e agendado, nunca imediato: sempre sobra uma janela pra cancelar
+// no dashboard antes da mensagem sair. Se o horario escolhido ja passou, ou esta
+// perto demais pra dar tempo de cancelar, agenda MARGEM_AGENDAMENTO_MS pra frente.
+const MARGEM_AGENDAMENTO_MS = 10 * 60 * 1000;
+
+function horarioAgendamento(target, now, margemMs = MARGEM_AGENDAMENTO_MS) {
+  const minimo = now.getTime() + margemMs;
+  return target.getTime() >= minimo ? new Date(target) : new Date(minimo);
 }
 
 function formatDuracao(ms) {
@@ -113,6 +118,7 @@ module.exports = {
   FASES_VALIDAS,
   parseFases,
   targetDateTime,
-  decideMode,
+  horarioAgendamento,
+  MARGEM_AGENDAMENTO_MS,
   formatDuracao,
 };

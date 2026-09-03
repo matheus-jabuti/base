@@ -8,7 +8,7 @@ arquitetura; o **passo a passo literal** (URLs, seletores, ordem, timeouts) fica
 
 | Arquivo | Contém |
 | --- | --- |
-| `lib/dispatch-logic.js` | Lógica **pura**: formatação de data/hora, nome do disparo, nome do template, regex da opção de lista, decisão agendado × imediato, `parseFases` (normaliza `--fases`). Sem Playwright, sem rede, sem `fs`. |
+| `lib/dispatch-logic.js` | Lógica **pura**: formatação de data/hora, nome do disparo, nome do template, regex da opção de lista, `horarioAgendamento` (horário resolvido do agendamento), `parseFases` (normaliza `--fases`). Sem Playwright, sem rede, sem `fs`. |
 | `lib/dispatch-logic.test.js` | Checagens com `assert`, rodadas por `npm test`. A suíte do lado Node — o lado Python tem a dele em `tests/` (`pytest`, ver `padroes.md`). |
 | `dispatch.js` | Orquestração: browser, login, formulários, retries, log, códigos de saída. |
 | `config/dispatches.json` | As cinco bases (dados, não código). |
@@ -82,9 +82,10 @@ resolvido) sem ter salvo nada no servidor. Por isso cada etapa confirma um sinal
 Casos reais que motivaram cada um estão em `auto/CLAUDE.md`. Dois merecem destaque porque voltam a
 morder em qualquer etapa nova:
 
-- **Envio imediato abre modal.** `Enviar Transmissão` só abre `Confirmar Envio`; o envio acontece no
-  `Sim, confirmar envio` (`confirmModalIfPresent`, esperado por 5s e ignorado se não aparecer). Sem
-  esse clique, todas as cinco bases estouravam timeout.
+- **Modal de confirmação.** O antigo `Enviar Transmissão` (envio imediato, removido) abria
+  `Confirmar Envio` e o envio só acontecia no `Sim, confirmar envio` — sem esse clique todas as cinco
+  bases estouravam timeout. `confirmModalIfPresent` (esperado por 3s, ignorado se não aparecer)
+  continua rodando no caminho agendado caso a plataforma passe a pedir confirmação lá também.
 - **A opção da lista tem separador de milhar.** O texto é `<nome> - (1.153 registros)`; um `\d+`
   ingênuo casava só com bases abaixo de mil. O regex vive em `listOptionRegex` e é coberto por teste.
 
@@ -99,13 +100,15 @@ Lista e campanha recém-criadas levam um tempo para ficarem selecionáveis no fo
 até 6 vezes com ~10s de intervalo, emitindo progresso a cada tentativa. Esgotado, o erro nomeia as
 tentativas.
 
-## Agendado × imediato
+## Sempre agendado
 
-`decideMode(target, now, buffer = 2min)`: mais de ~2 minutos de folga → agenda (modal `Agendar Evento`,
-campos `#date` e `#time`); abaixo disso → envia na hora. A decisão é tomada **no momento de preencher
-o formulário**, não no início — se o upload das listas demorou, o horário alvo pode já ter passado.
-A tela espelha esse cálculo só para avisar o operador (`app/static/app.js:agendado`); a decisão real é
-sempre do `dispatch.js`.
+Todo disparo é agendado (modal `Agendar Evento`, campos `#date` e `#time`) — **nunca** envio
+imediato — pra sempre existir uma janela de cancelamento no dashboard antes da mensagem sair.
+`horarioAgendamento(target, now, margem = 10min)`: se o horário alvo ainda está a 10min ou mais no
+futuro, agenda nele; se já passou ou está perto demais, agenda `now + 10min` (e o `dispatch.js` loga
+`[agenda] "<nome>": ...`). O cálculo roda **no momento de preencher o formulário**, não no início —
+se o upload das listas demorou, o horário alvo pode já ter passado. A tela sempre mostra "agendado"
+(`app/static/app.js:agendado`), avisando quando o horário será empurrado.
 
 ## Tempo por etapa
 
@@ -122,7 +125,7 @@ caminho de sucesso quanto no `main().catch` de erro fatal (`interrompido: true`)
 - Descrição dos três: `by automação` — é o que identifica o que veio da automação.
 - Erro em uma base gera screenshot em `scripts/out/erro-<key>-<timestamp>.png`.
 - `logs/disparos.csv`, colunas na ordem: `data`, `hora_alvo`, `tipo` (recebe a `key` da base), `nome`,
-  `modo` (`agendado`/`imediato`/`-`; `-` também quando a fase `transmissao` ficou de fora), `hora_execucao` (ISO),
+  `modo` (`agendado`, ou `-` quando a fase `transmissao` ficou de fora; `imediato` é legado, não sai mais), `hora_execucao` (ISO),
   `status` (`ok`/`erro`/`pulado`), `detalhe` (`fases: lista, campanha` quando não criou as três).
   Vírgula e quebra de linha do detalhe viram espaço — é CSV concatenado à mão, não há
   escaping; mantenha os campos livres de vírgula.

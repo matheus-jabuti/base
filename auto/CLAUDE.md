@@ -22,7 +22,8 @@ test-mode source — pass `--bases-dir bases` (or flip "modo teste" in the UI) t
 
 Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/docs/fluxo-disparo.md`.
 
-- `lib/dispatch-logic.js` — pure functions: name formatting, HH:MM parsing, agendado-vs-imediato decision.
+- `lib/dispatch-logic.js` — pure functions: name formatting, HH:MM parsing, schedule-time resolution
+  (`horarioAgendamento` — every dispatch is scheduled; a past/too-close time is pushed +10min).
   No Playwright, no network — unit-testable in isolation.
 - `lib/dispatch-logic.test.js` — assert-based self-check for the above (`npm test`).
 - `config/dispatches.json` — one entry per base: `key`, `nome` (naming prefix), `csv` (file name only —
@@ -41,8 +42,9 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   three — `parseFases` in `lib/dispatch-logic.js` normalizes and rejects unknown/empty). Reuses that
   time for all 5 entries in `config/dispatches.json`. Runs **phase-batched, not per-base**: creates all 5
   distribution lists (uploads each CSV), then all 5 campaigns, then all 5 broadcasts (list + campaign +
-  template, scheduled via `Agendar Transmissão` or sent immediately via `Enviar Transmissão` depending on
-  whether the target time is still more than ~2 minutes away by the time the broadcast form is filled).
+  template, always scheduled via `Agendar Transmissão` — never immediate — so there's always a
+  cancellation window on the dashboard before the message goes out; `horarioAgendamento` keeps the
+  chosen time when it's ≥10min out, otherwise (past or too close) schedules 10min ahead).
   All three created items (list/campaign/broadcast) get description `by automação` so they're
   identifiable as automation-created. Within each phase, a base that fails goes on a retry list and gets
   one more attempt at the end of that phase — after the other bases have already run, which doubles as
@@ -65,7 +67,9 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   parses those and leaves every other line as free-form log, so adding a new step means emitting one
   more `progresso()` call.
 - `logs/disparos.csv` — one row appended per base per run: date, target time, key, name, mode
-  (agendado/imediato), execution timestamp, status (ok/erro/pulado), detail. Gitignored.
+  (`agendado`, or `-` when the `transmissao` phase was skipped), execution timestamp, status
+  (ok/erro/pulado), detail. Gitignored. (`imediato` is a legacy value — dispatches no longer send
+  immediately, but old rows keep it.)
 
 ## Known gaps (intentionally not built — say if these are actually needed)
 
@@ -94,11 +98,11 @@ the actual UI outcome instead of trusting network idleness:
   was logged as `ok` in `logs/disparos.csv` with nothing actually created (this happened in production:
   list + campaign created fine, transmissão never appeared).
 
-- Immediate send: `Enviar Transmissão` only opens a `Confirmar Envio` modal — the actual send
-  happens on `Sim, confirmar envio`. Without that click the form sat filled forever and
-  `confirmBroadcastCreated` timed out on all 5 bases (see `scripts/out/erro-amigavel_*.png`).
-  Handled by `confirmModalIfPresent`, which is also called on the scheduled path in case the
-  platform starts asking there too.
+- Immediate send (path since removed — every dispatch is scheduled now): `Enviar Transmissão` only
+  opened a `Confirmar Envio` modal — the actual send happened on `Sim, confirmar envio`. Without that
+  click the form sat filled forever and `confirmBroadcastCreated` timed out on all 5 bases (see
+  `scripts/out/erro-amigavel_*.png`). `confirmModalIfPresent` still runs on the scheduled path in
+  case the platform starts asking there too.
 - Distribution-list option text is `<nome> - (N registros)`, and N is thousands-separated above
   999 (`(1.153 registros)`). The old `\d+` regex silently only matched bases under 1000 rows —
   contencioso (1.153) failed all 6 retries while the four smaller bases matched. Regex now lives

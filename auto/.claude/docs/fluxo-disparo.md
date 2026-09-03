@@ -90,29 +90,28 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
      entre elas.
 2. Preenche `input[name="name"]` e `textarea[name="description"]` (`by automação`) da
    própria transmissão.
-3. Decide agendado vs imediato (`decideMode`, `lib/dispatch-logic.js`): se o horário
-   escolhido no passo 0.3 ainda está a mais de ~2min no futuro nesse ponto do fluxo,
-   agenda; senão, envia na hora.
-   - **Agendado**: clica `Agendar Transmissão`, espera o modal `Agendar Evento`,
-     preenche `input#date` (YYYY-MM-DD) e `input#time` (HH:MM), clica
-     `Salvar Agendamento`.
-   - **Imediato**: clica `Enviar Transmissão`.
-4. `confirmModalIfPresent`: a plataforma abre o modal `Confirmar Envio` ("Você está
-   prestes a enviar esta transmissão...") com os botões `Não` / `Sim, confirmar envio`.
-   Sem clicar em `Sim, confirmar envio` nada é enviado e o passo 5 estoura o timeout.
-   O modal é esperado por até 5s e ignorado se não aparecer (o caminho agendado hoje não
-   mostra modal).
+3. Resolve o horário do agendamento (`horarioAgendamento`, `lib/dispatch-logic.js`) e
+   **sempre agenda** — nunca envio imediato, pra sempre sobrar janela de cancelamento no
+   dashboard. Se o horário escolhido no passo 0.3 ainda está a 10min ou mais no futuro
+   nesse ponto do fluxo, agenda nele; se já passou ou está perto demais, agenda 10min
+   pra frente (e loga `[agenda] "<nome>": ...`).
+   - Clica `Agendar Transmissão`, espera o modal `Agendar Evento`, preenche `input#date`
+     (YYYY-MM-DD) e `input#time` (HH:MM) com o horário resolvido, clica `Salvar Agendamento`.
+4. `confirmModalIfPresent`: se a plataforma abrir o modal `Confirmar Envio` ("Você está
+   prestes a enviar esta transmissão...") com os botões `Não` / `Sim, confirmar envio`,
+   clica em `Sim, confirmar envio`. O modal é esperado por até 3s e ignorado se não
+   aparecer — o caminho agendado hoje não mostra modal, a checagem fica só por segurança
+   (o antigo envio imediato dependia dela).
 5. `confirmBroadcastCreated`: espera, em paralelo, **ou** a URL voltar pra listagem de
    Transmissões (`/meta/broadcasts`, fora do `/add`) **ou** aparecer qualquer texto
    contendo "sucesso" na própria página — o que resolver primeiro decide. Se foi
    redirecionamento, ainda confirma que a linha da tabela com o `nome` apareceu. Sem
    nenhuma confirmação, lança erro.
    - Motivo de aceitar os dois casos: `Salvar Agendamento` redireciona pra listagem
-     (confirmado em `scripts/out/60-after-settle.png` e em execução real). O modo
-     imediato, depois do `Sim, confirmar envio` do passo 4, também passa nessa
-     confirmação — antes do passo 4 existir, todas as tentativas em modo imediato davam
-     timeout aqui (a agendada passava tranquila), porque o envio nunca chegou a
-     acontecer.
+     (confirmado em `scripts/out/60-after-settle.png` e em execução real); o toast fica
+     como fallback caso a plataforma pare de redirecionar. (Histórico: o antigo envio
+     imediato, sem o `Sim, confirmar envio` do passo 4, dava timeout aqui porque o envio
+     nunca acontecia.)
    - Se der erro em qualquer etapa da criação da transmissão, `main()` tira um
      screenshot em `scripts/out/erro-<key>-<timestamp>.png` antes de logar — próxima
      falha real fica visível, sem precisar advinhar o que estava na tela.
@@ -120,8 +119,9 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 ## 5. Log (`logDispatch`)
 
 Depois de cada uma das 5 entradas (sucesso ou erro), acrescenta uma linha em
-`logs/disparos.csv`: data, horário-alvo, `key`, nome, modo (`agendado`/`imediato`/`-`),
-timestamp de execução, status (`ok`/`erro`), detalhe (mensagem de erro se houver).
+`logs/disparos.csv`: data, horário-alvo, `key`, nome, modo (`agendado`, ou `-` quando a fase
+`transmissao` ficou de fora), timestamp de execução, status (`ok`/`erro`), detalhe (mensagem de
+erro se houver). `imediato` é valor legado — não sai mais, mas linhas antigas ainda têm.
 
 ## O que NÃO existe (de propósito, ver `CLAUDE.md` → "Known gaps")
 

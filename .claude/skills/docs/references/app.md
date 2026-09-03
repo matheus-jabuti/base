@@ -106,8 +106,9 @@ essa escolha existe; a tela só manda o nome do modo.
 Uma thread daemon, iniciada em `server.main()` (só no caminho `python -m app.server`). De
 `INTERVALO_TICK_S` em `INTERVALO_TICK_S` segundos (30) confere `auto/config/agenda.json` e, quando um
 item chega na hora, roda `passos.executar(...)` inteiro no `modo` da agenda, com a `hora` do próprio
-item passada adiante (é ela que nomeia lista/campanha/transmissão e decide agendado × imediato no
-`dispatch.js`). Em `producao` gera a base de `gerar_base.periodo_padrao()` antes; em `teste` usa as
+item passada adiante (é ela que nomeia lista/campanha/transmissão e vira o horário do agendamento no
+`dispatch.js` — que sempre agenda; como o agendador dispara na hora exata, o `dispatch.js` acaba
+empurrando pra ~10min à frente). Em `producao` gera a base de `gerar_base.periodo_padrao()` antes; em `teste` usa as
 bases de `auto/bases/` como estão.
 
 - **`agenda.json`** — `{modo, itens}`. `itens` é lista de `{data: "AAAA-MM-DD", hora: "HH:MM", ativo:
@@ -132,8 +133,8 @@ bases de `auto/bases/` como estão.
 - **Estado** — `auto/logs/agenda_estado.json` (`{id: {situacao, quando, detalhe}}`), fora do
   versionamento como todo o resto de `auto/logs/`. Sobrevive a restart: item já disparado não roda de
   novo, item perdido não dispara atrasado.
-- **`ANTECEDENCIA_MIN`** (0) — dispara este tanto de minutos antes do horário. 0 = na hora exata, o
-  que sempre cai em envio imediato no `dispatch.js`. Acima de ~2 viraria agendamento na plataforma.
+- **`ANTECEDENCIA_MIN`** (0) — dispara este tanto de minutos antes do horário. 0 = na hora exata; o
+  `dispatch.js` sempre agenda, e como nesse ponto o horário já chegou, agenda ~10min à frente.
 - **`TOLERANCIA_ATRASO_MIN`** (20) — servidor desligado ou ocupado no horário: passou disso da hora
   sem disparar, o item vira `perdido` e não roda mais. Dentro da janela, dispara no próximo tick.
 - **Um disparo por ciclo** — `_disparar_item` bloqueia por minutos; o ciclo seguinte relê o estado e
@@ -188,7 +189,7 @@ bases de `auto/bases/` como estão.
   `lerTemplates()` monta uma entrada por base antes do `PUT`, repetindo o número do grupo e mandando o
   prefixo de cada uma.
 - **Painel de revisão** (`#painel-revisao`) no lugar do `confirm()` do navegador: `abrirRevisao(dryRun)`
-  monta o modo, o título com o total, o horário resolvido (agendado/imediato), a mini-tabela
+  monta o modo, o título com o total, o horário (sempre agendado), a mini-tabela
   base · template · contatos e a checklist de `montarChecklist()` — VPN, período da geração (ou aviso
   de que está reaproveitando CSVs), telefones do filtro manual, bases vazias e o aviso de que o
   agendamento só é desfeito no dashboard. Nenhuma verificação nova: tudo vem do que já está em memória
@@ -223,14 +224,15 @@ bases de `auto/bases/` como estão.
   um `confirm()` avisando que listas/campanhas já criadas podem ficar sem transmissão correspondente.
 - **Filtro manual**: `carregarFiltro()` roda no boot (`GET /api/filtro`) e alimenta tanto o resumo
   lateral quanto a checklist da revisão; o chip "Filtro manual" abre o modal com os números.
-- `agendado()` espelha o `decideMode` do `dispatch.js` (buffer de 2min) **apenas para avisar**; quem
-  decide é o `dispatch.js`. Se o buffer mudar lá, mude aqui junto.
+- `agendado()` acompanha o `dispatch.js` (que **sempre agenda**) **apenas para avisar** — retorna
+  `true` sempre que há horário, e `textoRelativo()` avisa quando o horário será empurrado ~10min
+  (passou ou perto demais). Se o comportamento mudar lá, mude aqui junto.
 - Horário inicial: agora + 15 minutos. Período inicial: `/api/periodo-padrao`.
 - Modo teste troca a faixa de aviso e recarrega as contagens da outra pasta.
 - **Histórico** (aba própria, não mais modal): `#historico-busca` (debounce 250ms), `#historico-status`,
   `#historico-modo` e `#historico-limite` recarregam `carregarHistorico()`, que passa
   `busca`/`status`/`modo`/`limite` pra `/api/historico` e conta linhas/ok/erro no topo. `modo` aqui é
-  `agendado`/`imediato` (o que o `dispatch.js` grava), não produção/teste. `nomeDaBase()` tira o
+  `agendado` (ou `imediato` em linhas antigas — o `dispatch.js` só grava `agendado` agora), não produção/teste. `nomeDaBase()` tira o
   sufixo `- dd/mm/aaaa - HHhMM` do nome da campanha e `horaCurta()` reduz o ISO de `hora_execucao` ao
   relógio local.
 - **Chip de VPN** (`#chip-vpn`, na barra do topo): `verificarVpn()` roda no boot e chama

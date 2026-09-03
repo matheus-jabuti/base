@@ -13,7 +13,7 @@ const {
   FASES_VALIDAS,
   parseFases,
   targetDateTime,
-  decideMode,
+  horarioAgendamento,
   formatDuracao,
 } = require('./lib/dispatch-logic');
 
@@ -243,20 +243,19 @@ async function fillBroadcastSelectors(page, { nome, template }) {
 }
 
 // Depois de "Salvar Agendamento" a página redireciona pra listagem de Transmissões
-// (confirmado em scripts/out/60-after-settle.png e em execução real). "Enviar
-// Transmissão" nunca foi observado antes — pode redirecionar igual, ou pode ficar na
-// mesma página e só mostrar um toast (é o que acontece na tela de lista). Aceita as
-// duas coisas em paralelo; o que resolver primeiro decide como confirmar.
-// "Enviar Transmissão" abre um modal "Confirmar Envio" com o botão
-// "Sim, confirmar envio" (visto em scripts/out/erro-amigavel_abw-*.png). Sem esse
-// clique o envio nunca acontece e a espera por redirect/toast estoura o timeout.
-// O caminho de agendamento nunca mostrou modal, mas se mostrar é o mesmo botão.
+// (confirmado em scripts/out/60-after-settle.png e em execução real), mas em tese
+// pode ficar na mesma página e só mostrar um toast (é o que acontece na tela de
+// lista). Aceita as duas coisas em paralelo; o que resolver primeiro decide como
+// confirmar.
+// O caminho de agendamento nunca mostrou o modal "Confirmar Envio" ("Sim,
+// confirmar envio", visto em scripts/out/erro-amigavel_abw-*.png no antigo envio
+// imediato), mas se passar a mostrar é o mesmo botão — por isso a checagem fica.
 async function confirmModalIfPresent(page) {
   const botao = page.getByRole('button', { name: /^Sim, confirmar/i });
   try {
     // O modal e renderizacao local (nao depende de round-trip de rede), entao
-    // 3s ja sobra pra pegar ele quando aparece de verdade (imediato) sem
-    // segurar tanto tempo morto quando nao aparece (agendado nunca mostrou).
+    // 3s ja sobra pra pegar ele se aparecer, sem segurar tempo morto quando nao
+    // aparece (que e o caso hoje, sempre agendado).
     await botao.waitFor({ state: 'visible', timeout: 3000 });
   } catch {
     return;
@@ -272,10 +271,10 @@ async function confirmBroadcastCreated(page, nome) {
     .waitForSelector('text=/sucesso/i', { timeout: 15000 })
     .then(() => 'toast');
 
-  // Promise.any: fica com o primeiro que resolver de verdade (agendado so
-  // redireciona, nunca mostra toast, e vice-versa em tese) em vez de esperar
-  // os dois settle como Promise.all fazia - isso forcava esperar o timeout
-  // inteiro do sinal que nunca chega mesmo depois do outro ja ter confirmado.
+  // Promise.any: fica com o primeiro que resolver de verdade (o agendamento so
+  // redireciona, nunca mostra toast) em vez de esperar os dois settle como
+  // Promise.all fazia - isso forcava esperar o timeout inteiro do sinal que
+  // nunca chega mesmo depois do outro ja ter confirmado.
   let resultado;
   try {
     resultado = await Promise.any([redirected, toasted]);
@@ -320,21 +319,21 @@ async function createBroadcast(page, { key, nome, template, target }) {
   await page.fill('input[name="name"]', nome);
   await page.fill('textarea[name="description"]', DESCRICAO);
 
-  const modo = decideMode(target, new Date());
-  const tFormPreenchido = Date.now();
-  if (modo === 'agendado') {
-    await page.click('button:has-text("Agendar Transmissão")');
-    await page.waitForSelector('text=Agendar Evento');
-    await page.fill('input#date', formatDateISO(target));
-    await page.fill('input#time', `${pad2(target.getHours())}:${pad2(target.getMinutes())}`);
-    await page.click('button:has-text("Salvar Agendamento")');
-    await confirmModalIfPresent(page);
-    await confirmBroadcastCreated(page, nome);
-  } else {
-    await page.click('button:has-text("Enviar Transmissão")');
-    await confirmModalIfPresent(page);
-    await confirmBroadcastCreated(page, nome);
+  // Sempre agendado — nunca envio imediato — pra sempre haver uma janela de
+  // cancelamento no dashboard antes da mensagem sair.
+  const modo = 'agendado';
+  const quando = horarioAgendamento(target, new Date());
+  if (quando.getTime() !== target.getTime()) {
+    console.log(`[agenda] "${nome}": horário ${pad2(target.getHours())}:${pad2(target.getMinutes())} já passou ou está perto demais — agendado para ${pad2(quando.getHours())}:${pad2(quando.getMinutes())}`);
   }
+  const tFormPreenchido = Date.now();
+  await page.click('button:has-text("Agendar Transmissão")');
+  await page.waitForSelector('text=Agendar Evento');
+  await page.fill('input#date', formatDateISO(quando));
+  await page.fill('input#time', `${pad2(quando.getHours())}:${pad2(quando.getMinutes())}`);
+  await page.click('button:has-text("Salvar Agendamento")');
+  await confirmModalIfPresent(page);
+  await confirmBroadcastCreated(page, nome);
   const msEnvio = Date.now() - tFormPreenchido;
   progresso({ evento: 'tempo', escopo: 'base', chave: 'envio', key, ms: msEnvio, duracao: formatDuracao(msEnvio), modo });
   console.log(`[tempo] "${nome}": envio+confirmacao (${modo}) em ${formatDuracao(msEnvio)}`);

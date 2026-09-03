@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, parseFases, targetDateTime, decideMode, formatDateISO, formatDuracao } = require('./dispatch-logic');
+const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, parseFases, targetDateTime, horarioAgendamento, MARGEM_AGENDAMENTO_MS, formatDateISO, formatDuracao } = require('./dispatch-logic');
 
 const { hh, mm } = parseHora('09:30');
 assert.strictEqual(hh, 9);
@@ -37,9 +37,23 @@ assert.throws(() => parseFases(''));
 assert.throws(() => parseFases('lista,foo'));
 
 const target = targetDateTime(date, hh, mm);
-assert.strictEqual(decideMode(target, new Date(target.getTime() + 10 * 60 * 1000)), 'imediato');
-assert.strictEqual(decideMode(target, new Date(target.getTime() - 10 * 60 * 1000)), 'agendado');
-assert.strictEqual(decideMode(target, new Date(target.getTime() - 30 * 1000)), 'imediato'); // dentro do buffer
+// Folga maior que a margem: agenda no horário pedido.
+assert.strictEqual(
+  horarioAgendamento(target, new Date(target.getTime() - 30 * 60 * 1000)).getTime(),
+  target.getTime()
+);
+// Horário já passou: empurra pra now + margem.
+const nowPassou = new Date(target.getTime() + 5 * 60 * 1000);
+assert.strictEqual(
+  horarioAgendamento(target, nowPassou).getTime(),
+  nowPassou.getTime() + MARGEM_AGENDAMENTO_MS
+);
+// Perto demais (dentro da margem): também empurra pra now + margem.
+const nowPerto = new Date(target.getTime() - 3 * 60 * 1000);
+assert.strictEqual(
+  horarioAgendamento(target, nowPerto).getTime(),
+  nowPerto.getTime() + MARGEM_AGENDAMENTO_MS
+);
 
 assert.strictEqual(formatDuracao(400), '0s');
 assert.strictEqual(formatDuracao(45000), '45s');

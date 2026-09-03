@@ -58,8 +58,10 @@ Em modo teste o relatorio Excel nunca e escrito (o check fica desabilitado) —
 ensaio nao deixa arquivo em `relatorio/`.
 
 **Revisao.** O botao **Revisar e disparar** nao dispara: abre um painel com a
-lista de bases e templates, o horario resolvido (agendado ou imediato) e uma
-checagem do que da pra checar antes (VPN, periodo, filtro manual, bases vazias).
+lista de bases e templates, o horario (todo disparo e agendado, nunca enviado na
+hora — sempre sobra janela pra cancelar no dashboard; se o horario ja passou ou
+esta perto demais, e agendado 10min pra frente) e uma checagem do que da pra
+checar antes (VPN, periodo, filtro manual, bases vazias).
 Em producao o disparo exige **segurar o botao por 1,5s**; em teste e na
 pre-visualizacao e um clique so.
 
@@ -83,10 +85,12 @@ depois da hora) ou `desativado`. Item que falhou ou se perdeu tem um botao
 **re-armar** pra ele tentar de novo (se ainda estiver dentro dos 20min). A coluna
 da direita mostra o proximo disparo e se o agendador esta ligado.
 
-O disparo automatico acontece na hora exata do item (envio imediato, nao
-agendamento na plataforma). Ele **nao aparece na aba Monitorar** — o resultado
-fica no Historico. Um atraso de ate ~20min entre o horario e a mensagem chegar e
-esperado (a pipeline leva alguns minutos e a plataforma tem fila).
+O disparo automatico comeca na hora exata do item; como todo disparo e agendado
+na plataforma (nunca enviado na hora), a transmissao fica agendada ~10min pra
+frente. Ele **nao aparece na aba Monitorar** — o resultado fica no Historico. Um
+atraso de ~10 a 30min entre o horario do item e a mensagem chegar e esperado (a
+pipeline leva alguns minutos, mais os 10min do agendamento e a fila da
+plataforma).
 
 **Monitorar.** Acompanhamento ao vivo: VPN, geracao da base e disparo, com as
 cinco bases mostrando em qual etapa cada uma esta (lista, campanha,
@@ -104,12 +108,13 @@ quantos contatos sairiam em cada base antes de confirmar de verdade.
 
 **Historico.** Uma linha por base disparada, direto de `auto/logs/disparos.csv`,
 com busca por base, filtro por status (ok/erro/pulado), por tipo de envio
-(agendado/imediato) e por quantidade. O motivo do erro aparece na propria
-tabela.
+(agendado — `imediato` so aparece em linhas antigas) e por quantidade. O motivo
+do erro aparece na propria tabela.
 
 O horario vale para tudo: entra no nome das campanhas e na hora do agendamento.
-Acima de ~2min de folga a transmissao e agendada; abaixo disso a plataforma
-envia na hora — a tela avisa qual dos dois vai acontecer.
+A transmissao e sempre agendada na plataforma (nunca enviada na hora), pra
+sempre haver janela de cancelamento; se o horario ja passou ou esta a menos de
+10min, e agendada 10min pra frente — a tela avisa quando isso vai acontecer.
 
 O **modo teste** troca a origem dos CSVs de `out/` para `auto/bases/`, que tem
 um contato so por base — serve pra exercitar a automacao do dashboard sem

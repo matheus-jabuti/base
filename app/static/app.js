@@ -256,12 +256,11 @@ function templateEscolhido(base) {
 
 /* ------------------------------------------------ preparar: horario */
 
-// Espelha o decideMode do dispatch.js: com mais de ~2min de folga o disparo e
-// agendado; abaixo disso a plataforma manda na hora.
+// Todo disparo e agendado no dispatch.js (nunca envio imediato), pra sempre
+// sobrar janela de cancelamento. Se o horario ja passou ou esta perto demais, o
+// dispatch.js agenda ~10min pra frente — textoRelativo() avisa isso.
 function agendado() {
-  if (!$('hora').value) return null;
-
-  return alvoEmMinutos() > 2;
+  return $('hora').value ? true : null;
 }
 
 function alvoEmMinutos() {
@@ -277,8 +276,8 @@ function alvoEmMinutos() {
 function textoRelativo() {
   const minutos = alvoEmMinutos();
 
-  if (minutos < -1) return `horário já passou hoje (${-minutos} min atrás)`;
-  if (minutos <= 2) return 'envio imediato ao terminar a geração';
+  if (minutos < -1) return `horário já passou hoje (${-minutos} min atrás) — será agendado ~10 min à frente`;
+  if (minutos < 10) return 'muito perto do horário atual — será agendado ~10 min à frente';
   if (minutos < 60) return `hoje, daqui a ${minutos} minutos`;
 
   return `hoje, daqui a ${Math.floor(minutos / 60)}h${String(minutos % 60).padStart(2, '0')}`;

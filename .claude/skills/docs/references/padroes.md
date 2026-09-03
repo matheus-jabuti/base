@@ -76,9 +76,9 @@ arquivos entra com teste em `tests/`. `.github/workflows/ci.yml` roda as duas su
 
 ## Refatoração
 
-Não refatore por conta própria. Duplicação existente é aceita quando é deliberada (os dois pipelines,
-os dois cálculos de agendado × imediato) — está documentada em `contratos.md` como par a manter em
-sincronia. Se precisar generalizar algo, pergunte antes.
+Não refatore por conta própria. Duplicação existente é aceita quando é deliberada (os dois pipelines;
+o `horarioAgendamento` do `dispatch.js` e o `agendado()` da tela) — está documentada em `contratos.md`
+como par a manter em sincronia. Se precisar generalizar algo, pergunte antes.
 
 ## Git — commit e push a cada alteração
 

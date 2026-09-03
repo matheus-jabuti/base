@@ -92,8 +92,9 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
   `progresso()` call plus handling in `app/static/app.js`. `gerar_base.py` has a sibling
   `[METRICA] {json}` protocol for the intermediate counts it already prints (conversas, elegiveis,
   filtro removido, etc.) — see `.claude/skills/docs/references/contratos.md`.
-- **Time**: one `HH:MM` drives everything — campaign names and the schedule. More than ~2 min out
-  it's scheduled, otherwise sent immediately (`decideMode`).
+- **Time**: one `HH:MM` drives everything — campaign names and the schedule. Every dispatch is
+  scheduled, never sent immediately, so there's always a cancellation window; a past or too-close
+  time is pushed 10 min ahead (`horarioAgendamento`).
 
 ### UI
 
@@ -117,8 +118,9 @@ omission**; `teste` uses `auto/bases/` and skips generation, `producao` regenera
 group from `passos.grupos_templates()`, required) is written into `dispatches.json` before each run,
 so an agenda dispatch overrides whatever the Preparar tab last saved. The agenda `modo` is separate
 from the header toggle (`estado.modo`), which only governs manual `/api/executar` runs. Fires at the
-exact time (immediate send); an item not dispatched within `TOLERANCIA_ATRASO_MIN` (20) of its time is
-marked `perdido` and skipped. Decision logic (`situacao_do_item`, `itens_a_disparar`,
+exact time; since `dispatch.js` always schedules and the time has just arrived, the broadcast lands
+~10 min ahead (`horarioAgendamento`). An item not dispatched within `TOLERANCIA_ATRASO_MIN` (20) of
+its time is marked `perdido` and skipped. Decision logic (`situacao_do_item`, `itens_a_disparar`,
 `proximo_disparo`) is pure and covered by `tests/test_agendador.py`. Runtime state:
 `auto/logs/agenda_estado.json` (gitignored). Full detail in the `docs` skill (`references/app.md`).
 

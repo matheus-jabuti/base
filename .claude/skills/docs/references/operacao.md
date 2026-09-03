@@ -50,7 +50,8 @@ Mesmo em teste, lista, campanha e transmissão **são criadas de verdade** no da
 1. VPN ligada (o chip no topo confere sozinho ao abrir).
 2. `python -m app.server`, abrir `http://127.0.0.1:8000` — abre na aba **Preparar**.
 3. Ajustar o número do template (um por grupo: amigável A/B/W+C+N/A Rating juntas, D/E/Z e contencioso à parte).
-4. Escolher o horário, pelos atalhos ou no relógio — a tela avisa se vai agendar ou enviar na hora.
+4. Escolher o horário, pelos atalhos ou no relógio — o disparo é sempre agendado; a tela avisa quando
+   o horário já passou ou está perto demais (aí é agendado 10min pra frente).
 5. Conferir a faixa de modo (produção × teste) e clicar em **Revisar e disparar**: o painel mostra
    bases, templates, horário resolvido e a checagem de VPN, período, filtro e bases vazias. Em
    produção, o disparo exige segurar o botão por 1,5s.
