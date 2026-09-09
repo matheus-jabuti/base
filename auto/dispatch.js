@@ -10,6 +10,7 @@ const {
   buildDispatchName,
   buildTemplateName,
   listOptionRegex,
+  templateOptionRegex,
   FASES_VALIDAS,
   parseFases,
   targetDateTime,
@@ -197,15 +198,26 @@ async function selectAutocompleteOption(page, input, filtro, option, { fallbackS
   }
 
   await input.fill('');
-  if (fallbackScroll) {
-    const listbox = page.getByRole('listbox');
-    for (let i = 0; i < 15; i++) {
-      if (await option.first().isVisible().catch(() => false)) break;
-      await listbox.evaluate((el) => { el.scrollTop += el.clientHeight; }).catch(() => {});
-      await page.waitForTimeout(150);
-    }
+  if (!fallbackScroll) {
+    await option.first().click({ timeout: 10000 });
+    return;
   }
-  await option.first().click({ timeout: 10000 });
+
+  const listbox = page.getByRole('listbox');
+  for (let i = 0; i < 15; i++) {
+    if (await option.first().isVisible().catch(() => false)) break;
+    await listbox.evaluate((el) => { el.scrollTop += el.clientHeight; }).catch(() => {});
+    await page.waitForTimeout(150);
+  }
+  try {
+    await option.first().click({ timeout: 10000 });
+  } catch (err) {
+    const nomes = (await page.getByRole('option').allInnerTexts().catch(() => []))
+      .map((n) => n.trim())
+      .filter(Boolean);
+    const disponiveis = nomes.length ? nomes.join(', ') : '(nenhuma opção listada)';
+    throw new Error(`"${filtro}" não está entre as opções: ${disponiveis}. (${err.message})`);
+  }
 }
 
 // ponytail: lista/campanha recém-criadas podem levar um tempo pra ficar
@@ -238,7 +250,7 @@ async function fillBroadcastSelectors(page, { nome, template }) {
   const tplId = await idFor('Template');
   const tplInput = page.locator(`#${tplId}`);
   await tplInput.click();
-  await selectAutocompleteOption(page, tplInput, template, page.getByRole('option', { name: template, exact: true }), { fallbackScroll: true });
+  await selectAutocompleteOption(page, tplInput, template, page.getByRole('option', { name: templateOptionRegex(template) }), { fallbackScroll: true });
   await page.waitForTimeout(400);
 }
 

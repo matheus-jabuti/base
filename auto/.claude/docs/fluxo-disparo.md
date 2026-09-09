@@ -79,11 +79,14 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
      singular (`(1 registro)`); só `\d+` não bastava e derrubava qualquer base com mais
      de mil linhas.
    - Abre o combobox "Campanha", clica na opção com texto exatamente igual ao `<nome>`.
-   - Abre o combobox "Template", clica na opção com o `template` configurado pra essa
-     entrada (`clickTemplateOption`). A listbox não renderiza tudo de cara — conforme a
-     lista de templates cresce, opções mais abaixo (ex.: `WPP_contencioso_01`, com 10+
-     templates cadastrados) só existem no DOM depois de rolar; a função rola em passos
-     até a opção alvo ficar visível antes de clicar.
+   - Abre o combobox "Template", clica na opção que casa `templateOptionRegex(template)`
+     (`lib/dispatch-logic.js`): match **sem diferenciar maiúscula/minúscula**, ancorado nas
+     pontas. A plataforma não padroniza a caixa (contencioso tem `WPP_contencioso_04` em
+     minúsculo mas `WPP_CONTENCIOSO_01` em maiúsculo); o disparo só precisa do nome certo,
+     não da caixa certa. A listbox também não renderiza tudo de cara — conforme a lista de
+     templates cresce, opções mais abaixo só existem no DOM depois de rolar; a função rola
+     em passos até a opção alvo ficar visível antes de clicar, e se não achar, o erro lista
+     as opções disponíveis.
    - Tudo isso roda dentro de um retry: se a lista/campanha recém-criada ainda não
      aparecer na opção (indexação/processamento assíncrono do CSV no backend), recarrega
      a página `/meta/broadcasts/add` e tenta de novo — até 6 tentativas, ~10s de espera

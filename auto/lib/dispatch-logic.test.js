@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, parseFases, targetDateTime, horarioAgendamento, MARGEM_AGENDAMENTO_MS, formatDateISO, formatDuracao } = require('./dispatch-logic');
+const { parseHora, buildDispatchName, buildTemplateName, listOptionRegex, templateOptionRegex, parseFases, targetDateTime, horarioAgendamento, MARGEM_AGENDAMENTO_MS, formatDateISO, formatDuracao } = require('./dispatch-logic');
 
 const { hh, mm } = parseHora('09:30');
 assert.strictEqual(hh, 9);
@@ -28,6 +28,15 @@ assert.strictEqual(buildTemplateName('WPP_rating_c', '123'), 'WPP_rating_c_123')
 assert.throws(() => buildTemplateName('', '08'));
 assert.throws(() => buildTemplateName('WPP_A_E_B', ''));
 assert.throws(() => buildTemplateName('WPP_A_E_B', '8a'));
+
+// Template casa sem diferenciar caixa: a plataforma tem WPP_contencioso_04 em
+// minusculo mas WPP_CONTENCIOSO_01 em maiusculo.
+const tplRe = templateOptionRegex('WPP_contencioso_04');
+assert.ok(tplRe.test('WPP_contencioso_04'));
+assert.ok(templateOptionRegex('WPP_contencioso_01').test('WPP_CONTENCIOSO_01'));
+assert.ok(!tplRe.test('WPP_contencioso_04 (rascunho)')); // ancorado nas pontas
+assert.ok(!templateOptionRegex('WPP_contencioso_04').test('wpp_jabuti_contencioso_04')); // familia diferente
+assert.ok(!templateOptionRegex('WPP_contencioso_1').test('WPP_contencioso_10'));
 
 assert.deepStrictEqual(parseFases('lista,campanha,transmissao'), ['lista', 'campanha', 'transmissao']);
 assert.deepStrictEqual(parseFases('transmissao, lista'), ['lista', 'transmissao']); // reordena pra ordem canonica

@@ -81,8 +81,10 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
 - `config/dispatches.json` templates already hold real prefixes (`WPP_A_E_B`, `WPP_rating_c`,
   `WPP_contencioso`) — no longer placeholders. The trailing number changes every round, so read the
   file for the current value instead of trusting a number written down here.
-- No check that the chosen template actually exists on the platform. A wrong number fails late, when
-  `fillBroadcastSelectors` can't find the option — after list and campaign were already created.
+- No check that the chosen template actually exists on the platform. A wrong number still fails late,
+  when `fillBroadcastSelectors` can't find the option — after list and campaign were already created —
+  but the error now lists the available option names so the real name is one glance away. Casing is no
+  longer part of the problem: `templateOptionRegex` matches case-insensitively.
 
 ## Bugs found and fixed via real runs (not hypothetical — keep this pattern in mind for new steps)
 
@@ -111,8 +113,14 @@ the actual UI outcome instead of trusting network idleness:
   passed 10 entries), options further down (e.g. `WPP_contencioso_01`) aren't in the DOM until the
   listbox is scrolled, so `getByRole('option', ...).click()` timed out even with the right name in
   `config/dispatches.json` (recurring across separate runs — `scripts/out/erro-contencioso-*.png`).
-  Fixed by `clickTemplateOption` in `dispatch.js`, which scrolls the listbox in steps until the
-  target option is visible before clicking.
+  Fixed by the scroll-in-steps fallback in `selectAutocompleteOption` (`dispatch.js`), which scrolls
+  the listbox until the target option is visible before clicking.
+- Template names on the platform don't follow a consistent case — contencioso has `WPP_contencioso_02`
+  through `WPP_contencioso_10` in lowercase but `WPP_CONTENCIOSO_01` in uppercase. The old
+  `{ name: template, exact: true }` locator is case-sensitive, so every contencioso run whose config
+  resolved to `WPP_contencioso_01` (or a run that saved `WPP_CONTENCIOSO_04`) failed all 6 retries on
+  the template step while the amigável bases went through (`scripts/out/erro-contencioso-1788958815942.png`).
+  Fixed by matching with `templateOptionRegex` — anchored, case-insensitive — covered by `npm test`.
 - `createList`/`createCampaign` had no tolerance for a slow "Criada com sucesso" toast — one instance
   where the form was filled and validated correctly but the toast alone didn't render in 15s aborted
   the whole base immediately (`scripts/out/erro-amigavel_abw-*.png`). Resubmitting the form isn't

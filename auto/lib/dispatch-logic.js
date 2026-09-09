@@ -85,6 +85,15 @@ function listOptionRegex(nome) {
   return new RegExp(`^${escapeRegExp(nome)} - \\([\\d.,]+ registros?\\)$`);
 }
 
+// O nome cadastrado do template na plataforma nem sempre segue a caixa que a
+// tela grava: contencioso tem WPP_contencioso_02..10 em minusculo mas
+// WPP_CONTENCIOSO_01 em maiusculo. O disparo so precisa do nome certo, nao da
+// caixa certa — casa sem diferenciar maiuscula/minuscula, ancorado nas pontas
+// pra nao pegar template de outra familia (ex.: wpp_jabuti_contencioso_01).
+function templateOptionRegex(template) {
+  return new RegExp(`^${escapeRegExp(String(template).trim())}$`, 'i');
+}
+
 // Todo disparo e agendado, nunca imediato: sempre sobra uma janela pra cancelar
 // no dashboard antes da mensagem sair. Se o horario escolhido ja passou, ou esta
 // perto demais pra dar tempo de cancelar, agenda MARGEM_AGENDAMENTO_MS pra frente.
@@ -115,6 +124,7 @@ module.exports = {
   buildDispatchName,
   buildTemplateName,
   listOptionRegex,
+  templateOptionRegex,
   FASES_VALIDAS,
   parseFases,
   targetDateTime,
