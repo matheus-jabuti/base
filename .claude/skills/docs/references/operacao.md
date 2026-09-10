@@ -52,7 +52,7 @@ Mesmo em teste, lista, campanha e transmissão **são criadas de verdade** no da
 2. `python -m app.server`, abrir `http://127.0.0.1:8000` — abre na rota **Preparar**.
 3. Se precisar, ajustar o número do template na rota **Templates** (um por grupo: amigável A/B/W+C+N/A
    Rating juntas, D/E/Z e contencioso à parte) e **Salvar templates**.
-4. Escolher o horário, pelos atalhos ou no relógio — o disparo é sempre agendado; a tela avisa quando
+4. Escolher o horário no relógio (começa em agora +15min) — o disparo é sempre agendado; a tela avisa quando
    o horário já passou ou está perto demais (aí é agendado 10min pra frente).
 5. Conferir a faixa de modo (produção × teste) e clicar em **Revisar e disparar**: o painel mostra
    bases, templates, horário resolvido e a checagem de VPN, período, filtro e bases vazias. Em

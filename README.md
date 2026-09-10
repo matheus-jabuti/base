@@ -40,8 +40,8 @@ qualquer rota.
 
 **Preparar.** Uma linha por base (so leitura) com o volume de contatos em barra e
 o template resolvido; um card **Templates deste disparo** com o nome final por
-grupo e um atalho pra rota Templates; o horario (com atalhos: agora, +15min,
-+30min, +60min); o card **O que criar no dashboard** (campanha, lista de
+grupo e um atalho pra rota Templates; o horario (relogio, comeca em agora +15min);
+o card **O que criar no dashboard** (campanha, lista de
 distribuicao e transmissao — nessa ordem, as tres marcadas por padrao; desmarque
 as que nao quer criar nesta rodada); e, recolhido em **Periodo e geracao
 (padrao)**, pular a geracao reaproveitando os CSVs de `out/`, desligar o relatorio

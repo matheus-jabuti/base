@@ -501,21 +501,6 @@ body.modo-producao #tpl-salvar { background: var(--acento); color: #fff; }
 .pilula.agendado { border-color: var(--acento); background: var(--acento-suave); color: var(--acento); }
 .pilula.imediato { border-color: var(--alerta); background: var(--alerta-suave); color: var(--alerta); }
 
-.atalhos { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
-
-.atalhos button {
-  padding: 5px 10px;
-  border: 1px solid var(--linha-forte);
-  border-radius: 7px;
-  background: var(--painel-2);
-  color: var(--apagado);
-  font-family: var(--mono);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.atalhos button:hover { border-color: var(--acento); color: var(--acento); }
-
 /* ---------------- opcoes ---------------- */
 
 .opcoes { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
@@ -1229,5 +1214,4 @@ body.modo-producao .botao-principal { background: var(--perigo); }
   .conteudo { padding: 14px 16px 48px; }
   .painel { top: 0; right: 0; bottom: 0; width: 100%; border-radius: 0; }
   .quando { gap: 10px; }
-  .atalhos { margin-left: 0; }
 }

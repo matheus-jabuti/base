@@ -1525,17 +1525,6 @@ async function iniciar() {
   $('gerar-base').onchange = atualizarResumo;
   for (const campo of document.querySelectorAll('.fase')) campo.onchange = atualizarResumo;
 
-  for (const botao of $('atalhos-hora').querySelectorAll('button')) {
-    botao.onclick = () => {
-      if (botao.dataset.hora) {
-        $('hora').value = botao.dataset.hora;
-        atualizarResumo();
-      } else {
-        definirHora(new Date(Date.now() + Number(botao.dataset.minutos) * 60 * 1000));
-      }
-    };
-  }
-
   $('btn-revisar').onclick = () => abrirRevisao(false);
   $('btn-previa').onclick = () => abrirRevisao(true);
   $('btn-voltar-ajustar').onclick = fecharRevisao;
