@@ -76,6 +76,21 @@
 
             <div class="cartao">
               <div class="cartao-topo">
+                <h2>Quando</h2>
+                <span class="dica">acima de ~10 min de folga o dashboard agenda</span>
+              </div>
+              <div class="quando">
+                <span class="pilula" id="hora-modo"></span>
+                <input type="time" id="hora" step="60" aria-label="Horário do disparo">
+                <div class="quando-texto">
+                  <span id="hora-relativa"></span>
+                  <span id="hora-data"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cartao">
+              <div class="cartao-topo">
                 <h2>Bases desta rodada</h2>
                 <span class="dica" id="dica-bases">carregando...</span>
               </div>
@@ -88,21 +103,6 @@
                 <span class="dica"><button type="button" class="link" data-ir="templates">ajustar →</button></span>
               </div>
               <dl class="tpl-resumo" id="preparar-templates"></dl>
-            </div>
-
-            <div class="cartao">
-              <div class="cartao-topo">
-                <h2>Quando</h2>
-                <span class="dica">acima de ~10 min de folga o dashboard agenda</span>
-              </div>
-              <div class="quando">
-                <span class="pilula" id="hora-modo"></span>
-                <input type="time" id="hora" step="60" aria-label="Horário do disparo">
-                <div class="quando-texto">
-                  <span id="hora-relativa"></span>
-                  <span id="hora-data"></span>
-                </div>
-              </div>
             </div>
 
             <div class="cartao">
