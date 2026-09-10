@@ -68,10 +68,14 @@ Mesmo esquema do `[ETAPA]`, só que emitido por `gerar_base.py` (não pelo `disp
 ```
 
 `app/passos.py:_FilaDeLinhas` reconhece o prefixo `MARCA_METRICA = "[METRICA] "` e emite evento
-`metrica` em vez de `log`. Chaves emitidas por `gerar()`: `conversas_periodo`, `cadastros_localizados`,
-`pagamento_recente_bloqueado`, `elegiveis_apos_filtros`, `clientes_novos`, `filtro` (esta última também
-carrega `telefones_filtro` e `por_grupo`, o breakdown de quantos foram removidos por grupo). `app.js`
-consome via `atualizarMetrica`, que ignora chave desconhecida (só cria um card novo na hora).
+`metrica` em vez de `log`. Chaves emitidas pela `gerar()` da Operação A: `conversas_periodo`,
+`cadastros_localizados`, `pagamento_recente_bloqueado`, `elegiveis_apos_filtros`, `clientes_novos`,
+`filtro` (esta última também carrega `telefones_filtro` e `por_grupo`, o breakdown de quantos foram
+removidos por grupo). Chaves da `gerar()` da **Operação B** (`gerar_base_b.py`):
+`registros_operacao_b`, `contatos_validos`, `duplicados_telefone`, `duplicados_cpf`, `sem_nome`,
+`filtro`. `app.js` consome via `atualizarMetrica`, que ignora chave desconhecida (só cria um card novo
+na hora); `filtro`, `pagamento_recente_bloqueado`, `duplicados_telefone` e `duplicados_cpf` aparecem
+com sinal negativo (cortes do funil).
 
 ## 3. Códigos de saída
 

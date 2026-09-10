@@ -990,7 +990,8 @@ function atualizarMetrica({ chave, valor, rotulo: rotuloMetrica, por_grupo }) {
   }
 
   // Metricas de corte aparecem com sinal negativo: sao subtracoes do funil.
-  const negativa = ['filtro', 'pagamento_recente_bloqueado'].includes(chave);
+  // (duplicados_* so vem da Operacao B; nao afetam a Operacao A.)
+  const negativa = ['filtro', 'pagamento_recente_bloqueado', 'duplicados_telefone', 'duplicados_cpf'].includes(chave);
 
   item.querySelector('span').textContent = rotuloMetrica;
   item.querySelector('strong').textContent = `${negativa && valor ? '−' : ''}${numero(valor)}`;
@@ -1146,8 +1147,11 @@ function desenharResultado(status) {
       : `${plural(ok.length, 'base', 'bases')} ${execucao.agendado ? `agendadas para ${execucao.hora}` : 'enviadas agora'}`;
     sub = `${plural(enviados, 'contato', 'contatos')}${pulados.length ? ` · ${plural(pulados.length, 'base pulada', 'bases puladas')}` : ''}${tempo}`;
   } else if (status === 'pre-visualizacao') {
+    // A previa recalcula as contagens (dedup, filtro): usa o que ela apurou, nao
+    // a estimativa de antes de rodar (execucao.contatos, dos CSVs da pasta).
+    const previstos = bases.reduce((soma, base) => soma + (base.contatos || 0), 0) || execucao.contatos;
     titulo = 'Prévia gerada';
-    sub = `${plural(execucao.contatos, 'contato', 'contatos')} seriam disparados. Nenhum CSV gravado, nenhuma mensagem enviada${tempo}`;
+    sub = `${plural(previstos, 'contato', 'contatos')} seriam disparados. Nenhum CSV gravado, nenhuma mensagem enviada${tempo}`;
   } else if (status === 'cancelado') {
     titulo = 'Execução cancelada';
     sub = `${plural(ok.length, 'base já concluída', 'bases já concluídas')} antes da interrupção — confira o dashboard${tempo}`;

@@ -57,6 +57,7 @@ class RegistroB(NamedTuple):
     telefone: object
     nome: object
     rating: object
+    cpf: object = None
 
 
 @dataclass
@@ -65,8 +66,16 @@ class ResultadoContatosB:
     total_lidos: int = 0
     telefone_invalido: int = 0
     sem_nome: int = 0
-    duplicados: int = 0
+    # Duas camadas de deduplicacao, contadas separado pra ficar claro no resumo
+    # o que cada uma tirou.
+    duplicados_telefone: int = 0
+    duplicados_cpf: int = 0
     ratings_desconhecidos: Counter = field(default_factory=Counter)
+
+    @property
+    def duplicados(self) -> int:
+        """Total removido pelas duas camadas de dedup."""
+        return self.duplicados_telefone + self.duplicados_cpf
 
     @property
     def total_contatos(self) -> int:
@@ -116,14 +125,31 @@ def resolve_group_b(rating: object) -> str:
     return rating_group_b(rating) or GROUP_OUTROS
 
 
-def coletar_contatos_b(registros: Iterable[RegistroB]) -> ResultadoContatosB:
-    """Normaliza, deduplica por telefone e separa nas cinco planilhas.
+def _normalize_cpf(value: object) -> str | None:
+    """So digitos; vazio ou sem nenhum digito vira None (nao deduplica)."""
+    if value is None:
+        return None
 
-    A deduplicacao e global, igual a da Operacao A: um telefone recebe um
-    disparo so, mesmo aparecendo em ratings diferentes.
+    digitos = "".join(ch for ch in str(value) if ch.isdigit())
+
+    return digitos or None
+
+
+def coletar_contatos_b(registros: Iterable[RegistroB]) -> ResultadoContatosB:
+    """Normaliza, deduplica e separa nas cinco planilhas.
+
+    Duas camadas de deduplicacao, ambas mantendo a primeira ocorrencia:
+
+    1. Telefone: o mesmo numero recebe um disparo so, mesmo aparecendo em
+       ratings diferentes.
+    2. CPF: a mesma pessoa (mesmo `des_cpf`) recebe um disparo so, mesmo com
+       varios numeros no cadastro. A consulta entrega as linhas da mais recente
+       para a mais antiga, entao a "primeira ocorrencia" e o cadastro mais
+       atual do CPF. CPF vazio nao deduplica (fica cada telefone por si).
     """
     resultado = ResultadoContatosB(grupos={grupo: [] for grupo in OUTPUT_FILES_B})
-    vistos: set[str] = set()
+    telefones_vistos: set[str] = set()
+    cpfs_vistos: set[str] = set()
 
     for registro in registros:
         resultado.total_lidos += 1
@@ -133,8 +159,13 @@ def coletar_contatos_b(registros: Iterable[RegistroB]) -> ResultadoContatosB:
             resultado.telefone_invalido += 1
             continue
 
-        if phone in vistos:
-            resultado.duplicados += 1
+        if phone in telefones_vistos:
+            resultado.duplicados_telefone += 1
+            continue
+
+        cpf = _normalize_cpf(registro.cpf)
+        if cpf is not None and cpf in cpfs_vistos:
+            resultado.duplicados_cpf += 1
             continue
 
         nome = normalize_name_b(registro.nome)
@@ -144,7 +175,9 @@ def coletar_contatos_b(registros: Iterable[RegistroB]) -> ResultadoContatosB:
         if rating_desconhecido_b(registro.rating):
             resultado.ratings_desconhecidos[str(registro.rating).strip().upper()] += 1
 
-        vistos.add(phone)
+        telefones_vistos.add(phone)
+        if cpf is not None:
+            cpfs_vistos.add(cpf)
         resultado.grupos[resolve_group_b(registro.rating)].append((phone, nome))
 
     return resultado
@@ -165,7 +198,9 @@ def imprimir_resumo_b(resultado: ResultadoContatosB) -> None:
     print(f"Total pronto para disparo: {resultado.total_contatos} contatos.")
     print(
         f"Descartados: {resultado.telefone_invalido} telefone invalido, "
-        f"{resultado.duplicados} duplicados (de {resultado.total_lidos} linhas lidas)."
+        f"{resultado.duplicados_telefone} telefone repetido, "
+        f"{resultado.duplicados_cpf} CPF repetido (mesma pessoa, outro numero) "
+        f"(de {resultado.total_lidos} linhas lidas)."
     )
     print(f"Sem nome no cadastro (tratados como '{NOME_PADRAO}'): {resultado.sem_nome}.")
 

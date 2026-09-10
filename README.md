@@ -137,12 +137,20 @@ com o nome `Cliente` — ao contrario da Operacao A, que descarta o registro sem
 nome.
 
 Nao ha periodo: a consulta ja devolve a base fechada de quem esta marcado como
-`operacao = 'B'`, um registro por telefone. O cadastro guarda o historico do
-cliente (varias linhas por telefone, e o rating muda conforme o atraso e o saldo
-andam), entao a consulta fica sempre com a **linha mais recente** de cada
-telefone — e o mesmo cliente cai sempre na mesma planilha. Tambem nao ha relatorio Excel nem
-agenda automatica — o agendamento acontece no dashboard, como no disparo
-normal.
+`operacao = 'B'`. O cadastro guarda o historico do cliente (varias linhas por
+telefone, e o rating muda conforme o atraso e o saldo andam), entao a consulta
+fica sempre com a **linha mais recente** de cada telefone — e o mesmo cliente
+cai sempre na mesma planilha. Tambem nao ha relatorio Excel nem agenda
+automatica — o agendamento acontece no dashboard, como no disparo normal.
+
+**Deduplicacao em duas camadas** (mantem sempre um so):
+
+- **telefone repetido** — o mesmo numero recebe um disparo so;
+- **CPF repetido** — a mesma pessoa (mesmo CPF) com varios numeros no cadastro
+  recebe um disparo so. Fica o numero do cadastro mais recente.
+
+O resumo da geracao mostra quantos cairam em cada camada (ex.: `Deduplicacao: 0
+por telefone repetido, 426 por CPF repetido`).
 
 O filtro manual de `filtros/` vale para as duas operacoes, sem separacao.
 

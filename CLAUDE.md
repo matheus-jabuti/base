@@ -126,6 +126,11 @@ the other, except the shared infrastructure listed in that section:
   (also the catch-all for empty/unknown). Matching is on the **whole value**, not the first letter as
   in `contatos.py` — `MENOR_500` and `MAIOR_500` share one. A row with no name still dispatches, with
   the name `Cliente` (Operação A drops it); names are title-cased.
+- **Dedup is two-layer, keep-first** (`contatos_b.coletar_contatos_b`, counters `duplicados_telefone`
+  / `duplicados_cpf`): same phone → one dispatch (also collapsed by the SQL's `DISTINCT ON`); same
+  `des_cpf` → one dispatch, so one person with several numbers isn't messaged twice. The query feeds
+  rows newest-first so the surviving number per CPF is the most recent registry row. Empty CPF does
+  not dedup. Don't remove either layer.
 - **Dispatch**: `dispatch.js --operacao b`, driven by `auto/config/dispatches-b.json` +
   `auto/config/template-numeros-b.json` (test bases in `auto/bases-b/`). Each of the five has its own
   template number.

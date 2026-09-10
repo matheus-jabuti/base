@@ -222,18 +222,33 @@ planilha sairia sem a coluna `name`.
 
 **A tabela guarda histórico**: o mesmo telefone aparece em várias linhas (uma por atualização do
 cadastro), e uma fatia relevante delas troca de `prioridade` ao longo do tempo — o cliente muda de
-faixa conforme os dias de atraso e o saldo andam. Por isso o `DISTINCT ON` **precisa** de desempate:
-`ORDER BY phone_number, created_at DESC, id DESC` fica com a linha mais recente, que é o estado atual
-da dívida (`id` só como critério final de estabilidade). Sem ele o Postgres escolhe uma linha
-arbitrária e o mesmo cliente cai numa planilha diferente a cada execução. `updated_at` é sempre nulo
-nesses registros — não sirva de critério.
+faixa conforme os dias de atraso e o saldo andam. A consulta tem **duas etapas** por causa disso:
+
+1. **Subconsulta** — `DISTINCT ON (phone_number)` com `ORDER BY phone_number, created_at DESC, id DESC`:
+   um registro por telefone, a linha mais recente (o estado atual da dívida; `id` só como critério
+   final de estabilidade). Sem o desempate o Postgres escolhe uma linha arbitrária e o mesmo cliente
+   cai numa planilha diferente a cada execução. `updated_at` é sempre nulo nesses registros — não
+   serve de critério.
+2. **Consulta externa** — `ORDER BY created_at DESC, id DESC` sobre o resultado. A dedup por CPF
+   acontece no Python (`contatos_b.py`) mantendo a primeira ocorrência, então as linhas precisam
+   chegar da mais recente para a mais antiga: assim o telefone que sobra de cada CPF é o do cadastro
+   mais atual.
 
 Note que `consulta_novos.sql` (Operação A) filtra `operacao is null`, então as duas bases não se
 sobrepõem no banco.
 
 ### Regras de contato — `contatos_b.py`
 
-- **Telefone e dedup**: idênticos aos da A (mesma função, dedup global por telefone).
+- **Dedup em duas camadas**, ambas mantendo a primeira ocorrência (contadas separado):
+  - **Telefone** (`duplicados_telefone`): o mesmo número recebe um disparo só, mesmo em ratings
+    diferentes — igual à A. Hoje some sozinho na subconsulta SQL, o set aqui é rede de segurança.
+  - **CPF** (`duplicados_cpf`): a mesma pessoa (mesmo `des_cpf`, só dígitos) recebe um disparo só,
+    mesmo com vários números no cadastro. É o corte que sobra depois do telefone — na base atual são
+    ~426 contatos (13.317 telefones para 12.891 CPFs; um CPF chega a 6 números). CPF vazio **não**
+    deduplica (cada telefone fica por si). Como a consulta entrega o mais recente primeiro, o número
+    mantido é o do cadastro mais atual; nos poucos casos de rating divergente entre os números do
+    mesmo CPF, vale o rating desse cadastro mais recente.
+  - `resultado.duplicados` é a soma das duas.
 - **Nome**: `normalize_name_b` capitaliza (`MARIA DAS DORES` → `Maria Das Dores`) e, **sem nome,
   devolve `Cliente`** em vez de descartar a linha — é a diferença de comportamento mais importante
   em relação à A. Quantos caíram nesse caso sai no resumo e na `[METRICA]` `sem_nome`. Na base atual
@@ -255,6 +270,8 @@ sobrepõem no banco.
 emite `[METRICA]`, levanta `OperacaoCancelada` nos pontos de checagem), com três diferenças: não
 tem período, **não gera relatório Excel — permanentemente, de propósito** (a consulta já é a base
 fechada; não existe `com_relatorio` e não deve passar a existir), e por isso não tem esse parâmetro.
+Métricas emitidas: `registros_operacao_b`, `contatos_validos`, `duplicados_telefone`,
+`duplicados_cpf`, `sem_nome`, `filtro` (ver `contratos.md` §2b).
 A única coisa que ainda pode ir pra `relatorio/` é o CSV de auditoria do filtro manual
 (`filtro_removidos_*.csv`), e só quando o filtro remove algum contato. O filtro manual de `filtros/`
 é o mesmo da Operação A, aplicado do mesmo jeito. CLI: `python gerar_base_b.py [--previa]` — sem

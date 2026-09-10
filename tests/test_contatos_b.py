@@ -76,15 +76,54 @@ def test_telefone_curto_e_descartado():
     assert resultado.telefone_invalido == 1
 
 
-def test_dedup_e_global_entre_planilhas():
+def test_dedup_telefone_e_global_entre_planilhas():
     resultado = coletar_contatos_b([
         RegistroB(telefone="47999998888", nome="Ana", rating="A"),
         RegistroB(telefone="47999998888", nome="Ana", rating="MAIOR_500"),
     ])
 
     assert resultado.total_contatos == 1
-    assert resultado.duplicados == 1
+    assert resultado.duplicados_telefone == 1
+    assert resultado.duplicados_cpf == 0
     assert resultado.grupos[GROUP_CONTENCIOSO_MAIOR_500] == []
+
+
+def test_dedup_cpf_mesma_pessoa_outro_numero():
+    # Mesma pessoa, dois telefones. A consulta entrega o mais recente primeiro,
+    # entao vence o primeiro registro.
+    resultado = coletar_contatos_b([
+        RegistroB(telefone="47999990001", nome="Ana", rating="A", cpf="111.222.333-44"),
+        RegistroB(telefone="47999990002", nome="Ana", rating="D", cpf="11122233344"),
+    ])
+
+    assert resultado.total_contatos == 1
+    assert resultado.duplicados_cpf == 1
+    assert resultado.grupos[GROUP_AMIGAVEL_A] == [("47999990001", "Ana")]
+    assert resultado.grupos[GROUP_AMIGAVEL_D] == []
+
+
+def test_dedup_cpf_ignora_cpf_vazio():
+    # Sem CPF, cada telefone e independente.
+    resultado = coletar_contatos_b([
+        RegistroB(telefone="47999990001", nome="Ana", rating="A", cpf=""),
+        RegistroB(telefone="47999990002", nome="Bia", rating="A", cpf=None),
+    ])
+
+    assert resultado.total_contatos == 2
+    assert resultado.duplicados_cpf == 0
+
+
+def test_duplicados_soma_as_duas_camadas():
+    resultado = coletar_contatos_b([
+        RegistroB(telefone="47999990001", nome="Ana", rating="A", cpf="1"),
+        RegistroB(telefone="47999990001", nome="Ana", rating="A", cpf="1"),  # telefone repetido
+        RegistroB(telefone="47999990002", nome="Ana", rating="A", cpf="1"),  # cpf repetido
+    ])
+
+    assert resultado.total_contatos == 1
+    assert resultado.duplicados_telefone == 1
+    assert resultado.duplicados_cpf == 1
+    assert resultado.duplicados == 2
 
 
 def test_rating_fora_da_lista_e_reportado():

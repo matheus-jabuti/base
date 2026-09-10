@@ -60,20 +60,26 @@ def gerar(
         _metrica("registros_operacao_b", len(df), "Registros da operacao B")
         _checar_cancelamento(deve_cancelar)
 
-        for coluna in ("telefone", "nome", "rating"):
+        for coluna in ("telefone", "nome", "rating", "cpf"):
             if coluna not in df.columns:
                 raise KeyError(f"A coluna '{coluna}' nao foi retornada por consulta_operacao_b.sql.")
     finally:
         engine_clientes.dispose()
 
     registros = (
-        RegistroB(telefone=linha.telefone, nome=linha.nome, rating=linha.rating)
+        RegistroB(telefone=linha.telefone, nome=linha.nome, rating=linha.rating, cpf=linha.cpf)
         for linha in df.itertuples(index=False)
     )
     resultado = coletar_contatos_b(registros)
 
     _metrica("contatos_validos", resultado.total_contatos, "Contatos validos")
+    _metrica("duplicados_telefone", resultado.duplicados_telefone, "Telefone repetido")
+    _metrica("duplicados_cpf", resultado.duplicados_cpf, "CPF repetido (mesma pessoa)")
     _metrica("sem_nome", resultado.sem_nome, "Sem nome (tratados como Cliente)")
+    print(
+        f"Deduplicacao: {resultado.duplicados_telefone} por telefone repetido, "
+        f"{resultado.duplicados_cpf} por CPF repetido."
+    )
     _checar_cancelamento(deve_cancelar)
 
     telefones_filtro = ler_telefones_filtro(config.FILTER_DIR)
