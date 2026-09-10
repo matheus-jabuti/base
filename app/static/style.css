@@ -470,19 +470,22 @@ h2 {
 .tpl-resumo dt { color: var(--fraco); }
 .tpl-resumo dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
 
-#tpl-acoes .dica { align-self: center; }
+.acoes-fim .dica { align-self: center; }
 
 /* Salvar template é configuração, não disparo: fica no acento mesmo em produção. */
-body.modo-producao #tpl-salvar { background: var(--acento); color: #fff; }
+body.modo-producao #tpl-salvar,
+body.modo-producao #tpl-salvar-b { background: var(--acento); color: #fff; }
 
 /* ---------------- quando ---------------- */
 
 .quando { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px; }
 
-#hora {
+/* Seletor pelo card, não por id: o mesmo card existe nas duas operações. */
+.quando input[type=time] {
   padding: 0;
   border: 0;
   background: none;
+  color: var(--texto);
   font-family: var(--mono);
   font-size: 32px;
   font-weight: 600;
@@ -490,8 +493,8 @@ body.modo-producao #tpl-salvar { background: var(--acento); color: #fff; }
   letter-spacing: -.02em;
 }
 
-#hora::-webkit-calendar-picker-indicator { opacity: .4; cursor: pointer; }
-#hora::-webkit-calendar-picker-indicator:hover { opacity: .9; }
+.quando input[type=time]::-webkit-calendar-picker-indicator { opacity: .4; cursor: pointer; }
+.quando input[type=time]::-webkit-calendar-picker-indicator:hover { opacity: .9; }
 
 .quando-texto { display: grid; gap: 3px; font-size: 12px; color: var(--fraco); }
 

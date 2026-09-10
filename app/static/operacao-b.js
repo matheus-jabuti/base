@@ -20,6 +20,16 @@ const ROTULOS_B = {
   b_outros: 'Outros',
 };
 
+// Qual valor de `prioridade` cai em cada planilha — o rodapé do cartão de
+// template, no lugar do "máx NN" da Operação A.
+const RATINGS_B = {
+  b_amigavel_a: 'rating A',
+  b_amigavel_d: 'rating D',
+  b_contencioso_menor_500: 'rating MENOR_500',
+  b_contencioso_maior_500: 'rating MAIOR_500',
+  b_outros: 'rating Outros, vazio ou desconhecido',
+};
+
 // Espelho do número de template no navegador, como na Operação A — chave
 // própria pra uma operação não sobrescrever a escolha da outra.
 const LS_NUMEROS_B = 'disparo.templateNumerosB';
@@ -127,15 +137,17 @@ function desenharTemplatesB() {
     `;
 
     card.querySelector('strong').textContent = ROTULOS_B[grupo] || rotulo(base.nome);
-    card.querySelector('.grupo-pe').textContent = base.csv;
+    card.querySelector('.grupo-pe').textContent = RATINGS_B[grupo] || base.csv;
 
     const campo = card.querySelector('input');
     campo.dataset.grupo = grupo;
     campo.value = numeroAtual;
 
+    // Sem a coluna de nome que a Operação A usa: lá o cartão é o segmento e a
+    // linha é a base; aqui cada cartão já é uma planilha só, e repetir o título
+    // na linha espremeria o nome do template.
     const li = document.createElement('li');
-    li.innerHTML = '<span class="nome"></span><code class="tpl-resolvido"></code><span class="cont"></span>';
-    li.querySelector('.nome').textContent = rotulo(base.nome);
+    li.innerHTML = '<code class="tpl-resolvido"></code><span class="cont"></span>';
 
     const cod = li.querySelector('.tpl-resolvido');
     cod.dataset.prefix = base.template.replace(/_\d{1,3}$/, '');

@@ -322,7 +322,12 @@ próprios (`/api/b/...`). Reaproveita do `app.js` só o que é infraestrutura: `
   `.stepper input` em `lerTemplates()`, `atualizarResumo()` e `gravarNumerosLS()`, e os dois conjuntos
   se misturariam na mesma query. O CSS cobre as duas classes.
 - **Um cartão por planilha** na rota Templates B (não por grupo como na A): cada rating tem número
-  independente, porque a mensagem pode variar entre os cinco.
+  independente, porque a mensagem pode variar entre os cinco. O cartão usa os mesmos componentes
+  (`.grupo`, `.grupo-topo`, `.grupo-bases`, `.grupo-pe`), só que a linha não repete o nome — o título
+  já é a planilha — e o rodapé mostra qual valor de `prioridade` cai ali, no lugar do "máx NN".
+- **CSS por componente, não por id**: o que vale nas duas rotas é estilizado pelo card
+  (`.quando input[type=time]`, `.acoes-fim .dica`), não por `#hora`/`#tpl-acoes`. Componente novo que
+  as duas usam segue essa regra, senão a Operação B nasce sem estilo.
 - **Carga preguiçosa**: `entrarOperacaoB()` só busca as bases na primeira vez que uma das duas rotas
   é aberta — abrir a tela na Operação A não custa uma leitura de CSV da B.
 - **Compartilhado com a A**: o toggle Produção/Teste do rodapé (`trocarModo` recarrega as bases das
