@@ -38,9 +38,9 @@ assert.ok(!tplRe.test('WPP_contencioso_04 (rascunho)')); // ancorado nas pontas
 assert.ok(!templateOptionRegex('WPP_contencioso_04').test('wpp_jabuti_contencioso_04')); // familia diferente
 assert.ok(!templateOptionRegex('WPP_contencioso_1').test('WPP_contencioso_10'));
 
-assert.deepStrictEqual(parseFases('lista,campanha,transmissao'), ['lista', 'campanha', 'transmissao']);
-assert.deepStrictEqual(parseFases('transmissao, lista'), ['lista', 'transmissao']); // reordena pra ordem canonica
-assert.deepStrictEqual(parseFases('CAMPANHA'), ['campanha']); // case-insensitive
+assert.deepStrictEqual(parseFases('lista,campanha,transmissao'), ['campanha', 'lista', 'transmissao']); // ordem canonica: campanha antes da lista
+assert.deepStrictEqual(parseFases('transmissao, campanha'), ['campanha', 'transmissao']); // reordena pra ordem canonica
+assert.deepStrictEqual(parseFases('LISTA'), ['lista']); // case-insensitive
 assert.deepStrictEqual(parseFases('lista,lista'), ['lista']); // dedupe
 assert.throws(() => parseFases(''));
 assert.throws(() => parseFases('lista,foo'));

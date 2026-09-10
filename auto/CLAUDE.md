@@ -38,19 +38,19 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   `../out`. Vive aqui só por proximidade com `dispatches.json`; runtime state em `logs/agenda_estado.json`.
 - `dispatch.js` — orchestrator. Takes the target time from `--hora HH:MM` (falls back to a terminal
   prompt when the flag is absent), the CSV folder from `--bases-dir` (default `../out`), and the phases
-  to create from `--fases` (comma list of `lista`/`campanha`/`transmissao`, any order; default all
+  to create from `--fases` (comma list of `campanha`/`lista`/`transmissao`, any order; default all
   three — `parseFases` in `lib/dispatch-logic.js` normalizes and rejects unknown/empty). Reuses that
   time for all 5 entries in `config/dispatches.json`. Runs **phase-batched, not per-base**: creates all 5
-  distribution lists (uploads each CSV), then all 5 campaigns, then all 5 broadcasts (list + campaign +
+  campaigns, then all 5 distribution lists (uploads each CSV), then all 5 broadcasts (campaign + list +
   template, always scheduled via `Agendar Transmissão` — never immediate — so there's always a
   cancellation window on the dashboard before the message goes out; `horarioAgendamento` keeps the
   chosen time when it's ≥10min out, otherwise (past or too close) schedules 10min ahead).
-  All three created items (list/campaign/broadcast) get description `by automação` so they're
+  All three created items (campaign/list/broadcast) get description `by automação` so they're
   identifiable as automation-created. Within each phase, a base that fails goes on a retry list and gets
   one more attempt at the end of that phase — after the other bases have already run, which doubles as
   natural indexing delay before the retry, no artificial sleep added. Still failing after that retry
   marks the base `falhou` for good: logs `erro`, screenshots, and the base is excluded from every
-  subsequent phase (fails at list creation → never attempts campaign or broadcast). One base's failure
+  subsequent phase (fails at campaign creation → never attempts list or broadcast). One base's failure
   never blocks a phase for the rest — but the process exits non-zero if anything failed, so the UI can
   tell. A base whose CSV has zero contacts is marked `falhou` up front and logged `pulado` without
   entering any phase. Session: reuses `scripts/out/auth.json` if still valid, otherwise logs in with
@@ -139,8 +139,8 @@ screenshot in `scripts/out/` before guessing.
 - Session handling: reuse login if already logged in; otherwise log in via Microsoft SSO or
   username/password. → username/password only (see gap above).
 - After each dispatch, update progress in a CSV file. → `logs/disparos.csv`, appended per base.
-- Flow: create campaign → upload distribution list → run dispatches. → per base:
-  list → campaign → broadcast (schedule or send now).
+- Flow: create campaign → upload distribution list → run dispatches. → phase-batched:
+  campaign → list → broadcast (always scheduled).
 
 ## Working conventions
 

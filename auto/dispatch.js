@@ -48,7 +48,7 @@ function parseArgs(argv) {
     if (argv[i] === '--hora') args.hora = argv[++i];
     else if (argv[i] === '--bases-dir') args.basesDir = path.resolve(argv[++i] || '');
     else if (argv[i] === '--fases') args.fases = parseFases(argv[++i]);
-    else throw new Error(`Argumento desconhecido: "${argv[i]}". Use --hora HH:MM [--bases-dir <pasta>] [--fases lista,campanha,transmissao].`);
+    else throw new Error(`Argumento desconhecido: "${argv[i]}". Use --hora HH:MM [--bases-dir <pasta>] [--fases campanha,lista,transmissao].`);
   }
 
   return args;
@@ -382,7 +382,7 @@ async function main() {
     bases: configs.map((cfg) => ({ key: cfg.key, nome: cfg.nome, contatos: cfg.contatos, template: cfg.template })),
   });
 
-  // Estado por base, carregado entre as 3 fases (lista -> campanha -> transmissao).
+  // Estado por base, carregado entre as 3 fases (campanha -> lista -> transmissao).
   // `falhou` tira a base das fases seguintes (CSV vazio ou erro definitivo apos retry).
   const estados = configs.map((cfg) => ({
     cfg,
@@ -450,11 +450,11 @@ async function main() {
       console.log(`[tempo] etapa "${etapa}" levou ${formatDuracao(msFase)}`);
     }
 
-    if (args.fases.includes('lista')) {
-      await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
-    }
     if (args.fases.includes('campanha')) {
       await rodarFase('campanha', (estado) => createCampaign(page, estado.nome));
+    }
+    if (args.fases.includes('lista')) {
+      await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
     }
     if (args.fases.includes('transmissao')) {
       await rodarFase('transmissao', async (estado) => {

@@ -87,7 +87,7 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
   must stay in sync — adding/renaming a base means editing both, plus `auto/bases/` for test mode.
 - **Progress protocol**: `dispatch.js` writes `[ETAPA] {json}` lines on stdout (`progresso()`);
   `app/passos.py:disparar` parses those and treats every other line as free-form log. Events:
-  `plano`, `login`, `base` (`rodando` with `etapa` of lista/campanha/transmissao, then
+  `plano`, `login`, `base` (`rodando` with `etapa` of campanha/lista/transmissao, then
   `ok`/`erro`/`pulado`), `tempo` (per-base/per-phase/total timing). Adding a UI-visible step = one more
   `progresso()` call plus handling in `app/static/app.js`. `gerar_base.py` has a sibling
   `[METRICA] {json}` protocol for the intermediate counts it already prints (conversas, elegiveis,

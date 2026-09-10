@@ -38,20 +38,22 @@ Adicionar, remover ou renomear base é edição deste arquivo; não deve exigir 
 
 1. Garante `logs/disparos.csv` (com header) e a pasta de `auth.json`.
 2. `parseArgs`: `--hora HH:MM`, `--bases-dir <pasta>` (padrão `../out`) e `--fases <lista>` (fases a
-   criar, separadas por vírgula: `lista`/`campanha`/`transmissao`, qualquer ordem; padrão as três,
-   normalizado por `parseFases` — vazio ou nome desconhecido é erro). Argumento desconhecido é erro.
+   criar, separadas por vírgula: `campanha`/`lista`/`transmissao`, qualquer ordem na linha de comando
+   — rodam sempre nessa ordem; padrão as três, normalizado por `parseFases` — vazio ou nome
+   desconhecido é erro). Argumento desconhecido é erro.
 3. `resolverBases`: valida que a pasta e os cinco CSVs existem e conta os contatos **antes** de abrir o
    browser — CSV faltando falha cedo, e não no meio do disparo.
 4. Sem `--hora`, pergunta no terminal. O horário vale para as cinco.
 5. Emite `[ETAPA] {"evento":"plano", ...}` e abre o Chromium (`headless: true`).
 6. Login (`ensureLoggedIn`) — **fora** do try/catch por base: falhou aqui, o processo inteiro cai.
-7. Roda por **fase em lote**, não por base: todas as 5 listas, depois as 5 campanhas, depois as 5
-   transmissões (`rodarFase`). Cada `rodarFase` só roda se a fase está em `--fases` — fase de fora é
-   pulada por inteiro (nenhum evento `base` pra ela). Dentro de uma fase, quem falhar entra numa fila de retry só dessa fase e
-   tenta de novo no final — depois das outras bases já terem passado, o que já dá folga de indexação sem
-   precisar de sleep artificial. Falhou de novo, a base é marcada `falhou` (loga `erro`, tira screenshot)
-   e some das fases seguintes — falhar na lista significa nunca tentar campanha nem transmissão. Uma
-   base ruim nunca trava a fase para as outras.
+7. Roda por **fase em lote**, não por base: todas as 5 campanhas, depois as 5 listas, depois as 5
+   transmissões (`rodarFase`) — a ordem que a equipe segue no dashboard manualmente, com a transmissão
+   por último porque precisa da campanha e da lista já criadas. Cada `rodarFase` só roda se a fase está
+   em `--fases` — fase de fora é pulada por inteiro (nenhum evento `base` pra ela). Dentro de uma fase,
+   quem falhar entra numa fila de retry só dessa fase e tenta de novo no final — depois das outras bases
+   já terem passado, o que já dá folga de indexação sem precisar de sleep artificial. Falhou de novo, a
+   base é marcada `falhou` (loga `erro`, tira screenshot) e some das fases seguintes — falhar na campanha
+   significa nunca tentar lista nem transmissão. Uma base ruim nunca trava a fase para as outras.
 8. Ao final, se houve qualquer erro, `process.exitCode = 1` — é assim que a tela sabe.
    Erro fatal imprime `[FATAL] <mensagem>` em uma linha só e sai com 1, sem stack trace cru.
 
@@ -75,8 +77,8 @@ resolvido) sem ter salvo nada no servidor. Por isso cada etapa confirma um sinal
 
 | Etapa | O que prova que funcionou |
 | --- | --- |
-| Lista de distribuição | Toast `Criada com sucesso` — a tela **não redireciona** ao salvar |
-| Campanha | Mesmo toast, mesma lógica |
+| Campanha | Toast `Criada com sucesso` — a tela **não redireciona** ao salvar |
+| Lista de distribuição | Mesmo toast, mesma lógica |
 | Transmissão | Redirect para a listagem `/meta/broadcasts` **ou** texto com "sucesso"; havendo redirect, também a linha da tabela com o nome |
 
 Casos reais que motivaram cada um estão em `auto/CLAUDE.md`. Dois merecem destaque porque voltam a
@@ -126,6 +128,6 @@ caminho de sucesso quanto no `main().catch` de erro fatal (`interrompido: true`)
 - Erro em uma base gera screenshot em `scripts/out/erro-<key>-<timestamp>.png`.
 - `logs/disparos.csv`, colunas na ordem: `data`, `hora_alvo`, `tipo` (recebe a `key` da base), `nome`,
   `modo` (`agendado`, ou `-` quando a fase `transmissao` ficou de fora; `imediato` é legado, não sai mais), `hora_execucao` (ISO),
-  `status` (`ok`/`erro`/`pulado`), `detalhe` (`fases: lista, campanha` quando não criou as três).
+  `status` (`ok`/`erro`/`pulado`), `detalhe` (`fases: campanha, lista` quando não criou as três).
   Vírgula e quebra de linha do detalhe viram espaço — é CSV concatenado à mão, não há
   escaping; mantenha os campos livres de vírgula.

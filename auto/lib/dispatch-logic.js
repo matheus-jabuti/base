@@ -42,11 +42,13 @@ function buildTemplateName(prefix, numero) {
   return `${limpo}_${pad2(Number(digitos))}`;
 }
 
-// As 3 fases que o disparo cria no dashboard, na ordem em que rodam.
-const FASES_VALIDAS = ['lista', 'campanha', 'transmissao'];
+// As 3 fases que o disparo cria no dashboard, na ordem em que rodam: campanha
+// primeiro, depois a lista, depois a transmissao (que precisa das duas). E a
+// mesma ordem que a equipe segue no dashboard manualmente.
+const FASES_VALIDAS = ['campanha', 'lista', 'transmissao'];
 
 // Quais fases criar. Aceita lista separada por vírgula, em qualquer ordem, e
-// devolve na ordem canônica (lista → campanha → transmissao), sem repetição.
+// devolve na ordem canônica (campanha → lista → transmissao), sem repetição.
 // Vazio ou nome desconhecido é erro — melhor falhar aqui do que criar menos do
 // que o operador esperava.
 function parseFases(texto) {

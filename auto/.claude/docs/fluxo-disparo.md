@@ -15,8 +15,10 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
    Base com CSV vazio já entra marcada `falhou: true` e é logada `pulado` sem passar por
    nenhuma fase.
 7. Roda as 3 fases **em lote**, uma de cada vez, cada uma passando pelas 5 bases antes de
-   ir pra próxima — não mais lista→campanha→transmissão por base, e sim lista×5 →
-   campanha×5 → transmissão×5 (`rodarFase`, função interna de `main()`):
+   ir pra próxima — não mais campanha→lista→transmissão por base, e sim campanha×5 →
+   lista×5 → transmissão×5 (`rodarFase`, função interna de `main()`). Essa é a ordem que a
+   equipe segue no dashboard manualmente; a transmissão vem por último porque precisa da
+   campanha e da lista já criadas:
    - Dentro de uma fase, cada base ainda viva (`!estado.falhou`) roda uma vez; quem falhar
      entra numa lista de retry só dessa fase.
    - No fim da fase (depois das outras bases já terem passado), tenta de novo só quem
@@ -24,7 +26,7 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
      lentidão da plataforma, sem sleep artificial.
    - Falhou de nova, `estado.falhou = true` definitivo: grava `erro` no CSV, tira
      screenshot e a base **não entra mais em nenhuma fase seguinte** (ex.: falhou em criar
-     a lista, nunca chega a tentar campanha nem transmissão).
+     a campanha, nunca chega a tentar lista nem transmissão).
    - Uma fase inteira nunca trava por causa de uma base — a próxima segue rodando pra
      quem ainda está vivo.
 8. Login (passo 5) fica **fora** de qualquer `try/catch` por base — se falhar, `main()`
@@ -44,31 +46,31 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 4. Salva a sessão nova em `scripts/out/auth.json` (reaproveitada nas próximas execuções e
    reescrita uma vez, depois das 3 fases, pra manter os cookies frescos).
 
-## 2. Criar lista de distribuição (`createList`)
+## 2. Criar campanha (`createCampaign`)
 
-1. `page.goto('https://dashboard.jabuti.ai/meta/distribution-list/add')`
+1. `page.goto('https://dashboard.jabuti.ai/meta/campaigns/add')`
 2. Preenche `input[name="name"]` com o nome montado (ex.: `Disparo amigavel C -
    12/08/2026 - 09H30`).
+3. Preenche `textarea[name="description"]` com `by automação`.
+4. Clica `Salvar Campanha`.
+5. Espera o toast `Criada com sucesso` aparecer (`confirmSavedOrWarn`, timeout 30s) —
+   essa tela **não redireciona** ao salvar, fica no mesmo formulário. Se o toast não
+   aparecer mas também não há mensagem de erro visível na tela, só loga um aviso e
+   segue (reenviar o formulário arriscaria criar campanha duplicada); se aparecer erro
+   explícito, lança e a entrada vai pro log como `erro` sem criar lista/transmissão.
+   A confirmação real de que a campanha existe acontece no passo 4 (retry de
+   `fillBroadcastSelectors`).
+
+## 3. Criar lista de distribuição (`createList`)
+
+1. `page.goto('https://dashboard.jabuti.ai/meta/distribution-list/add')`
+2. Preenche `input[name="name"]` com o mesmo nome da campanha.
 3. Preenche `textarea[name="description"]` com `by automação`.
 4. Sobe o arquivo de `config.csv` daquela entrada em `input[type="file"]`.
 5. Espera o texto `Arquivo CSV validado com sucesso` aparecer (timeout 15s).
 6. Clica `Salvar Lista de Distribuição`.
-7. Espera o toast `Criada com sucesso` aparecer (`confirmSavedOrWarn`, timeout 30s) —
-   essa tela **não redireciona** ao salvar, fica no mesmo formulário. Se o toast não
-   aparecer mas também não há mensagem de erro visível na tela, só loga um aviso e
-   segue (reenviar o formulário arriscaria criar lista duplicada); se aparecer erro
-   explícito, lança e a entrada vai pro log como `erro` sem criar campanha/transmissão.
-   A confirmação real de que a lista existe acontece no passo 4 (retry de
-   `fillBroadcastSelectors`).
-
-## 3. Criar campanha (`createCampaign`)
-
-1. `page.goto('https://dashboard.jabuti.ai/meta/campaigns/add')`
-2. Preenche `input[name="name"]` com o mesmo nome da lista.
-3. Preenche `textarea[name="description"]` com `by automação`.
-4. Clica `Salvar Campanha`.
-5. Espera o toast `Criada com sucesso` (`confirmSavedOrWarn`, timeout 30s), mesma lógica
-   do passo 2.7.
+7. Espera o toast `Criada com sucesso` (`confirmSavedOrWarn`, timeout 30s), mesma lógica
+   do passo 2.5 (aviso e segue se não houver toast nem erro; lança no erro explícito).
 
 ## 4. Criar transmissão (`createBroadcast`)
 
@@ -128,8 +130,9 @@ erro se houver). `imediato` é valor legado — não sai mais, mas linhas antiga
 
 ## O que NÃO existe (de propósito, ver `CLAUDE.md` → "Known gaps")
 
-- Sem checagem de nome duplicado — rodar duas vezes com a mesma data+horário cria lista/
-  campanha duplicada (e a segunda tentativa de lista falha, capturada pelo passo 2.7).
+- Sem checagem de nome duplicado — rodar duas vezes com a mesma data+horário cria
+  campanha/lista duplicada (e a segunda tentativa de salvar falha, capturada pelo
+  passo 2.5 / 3.7).
 - Sem opção de reaproveitar uma lista de distribuição já existente — toda execução cria
   uma lista nova com o CSV configurado, mesmo em teste (decisão confirmada com o
   usuário: manter assim).
