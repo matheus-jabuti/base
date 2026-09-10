@@ -86,6 +86,19 @@ def _matar_processo(processo: subprocess.Popen) -> None:
         processo.kill()
 
 
+def _registrar_processo(processo: subprocess.Popen | None) -> None:
+    """Guarda (ou solta) o subprocesso de disparo em andamento.
+
+    Existe pra Operacao B poder disparar pelo mesmo cancelar(): so ha uma
+    execucao por vez (LOCK_EXECUCAO), entao um slot a nivel de modulo basta pras
+    duas operacoes.
+    """
+    global _processo_disparo
+
+    with _lock_processo:
+        _processo_disparo = processo
+
+
 def cancelar() -> None:
     """Sinaliza cancelamento pro passo em andamento. Chamado por POST /api/cancelar.
 
@@ -410,8 +423,6 @@ def gerar_base(data_inicio: date, data_fim: date, com_relatorio: bool = True, dr
 
 def disparar(hora: str, modo: str, fases: list[str] | None = None):
     """Chama o dispatch.js do auto/ e repassa a saida dele em tempo real."""
-    global _processo_disparo
-
     node = shutil.which("node")
     if not node:
         yield ("erro", "Node nao encontrado no PATH. Instale o Node pra rodar o disparo.")
@@ -438,8 +449,7 @@ def disparar(hora: str, modo: str, fases: list[str] | None = None):
         errors="replace",
         bufsize=1,
     )
-    with _lock_processo:
-        _processo_disparo = processo
+    _registrar_processo(processo)
 
     try:
         for linha in processo.stdout:
@@ -464,8 +474,7 @@ def disparar(hora: str, modo: str, fases: list[str] | None = None):
         elif processo.returncode != 0:
             yield ("falhou", f"dispatch.js saiu com codigo {processo.returncode}")
     finally:
-        with _lock_processo:
-            _processo_disparo = None
+        _registrar_processo(None)
 
 
 def executar(

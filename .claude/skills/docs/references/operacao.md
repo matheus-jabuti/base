@@ -32,11 +32,16 @@ python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10
 python gerar_base.py --sem-relatorio
 python extract.py [--manter-excel]        # caminho manual: in/*.xlsx -> out/*.csv
 
-python -m pytest -q                       # suíte Python (contatos.py, gerar_base.py)
+python gerar_base_b.py                    # Operação B: banco -> out_b/*.csv
+python gerar_base_b.py --previa           # só as contagens, sem gravar
+
+python -m pytest -q                       # suíte Python (contatos.py, contatos_b.py, gerar_base.py)
 cd auto && npm test                       # suíte Node (dispatch-logic.js)
 cd auto && node dispatch.js --hora 14:30                        # lê de ../out (PRODUÇÃO)
 cd auto && node dispatch.js --hora 14:30 --bases-dir bases      # bases de teste
 cd auto && node dispatch.js --hora 14:30 --fases campanha,lista # só cria campanha e lista
+cd auto && node dispatch.js --operacao b --hora 14:30                     # Operação B, lê de ../out_b (PRODUÇÃO)
+cd auto && node dispatch.js --operacao b --hora 14:30 --bases-dir bases-b # Operação B, bases de teste
 ```
 
 Sem `--hora`, o `dispatch.js` pergunta no terminal. Sem `--data-*`, o `gerar_base.py` usa ontem→hoje
@@ -46,7 +51,8 @@ Uma fase de fora não roda.
 
 ## Modo teste
 
-Troca a origem dos CSVs de `out/` para `auto/bases/`, que tem **um contato por base**. Serve para
+Troca a origem dos CSVs de `out/` para `auto/bases/` (ou de `out_b/` para `auto/bases-b/`, na
+Operação B), que tem **um contato por base**. Serve para
 exercitar a automação do dashboard inteira — login, campanha, lista, transmissão — sem mandar mensagem
 para cliente real. Use sempre que estiver mexendo em `auto/`.
 

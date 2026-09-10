@@ -1,10 +1,12 @@
 /in/*
 /out/*
+/out_b/*
 /relatorio/*
 /filtros/*
 
 !/in/.gitkeep
 !/out/.gitkeep
+!/out_b/.gitkeep
 !/relatorio/.gitkeep
 !/filtros/.gitkeep
 
@@ -21,6 +23,7 @@ __pycache__/
 # Numero de template por grupo: muda quase toda rodada, nao versiona.
 # Semeado de template-numeros.example.json na primeira leitura.
 /auto/config/template-numeros.json
+/auto/config/template-numeros-b.json
 /auto/scripts/out/
 /auto/old-bases-old/
 

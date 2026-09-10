@@ -1,0 +1,37 @@
+[
+  {
+    "key": "b_amigavel_a",
+    "nome": "Disparo B amigavel A",
+    "csv": "b_amigavel_A.csv",
+    "grupo": "b_amigavel_a",
+    "template_prefix": "WPP_A_E_B"
+  },
+  {
+    "key": "b_amigavel_d",
+    "nome": "Disparo B amigavel D",
+    "csv": "b_amigavel_D.csv",
+    "grupo": "b_amigavel_d",
+    "template_prefix": "Wpp_rating_d_e"
+  },
+  {
+    "key": "b_contencioso_menor_500",
+    "nome": "Disparo B contencioso menor 500",
+    "csv": "b_contencioso_menor_500.csv",
+    "grupo": "b_contencioso_menor_500",
+    "template_prefix": "WPP_contencioso"
+  },
+  {
+    "key": "b_contencioso_maior_500",
+    "nome": "Disparo B contencioso maior 500",
+    "csv": "b_contencioso_maior_500.csv",
+    "grupo": "b_contencioso_maior_500",
+    "template_prefix": "WPP_contencioso"
+  },
+  {
+    "key": "b_outros",
+    "nome": "Disparo B outros",
+    "csv": "b_outros.csv",
+    "grupo": "b_outros",
+    "template_prefix": "WPP_A_E_B"
+  }
+]

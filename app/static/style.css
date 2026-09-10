@@ -348,7 +348,11 @@ h2 {
 .contagem small { display: block; font-size: 11px; color: var(--fraco); font-family: var(--fonte); }
 .contagem.zero { color: var(--fraco); }
 
-.stepper {
+/* .stepper-b e o mesmo controle na Operacao B. A classe e outra de proposito:
+   o app.js varre `.stepper input` pra montar os templates da Operacao A, e os
+   dois conjuntos nao podem se misturar numa query. */
+.stepper,
+.stepper-b {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -358,7 +362,8 @@ h2 {
   background: var(--painel-2);
 }
 
-.stepper button {
+.stepper button,
+.stepper-b button {
   width: 24px;
   height: 24px;
   border: 0;
@@ -368,9 +373,11 @@ h2 {
   cursor: pointer;
 }
 
-.stepper button:hover { background: var(--painel); color: var(--texto); }
+.stepper button:hover,
+.stepper-b button:hover { background: var(--painel); color: var(--texto); }
 
-.stepper input {
+.stepper input,
+.stepper-b input {
   width: 38px;
   border: 0;
   background: none;
@@ -419,9 +426,12 @@ h2 {
 }
 
 .grupo-topo strong { font-size: 13.5px; font-weight: 600; }
-.grupo-topo .stepper { margin-left: auto; }
-.grupo-topo .stepper button { width: 26px; height: 26px; }
-.grupo-topo .stepper input { width: 42px; font-size: 14px; }
+.grupo-topo .stepper,
+.grupo-topo .stepper-b { margin-left: auto; }
+.grupo-topo .stepper button,
+.grupo-topo .stepper-b button { width: 26px; height: 26px; }
+.grupo-topo .stepper input,
+.grupo-topo .stepper-b input { width: 42px; font-size: 14px; }
 
 .grupo-bases { margin: 0; padding: 0; list-style: none; }
 

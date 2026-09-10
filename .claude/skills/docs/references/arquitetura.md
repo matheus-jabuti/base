@@ -59,29 +59,36 @@ Caminho manual (planilha pronta em vez de banco): `python extract.py`.
 | Caminho | Papel |
 | --- | --- |
 | `config.py` | Caminhos do projeto e leitura do `.env` |
-| `banco.py` | Engines SQLAlchemy e as três consultas |
-| `sql/` | As queries (`consulta_report`, `consulta_customer`, `consulta_novos`) |
+| `banco.py` | Engines SQLAlchemy e as consultas |
+| `sql/` | As queries (`consulta_report`, `consulta_customer`, `consulta_novos`, `consulta_operacao_b`) |
 | `gerar_base.py` | Pipeline banco → CSV (orquestrador + regras de elegibilidade) |
 | `extract.py` | Pipeline Excel → CSV (caminho manual) |
 | `contatos.py` | Núcleo compartilhado: normalização, rating, dedup, escrita dos CSVs |
+| `gerar_base_b.py` + `contatos_b.py` | O mesmo, para a Operação B (→ `out_b/`) |
 | `app/server.py` | HTTP: validação, framing SSE, endpoints da agenda |
 | `app/passos.py` | Os passos de verdade: VPN, geração, templates, disparo; a trava `LOCK_EXECUCAO` |
+| `app/operacao_b.py` | Os mesmos passos, para a Operação B (`/api/b/...`) |
 | `app/agendador.py` | Thread que dispara sozinha nos horários de `auto/config/agenda.json` |
-| `app/static/` | Tela sem build (HTML/CSS/JS) |
-| `auto/dispatch.js` | Orquestrador Playwright |
+| `app/static/` | Tela sem build (HTML/CSS/JS); `operacao-b.js` é a rota da Operação B |
+| `auto/dispatch.js` | Orquestrador Playwright (`--operacao a\|b`) |
 | `auto/lib/dispatch-logic.js` | Lógica pura, testável (`npm test`) |
-| `auto/config/dispatches.json` | Configuração das cinco bases |
+| `auto/config/dispatches.json` | Configuração das cinco bases (`dispatches-b.json` = as cinco da B) |
 | `auto/config/agenda.json` | Modo + horários + templates dos disparos automáticos (`{modo, itens}`) |
-| `auto/bases/` | Bases de teste, um contato cada (versionadas) |
-| `tests/` | Suíte pytest do lado Python (`contatos.py`, `gerar_base.py`, `agendador.py`) |
-| `filtros/` | Planilhas (xlsx/csv) com telefones a excluir das bases; lida a cada geração |
-| `in/`, `out/`, `relatorio/`, `auto/logs/` | Dados, todos fora do versionamento |
+| `auto/bases/`, `auto/bases-b/` | Bases de teste, um contato cada (versionadas) |
+| `tests/` | Suíte pytest do lado Python (`contatos.py`, `contatos_b.py`, `gerar_base.py`, `agendador.py`) |
+| `filtros/` | Planilhas (xlsx/csv) com telefones a excluir das bases; lida a cada geração, nas duas operações |
+| `in/`, `out/`, `out_b/`, `relatorio/`, `auto/logs/` | Dados, todos fora do versionamento |
 
 ## Decisões estruturais que valem entender
 
 - **`contatos.py` é compartilhado de propósito.** É o único ponto onde regra de contato existe; os
   dois pipelines (banco e Excel) desembocam em `coletar_contatos()` → `escrever_grupos()`. Mexer lá
   muda os dois caminhos ao mesmo tempo — o que é o objetivo.
+- **A Operação B é separada, também de propósito.** Ela existe ao lado da operação padrão (chamada de
+  Operação A quando as duas precisam ser distinguidas), com consulta, planilhas, templates, pasta de
+  saída e rota próprias. O que ela reaproveita é infraestrutura (normalização de telefone, escrita de
+  CSV, filtro manual, VPN, trava de execução, painel de revisão, aba Monitorar) — **regra de negócio,
+  nunca**. Uma mudança que precisa valer nas duas se faz nos dois lados, conscientemente.
 - **A tela não reimplementa nada.** `app/passos.py` captura o stdout do `gerar_base.py` e lê o stdout
   do `dispatch.js`. Por isso os dois continuam sendo CLIs que imprimem, e devem continuar sendo.
 - **`auto/` é autocontido.** Todos os caminhos resolvem de `__dirname`, nunca do cwd, porque a tela o

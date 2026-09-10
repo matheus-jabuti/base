@@ -1,7 +1,8 @@
 # Tela (`app/`, FastAPI + JS sem build)
 
-Caminho normal de uso: cinco rotas numa barra lateral fixa à esquerda (Preparar / Templates / Agenda /
-Monitorar / Histórico), um painel de revisão antes do disparo, e o acompanhamento ao vivo alimentado
+Caminho normal de uso: sete rotas numa barra lateral fixa à esquerda, em três grupos — **Operação**
+(Preparar / Templates / Agenda), **Operação B** (Preparar B / Templates B) e **Acompanhamento**
+(Monitorar / Histórico) —, um painel de revisão antes do disparo, e o acompanhamento ao vivo alimentado
 por SSE — que, ao terminar, vira a tela de resultado. O rodapé da sidebar ancora o estado do sistema
 (chip de VPN, segmento Produção/Teste, alternador de tema), visível em todas as rotas. A rota
 **Templates** edita um número de template por segmento; a rota **Agenda** gerencia a lista de disparos
@@ -21,12 +22,13 @@ caminhos relativos (`/api/...`), então host e porta não aparecem no front.
 | --- | --- |
 | `app/server.py` | HTTP fino: validação de entrada, lock de execução única, framing SSE. Nenhuma regra. |
 | `app/passos.py` | Os passos de verdade, um gerador por passo. Toda a lógica mora aqui. |
+| `app/operacao_b.py` | Os mesmos passos, para a Operação B: configuração e endpoints próprios. |
 | `app/agendador.py` | Thread que dispara sozinha nos horários de `auto/config/agenda.json`. |
-| `app/static/` | `index.html`, `style.css`, `app.js`. Sem build, sem dependência externa. |
+| `app/static/` | `index.html`, `style.css`, `app.js`, `operacao-b.js`. Sem build, sem dependência externa. |
 
 A trava de execução única mora em `passos.LOCK_EXECUCAO` (não mais em `server.py`): a tela
-(`server._sse`) e o agendador (`agendador._disparar_item`) a compartilham, então só há um disparo
-rodando de cada vez, venha da tela ou do horário.
+(`server._sse`), o agendador (`agendador._disparar_item`) e a Operação B a compartilham, então só há
+um disparo rodando de cada vez, venha da tela, do horário ou da outra operação.
 
 `app/passos.py` insere a raiz do projeto no `sys.path` para importar `config` e `gerar_base`, que ficam
 um nível acima. Os imports desses módulos são **dentro das funções**, de propósito: o servidor sobe
@@ -43,7 +45,11 @@ mesmo sem `.env` preenchido.
 | `GET /api/bases?modo=` | Por base: nome, csv, template montado, contatos, se o CSV existe |
 | `GET /api/periodo-padrao` | Reusa `gerar_base.periodo_padrao()` |
 | `GET /api/executar` | O botão único — SSE com a execução inteira. Aceita `dry_run=true` (exige `gerar=true`) e `fases` (lista separada por vírgula: `campanha`/`lista`/`transmissao`, default as três, validado por `_validar_fases`) |
-| `POST /api/cancelar` | Sinaliza cancelamento da execução em andamento. `409` se não há nenhuma rodando |
+| `GET /api/b/templates` | Igual ao `/api/templates`, lendo `dispatches-b.json` + `template-numeros-b.json` |
+| `PUT /api/b/templates` | Grava o número de cada uma das cinco planilhas da Operação B |
+| `GET /api/b/bases?modo=` | Contagens das cinco planilhas (`out_b/` ou `auto/bases-b/`) |
+| `GET /api/b/executar` | O botão único da Operação B — mesmos eventos SSE, **sem** `data_inicio`/`data_fim`/`com_relatorio` |
+| `POST /api/cancelar` | Sinaliza cancelamento da execução em andamento, de qualquer uma das operações. `409` se não há nenhuma rodando |
 | `GET /api/filtro` | Arquivos, contagem e lista dos telefones (`numeros`) em `filtros/`, sem precisar de VPN/DB |
 | `GET /api/filtro/ultimo-removido` | Download do CSV mais recente de removidos pelo filtro (`relatorio/filtro_removidos_*.csv`); `404` se nenhum existe |
 | `GET /api/historico?limite=&busca=&status=&modo=` | Últimas linhas de `auto/logs/disparos.csv`, mais recente primeiro, com filtro opcional |
@@ -112,6 +118,29 @@ Cada passo é um gerador que produz tuplas `(tipo, dado)`; `server.py` só as em
 `BASES_DIR` define os dois modos: `producao` → `out/`, `teste` → `auto/bases/`. É o único lugar onde
 essa escolha existe; a tela só manda o nome do modo.
 
+`_registrar_processo(processo)` guarda (ou solta) o subprocesso de disparo em andamento. Existe pra
+Operação B poder ser cancelada pelo mesmo `cancelar()`: só há uma execução por vez, então um slot a
+nível de módulo basta pras duas.
+
+## Os passos da Operação B (`app/operacao_b.py`)
+
+Espelho do `passos.py`, com configuração própria — `dispatches-b.json`, `template-numeros-b.json`,
+`BASES_DIR` apontando para `out_b/` e `auto/bases-b/` — e `disparar()` chamando
+`dispatch.js --operacao b`. A mesma superfície de funções (`ler_templates`, `gravar_templates`,
+`contagens`, `contagens_previa`, `gerar_base`, `disparar`, `executar`) e **os mesmos eventos**, pra
+tela reaproveitar a aba Monitorar sem saber de qual operação veio.
+
+Diferenças em relação à A: `executar(hora, modo, gerar, dry_run, fases)` não recebe período nem
+`com_relatorio` (a Operação B não gera relatório Excel), e `gerar_base` chama
+`gerar_base_b.gerar()`.
+
+O que **não** é duplicado, e vem importado do `passos.py`: `checar_vpn`, `LOCK_EXECUCAO`,
+`_evento_cancelamento`, `_registrar_processo`, `_FilaDeLinhas`, `_drenar`, `contar_csv`. É
+infraestrutura, não regra de negócio — regra de negócio é separada de propósito (ver `geracao.md`).
+
+Está fora do agendador de propósito: a Operação B não tem disparo automático, o agendamento acontece
+no dashboard como num disparo normal.
+
 ## Agendador (`app/agendador.py`)
 
 Uma thread daemon, iniciada em `server.main()` (só no caminho `python -m app.server`). De
@@ -159,10 +188,12 @@ bases de `auto/bases/` como estão.
 
 ## Front (`app/static/app.js`)
 
-- **Cinco views no mesmo documento** (`view-preparar` / `view-templates` / `view-agenda` /
-  `view-monitorar` / `view-historico`), trocadas por `irPara(aba)`, que sincroniza o `location.hash`,
+- **Sete views no mesmo documento** (`view-preparar` / `view-templates` / `view-agenda` /
+  `view-preparar-b` / `view-templates-b` / `view-monitorar` / `view-historico`), trocadas por
+  `irPara(aba)`, que sincroniza o `location.hash`,
   marca o `.nav-item` ativo, escreve título/subtítulo da barra de topo (mapa `ROTAS`), recarrega o
-  histórico ao entrar nele e, ao entrar/sair de Agenda, liga/desliga o poll de status
+  histórico ao entrar nele, carrega a Operação B na primeira entrada (`entrarOperacaoB`) e, ao
+  entrar/sair de Agenda, liga/desliga o poll de status
   (`entrarAgenda` / `pararPollAgenda`). `window.onhashchange` chama o mesmo `irPara`, e o boot entra
   pela hash da URL. Preparar, Agenda e Monitorar usam o wrapper `.colunas` (coluna principal + lateral
   fixa de 300px, grid a partir de 1040px — abaixo disso empilha).
@@ -215,26 +246,36 @@ bases de `auto/bases/` como estão.
   `tplSujo` se divergir (o servidor mudou por fora — agendador, reset do arquivo de runtime). Serve
   para o navegador lembrar a última escolha mesmo se `template-numeros.json` for apagado. `try/catch`
   em tudo (modo privado).
-- **Painel de revisão** (`#painel-revisao`) no lugar do `confirm()` do navegador: `abrirRevisao(dryRun)`
+- **Contexto de execução**: o painel de revisão, a aba Monitorar e o `EventSource` servem as **duas**
+  operações, então tudo que muda entre elas chega num objeto de contexto, montado por quem dispara —
+  `contextoA(dryRun)` no `app.js`, `contextoB(dryRun)` no `operacao-b.js`. Campos: `operacao`,
+  `dryRun`, `hora`, `modo`, `fases`, `contatos`, `gerarBase`, `comRelatorio`, `textoBase` (a linha da
+  checklist quando a base é gerada), `bases` (com `template` já resolvido), `urlTemplates`,
+  `templates`, `urlExecutar`, `parametros` (a querystring) e `aoEncerrar` (o que atualizar quando a
+  execução termina). Nenhuma dessas funções lê o DOM da outra operação. Contexto novo = campo novo
+  aqui, nunca um `if` por operação espalhado no monitor.
+- **Painel de revisão** (`#painel-revisao`) no lugar do `confirm()` do navegador: `abrirRevisao(ctx)`
   monta o modo, o título com o total, o horário (sempre agendado), a mini-tabela
-  base · template · contatos e a checklist de `montarChecklist()` — VPN, período da geração (ou aviso
+  base · template · contatos e a checklist de `montarChecklist(ctx)` — VPN, origem da base (ou aviso
   de que está reaproveitando CSVs), telefones do filtro manual, bases vazias e o aviso de que o
   agendamento só é desfeito no dashboard. Nenhuma verificação nova: tudo vem do que já está em memória
-  (`estado.vpn`, `estado.filtro`, `estado.bases`).
+  (`estado.vpn`, `estado.filtro` e o contexto).
 - **Segurar para disparar**: em produção (e fora do dry-run), `#btn-confirmar` só confirma depois de
   `SEGURAR_MS` (1500ms) de `pointerdown`/`keydown` — `iniciarSegurar` anima a fita e agenda
   `confirmarRevisao`; soltar, sair do botão ou `Escape` chama `abortarSegurar`. Em teste e em
   pré-visualização o mesmo botão vira um clique só (classe `.simples`).
-- `executar(dryRun)` faz o `PUT /api/templates` e monta a querystring de `/api/executar` com `dry_run`;
-  "Pré-visualizar sem gravar" chama com `true`, "Revisar e disparar" com `false`.
-- `EventSource` em `/api/executar`; o `onmessage` roteia por `tipo`: `passo` → trilha, `bases` →
+- `executar(ctx)` faz o `PUT` em `ctx.urlTemplates` e abre o `EventSource` em
+  `ctx.urlExecutar?ctx.parametros`; "Pré-visualizar sem gravar" passa um contexto com `dryRun: true`,
+  "Revisar e disparar" com `false`.
+- `EventSource` em `/api/executar` (ou `/api/b/executar`); o `onmessage` roteia por `tipo`: `passo` → trilha, `bases` →
   `desenharSubbases` (também popula `estado.execucao.bases`), `metrica` → `atualizarMetrica` (cards da
   coluna lateral, ver `contratos.md`), `etapa` (`base`/`login`/`plano`/`tempo`) → estado por base ou
   `atualizarTempo`, `log`/`erro` → log técnico, `fim` → `encerrar(status)`. `status` de `fim` é
   `ok`/`erro`/`cancelado`/`pre-visualizacao`, cada um com texto, ícone e cor próprios.
-- **Estado da execução** vive em `estado.execucao` (início, hora, modo, dryRun, `bases` como `Map`,
-  métricas de filtro, tempo total). É o que permite sair da aba e voltar sem perder nada, e é a fonte
-  da tela de resultado.
+- **Estado da execução** vive em `estado.execucao` (início, `operacao`, hora, modo, dryRun, `bases`
+  como `Map`, `comRelatorio`, `aoEncerrar`, métricas de filtro, tempo total), copiado do contexto em
+  `prepararExecucao(ctx)`. É o que permite sair da aba e voltar sem perder nada, e é a fonte
+  da tela de resultado. É único: as duas operações nunca rodam ao mesmo tempo (`LOCK_EXECUCAO`).
 - **Etapas por base**: cada `<li>` das sub-bases mostra um chip por fase de `estado.execucao.fases`
   (`pintarSubbase`) — os anteriores à etapa atual ficam `ok`, o atual `rodando`. Sem a fase
   `transmissao`, o status final da base vira `criado` (em vez de `enviado`/`agendado`), e o mesmo no
@@ -268,6 +309,25 @@ bases de `auto/bases/` como estão.
   o chip fica vermelho com o motivo por banco e clicar nele repete o ciclo. O resultado fica em
   `estado.vpn` e alimenta a checklist da revisão. É só aviso: o bloqueio de verdade continua sendo o
   passo `vpn` do `executar()`, no backend.
+
+## Front da Operação B (`app/static/operacao-b.js`)
+
+Carregado **depois** do `app.js`, no mesmo escopo global. Tem estado próprio (`estadoB`), rótulos
+próprios (`ROTULOS_B`), espelho próprio no `localStorage` (`disparo.templateNumerosB`) e endpoints
+próprios (`/api/b/...`). Reaproveita do `app.js` só o que é infraestrutura: `abrirRevisao`,
+`prepararExecucao`/`executar`, `abrirModalFiltro`, `textoRelativo`, `numero`/`plural`/`rotulo`,
+`estado.modo`, `estado.filtro` e `estado.vpn`.
+
+- **Steppers com classe `.stepper-b`**, não `.stepper`. É obrigatório: o `app.js` varre
+  `.stepper input` em `lerTemplates()`, `atualizarResumo()` e `gravarNumerosLS()`, e os dois conjuntos
+  se misturariam na mesma query. O CSS cobre as duas classes.
+- **Um cartão por planilha** na rota Templates B (não por grupo como na A): cada rating tem número
+  independente, porque a mensagem pode variar entre os cinco.
+- **Carga preguiçosa**: `entrarOperacaoB()` só busca as bases na primeira vez que uma das duas rotas
+  é aberta — abrir a tela na Operação A não custa uma leitura de CSV da B.
+- **Compartilhado com a A**: o toggle Produção/Teste do rodapé (`trocarModo` recarrega as bases das
+  duas quando a B já foi aberta) e o filtro manual (`carregarFiltro` atualiza os dois resumos).
+- Sem período, sem relatório Excel e sem agenda — o contexto já sai com `comRelatorio: false`.
 
 ## Ao mexer aqui
 

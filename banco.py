@@ -129,6 +129,17 @@ def consultar_pagamento_recente(engine: Engine, data_inicio: date, data_fim: dat
     return _strip_colunas(df, ["telefone"])
 
 
+def consultar_operacao_b(engine: Engine) -> pd.DataFrame:
+    """Base inteira da Operacao B, direto do cadastro.
+
+    Sem parametro de periodo: a consulta ja devolve a lista fechada de quem esta
+    marcado como operacao 'B', um registro por telefone.
+    """
+    df = pd.read_sql(text(ler_sql("consulta_operacao_b.sql")), con=engine, dtype="str")
+
+    return _strip_colunas(df, ["telefone", "nome", "cpf", "bucket", "rating"])
+
+
 def buscar_dados_customer(engine: Engine, telefones: list[str]) -> pd.DataFrame:
     """Dados cadastrais dos telefones informados.
 

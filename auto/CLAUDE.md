@@ -29,6 +29,13 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
 - `config/dispatches.json` — one entry per base: `key`, `nome` (naming prefix), `csv` (file name only —
   the folder comes from `--bases-dir`), `grupo` and `template_prefix`. **Structure only, no template
   number** — edit this file to add/remove/rename bases, no code change needed.
+- **Operação B** (`--operacao b`) — a second dispatch operation, entirely parallel to the default one
+  (`--operacao a`). Same phases, same login, same confirmations; only the configuration differs, via
+  the `OPERACOES` map at the top of `dispatch.js`: `config/dispatches-b.json` (its 5 bases, split by
+  rating with contencioso broken into `menor_500`/`maior_500`), `config/template-numeros-b.json`
+  (seeded from `template-numeros-b.example.json`), and `../out_b` as the default bases folder
+  (`bases-b/` for test mode). The `plano` event carries `operacao` so the UI can label the run.
+  There is no scheduler for it — Operação B is dispatched from the UI or the CLI only.
 - `config/template-numeros.json` — the template number per group (`{ "<grupo>": "NN" }`), the half that
   changes almost every round. **Gitignored.** `dispatch.js:lerNumeros` (and the Python side,
   `passos._ler_numeros`) seeds it from `config/template-numeros.example.json` (committed baseline) on
@@ -70,7 +77,8 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   `formatDuracao`; see `../.claude/skills/docs/references/contratos.md` for the field table). The UI
   parses those and leaves every other line as free-form log, so adding a new step means emitting one
   more `progresso()` call.
-- `logs/disparos.csv` — one row appended per base per run: date, target time, key, name, mode
+- `logs/disparos.csv` — shared by both operations (no `operacao` column: the `b_` prefix on every
+  Operação B `key`/`nome` is what tells them apart). One row appended per base per run: date, target time, key, name, mode
   (`agendado`, or `-` when the `transmissao` phase was skipped), execution timestamp, status
   (ok/erro/pulado), detail. Gitignored. (`imediato` is a legacy value — dispatches no longer send
   immediately, but old rows keep it.)

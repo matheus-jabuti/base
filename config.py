@@ -13,6 +13,9 @@ BASE_DIR = Path(__file__).resolve().parent
 SQL_DIR = BASE_DIR / "sql"
 INPUT_DIR = BASE_DIR / "in"
 OUTPUT_DIR = BASE_DIR / "out"
+# A Operacao B tem pasta propria: as duas operacoes limpam e reescrevem a pasta
+# inteira ao gerar, entao dividir a mesma pasta apagaria a base da outra.
+OUTPUT_DIR_B = BASE_DIR / "out_b"
 REPORT_DIR = BASE_DIR / "relatorio"
 FILTER_DIR = BASE_DIR / "filtros"
 ENV_FILE = BASE_DIR / ".env"

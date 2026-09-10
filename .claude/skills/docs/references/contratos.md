@@ -22,6 +22,18 @@ Formato do arquivo, invariante: UTF-8, cabeçalho literal `phonenumber,name`, um
 telefone só com dígitos. `escrever_grupos` grava **todos** os arquivos, inclusive vazios — o
 `dispatch.js` exige que existam, e trata CSV sem contato como `pulado`, não como erro.
 
+A **Operação B** tem o conjunto próprio, com a mesma regra dos cinco lugares e o mesmo formato de
+arquivo:
+
+| Onde | O que declara |
+| --- | --- |
+| `contatos_b.py` → `OUTPUT_FILES_B` | Grupo → nome do arquivo escrito em `out_b/` |
+| `auto/config/dispatches-b.json` → `csv` | Nome do arquivo que cada planilha procura |
+| `auto/bases-b/` | Um arquivo de mesmo nome, com um contato, para o modo teste |
+| `README.md` → seção "Operação B" | O que o operador espera encontrar |
+
+Os dois conjuntos nunca se cruzam: cada operação limpa e reescreve só a própria pasta de saída.
+
 ## 2. Protocolo de progresso `[ETAPA]`
 
 `dispatch.js` (`progresso()`) imprime no stdout:
@@ -94,6 +106,13 @@ Por que separar: o número muda quase toda rodada e sujava o `git status`/histó
   `zfill(2)`) e `buildTemplateName` em JS. Mudou a regra, mude os dois.
 - Os JSONs são gravados com `indent=2` e `ensure_ascii=False`.
 
+A **Operação B** repete o mesmo trio de arquivos, com o sufixo `-b`
+(`dispatches-b.json`, `template-numeros-b.example.json`, `template-numeros-b.json` gitignored) e as
+mesmas duas validações — `app/operacao_b.py:gravar_numeros_template` e `buildTemplateName`. Quem lê:
+`app/operacao_b.py:ler_templates` (via `PUT`/`GET /api/b/templates`) e `dispatch.js:lerNumeros` a
+partir do mapa `OPERACOES`. Lá cada uma das cinco planilhas é o próprio `grupo`, então o número é
+independente por rating. O espelho no navegador é `disparo.templateNumerosB`.
+
 ## 5. A hora
 
 Um único `HH:MM` atravessa tudo: nome de lista/campanha/transmissão e o agendamento. A tela valida
@@ -110,6 +129,9 @@ empurrado). Mudou a margem ou o comportamento, mude os dois — e o `README.md`,
 Escrito por `logDispatch` (concatenação simples, sem escaping) e lido por `app/passos.py:ultimos_disparos`
 para a tabela de histórico em `app.js`. Colunas, em ordem: `data`, `hora_alvo`, `tipo`, `nome`, `modo`,
 `hora_execucao`, `status`, `detalhe`. A coluna se chama `tipo` mas recebe a `key` da base.
+
+Não há coluna de operação: as duas escrevem no mesmo log, e o que separa é o prefixo `b_` nas `key`
+e nos nomes da Operação B.
 
 Mudou coluna: ajuste o header em `ensureLogFile`, o `logDispatch` e as células em `app.js`.
 

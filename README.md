@@ -38,9 +38,10 @@ vez `powershell -ExecutionPolicy Bypass -File tools\registrar-host.ps1` (pede
 administrador — so adiciona `disparo.porto` ao arquivo hosts). Fixar a porta:
 `PORT` no `.env` ou no ambiente.
 
-As rotas ficam numa **barra lateral** a esquerda
-— **Preparar**, **Templates**, **Agenda**, **Monitorar** e **Historico** —, cada
-uma com endereco proprio (`#preparar`, `#templates`, ...). O modo (producao/teste),
+As rotas ficam numa **barra lateral** a esquerda, em tres grupos: **Operacao**
+(Preparar, Templates, Agenda), **Operacao B** (Preparar B, Templates B) e
+**Acompanhamento** (Monitorar, Historico). Cada uma tem endereco proprio
+(`#preparar`, `#templates`, `#preparar-b`, ...). O modo (producao/teste),
 o estado da VPN e o tema ficam ancorados no rodape da barra lateral, visiveis em
 qualquer rota.
 
@@ -104,6 +105,62 @@ frente. Ele **nao aparece na rota Monitorar** — o resultado fica no Historico.
 atraso de ~10 a 30min entre o horario do item e a mensagem chegar e esperado (a
 pipeline leva alguns minutos, mais os 10min do agendamento e a fila da
 plataforma).
+
+## Operacao B
+
+Uma segunda operacao de disparo, separada da normal (chamada de Operacao A no
+codigo) em tudo: consulta propria, pasta de saida propria (`out_b/`), cinco
+planilhas proprias, templates proprios e rota propria na tela. Uma nao mexe na
+outra — trocar template, gerar base ou disparar de um lado nao altera nada do
+outro.
+
+A diferenca de regra esta na classificacao: o contencioso, que na Operacao A e
+uma categoria so, aqui e separado por valor.
+
+| Planilha (`out_b/`) | Rating (`prioridade`) |
+| --- | --- |
+| `b_amigavel_A.csv` | `A` |
+| `b_amigavel_D.csv` | `D` |
+| `b_contencioso_menor_500.csv` | `MENOR_500` |
+| `b_contencioso_maior_500.csv` | `MAIOR_500` |
+| `b_outros.csv` | `Outros`, vazio ou qualquer valor fora da lista |
+
+O rating aqui e comparado pelo **valor inteiro**, nao pela primeira letra como
+na Operacao A (`MENOR_500` e `MAIOR_500` comecam igual). Rating fora dos cinco
+esperados nao interrompe a geracao: cai em `b_outros.csv` e aparece como aviso
+no fim da execucao.
+
+O nome sai capitalizado (`MARIA DAS DORES` -> `Maria Das Dores`). Quem nao tem
+nome no cadastro **entra no disparo mesmo assim**, com o nome `Cliente` — ao
+contrario da Operacao A, que descarta o registro sem nome.
+
+Nao ha periodo: a consulta ja devolve a base fechada de quem esta marcado como
+`operacao = 'B'`, um registro por telefone. Tambem nao ha relatorio Excel nem
+agenda automatica — o agendamento acontece no dashboard, como no disparo
+normal.
+
+O filtro manual de `filtros/` vale para as duas operacoes, sem separacao.
+
+**Preparar B.** Mesmos cards da rota Preparar (Quando, O que criar, as cinco
+planilhas, templates da rodada), sem periodo e sem relatorio Excel. O botao
+**Revisar e disparar** abre o mesmo painel de revisao e o andamento vai pra rota
+**Monitorar**, marcado como Operacao B.
+
+**Templates B.** Um cartao por planilha — cada rating tem numero de template
+proprio, pra mensagem poder variar entre os cinco. **Salvar templates** grava em
+`auto/config/template-numeros-b.json` (fora do git) e no `localStorage`, sem
+tocar nos numeros da Operacao A.
+
+Pela linha de comando:
+
+```bash
+python gerar_base_b.py            # banco -> out_b/*.csv
+python gerar_base_b.py --previa   # so as contagens, sem gravar
+
+cd auto
+node dispatch.js --operacao b --hora 14:30                        # le de ../out_b
+node dispatch.js --operacao b --hora 14:30 --bases-dir bases-b    # bases de teste
+```
 
 **Monitorar.** Acompanhamento ao vivo: VPN, geracao da base e disparo, com as
 cinco bases mostrando em qual etapa cada uma esta (campanha, lista,
@@ -218,16 +275,21 @@ Telefone com menos de 10 digitos e descartado, porque nao e discavel.
 | `gerar_base.py` | Pipeline banco -> CSV |
 | `extract.py` | Pipeline Excel -> CSV |
 | `contatos.py` | Normalizacao, rating, deduplicacao, filtro manual e escrita dos CSVs |
+| `gerar_base_b.py` | Pipeline da Operacao B: banco -> `out_b/` |
+| `contatos_b.py` | Classificacao por rating e escrita dos CSVs da Operacao B |
 | `banco.py` | Engines e consultas |
 | `config.py` | Caminhos e leitura do `.env` |
 | `sql/` | Queries |
 | `app/server.py` | Servidor da tela (FastAPI); `/api/executar` transmite o progresso por SSE |
 | `app/passos.py` | VPN, geracao, templates e disparo, um passo por funcao |
+| `app/operacao_b.py` | Os mesmos passos, para a Operacao B (`/api/b/...`) |
 | `app/agendador.py` | Thread que dispara sozinha nos horarios de `auto/config/agenda.json` |
-| `app/static/` | A tela: HTML, CSS e JS sem build |
+| `app/static/` | A tela: HTML, CSS e JS sem build (`operacao-b.js` = rota da Operacao B) |
 | `auto/config/agenda.json` | Horarios dos disparos automaticos (`[{data, hora, ativo}]`) |
 | `auto/config/dispatches.json` | Estrutura das 5 bases (sem o numero do template) |
+| `auto/config/dispatches-b.json` | O mesmo, para as 5 planilhas da Operacao B |
 | `auto/config/template-numeros.json` | Numero do template por grupo — fora do git, semeado do `.example` |
+| `auto/config/template-numeros-b.json` | O mesmo, para a Operacao B |
 | `auto/` | Automacao Playwright do dashboard (veja `auto/CLAUDE.md`) |
 
 ## Disparo pela linha de comando
@@ -243,5 +305,6 @@ Sem `--hora`, o script pergunta o horario no terminal.
 
 | Opcao | Efeito |
 | --- | --- |
-| `--bases-dir <pasta>` | De onde ler os CSVs (padrao `../out`; `bases` para o modo teste) |
+| `--operacao a\|b` | Qual operacao disparar (padrao `a`). Define config, templates e pasta de bases |
+| `--bases-dir <pasta>` | De onde ler os CSVs (padrao `../out`, ou `../out_b` com `--operacao b`; `bases`/`bases-b` para o modo teste) |
 | `--fases <lista>` | Quais fases criar, separadas por virgula: `campanha`, `lista`, `transmissao` (nessa ordem de execucao). Padrao: as tres. A ordem que voce passa nao importa |

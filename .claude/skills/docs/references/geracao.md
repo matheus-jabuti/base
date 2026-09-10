@@ -10,7 +10,8 @@ extract.py (Excel)     ─┘        (filtros/*)
 
 ## Configuração — `config.py`
 
-- Caminhos fixos derivados de `BASE_DIR`: `sql/`, `in/`, `out/`, `relatorio/`, `filtros/`, `.env`.
+- Caminhos fixos derivados de `BASE_DIR`: `sql/`, `in/`, `out/`, `out_b/` (Operação B), `relatorio/`,
+  `filtros/`, `.env`.
 - `load_env()` lê o `.env` linha a linha com `os.environ.setdefault` — **variável já no ambiente
   vence o `.env`**. Aspas nas pontas do valor são removidas.
 - `require_env(nome)` levanta erro explicando qual variável faltou; use sempre em vez de
@@ -26,8 +27,9 @@ Blocos de variáveis esperados no `.env` (modelo em `.env.example`): `DB_*` (mes
   não concatene string de conexão à mão.
 - `messages_engine()` = prefixo `DB`; `customers_engine()` = prefixo `CUSTOMERS_DB`.
 - `ler_sql()` tem `lru_cache`: editar um `.sql` exige reiniciar o processo.
-- As três consultas devolvem tudo como `str` (`dtype="str"`) e passam por `_strip_colunas`. Nenhuma
+- As consultas devolvem tudo como `str` (`dtype="str"`) e passam por `_strip_colunas`. Nenhuma
   conversão numérica acontece no Python — trate coluna como texto.
+- `consultar_operacao_b()` é a única sem parâmetro de período (ver "Operação B" abaixo).
 
 ### `consulta_report.sql` (messagesdb)
 
@@ -194,10 +196,58 @@ Caminho manual, para quando a planilha chega pronta.
 - As duas abas são unificadas e deduplicadas juntas.
 - Os Excels de `in/` são apagados ao final, a menos que `--manter-excel`.
 
+## Operação B — `gerar_base_b.py` + `contatos_b.py`
+
+Uma segunda operação de disparo, paralela à descrita acima (chamada de Operação A quando as duas
+precisam ser distinguidas). **Não compartilha regra de negócio com a A** — o que compartilha é só
+mecânica pura: `normalize_phone`, `write_csv`, `clear_output_folder` e o filtro manual, todos
+importados de `contatos.py`.
+
+### `consulta_operacao_b.sql` (b2bcustomers-db)
+
+Uma consulta só, sem parâmetro e sem cruzamento com o messagesdb:
+`WHERE attributes->'campos'->>'operacao' = 'B'`, com `DISTINCT ON (phone_number)` — já devolve a
+base fechada, um registro por telefone. Colunas: `telefone`, `nome`, `cpf`, `bucket`, `rating`.
+
+Os campos têm nomes próprios, diferentes dos da Operação A: telefone em
+`campos->>'phone_number'` (não `attributes->>'phone_number'`), `des_cpf` no lugar de `des_regis`,
+`segmentacao` no lugar do bucket derivado por dias de atraso, `prioridade` no lugar de
+`cod_indicador->RAT_AMIG`. O `nome` foi acrescentado à consulta original — sem ele a planilha sairia
+sem a coluna `name`; sai por `COALESCE(nom_clien, nome)` porque a chave não é garantida nesses
+registros, e quem vier sem nenhuma das duas é tratado na geração.
+
+Note que `consulta_novos.sql` (Operação A) filtra `operacao is null`, então as duas bases não se
+sobrepõem no banco.
+
+### Regras de contato — `contatos_b.py`
+
+- **Telefone e dedup**: idênticos aos da A (mesma função, dedup global por telefone).
+- **Nome**: `normalize_name_b` capitaliza (`MARIA DAS DORES` → `Maria Das Dores`) e, **sem nome,
+  devolve `Cliente`** em vez de descartar a linha — é a diferença de comportamento mais importante
+  em relação à A. Quantos caíram nesse caso sai no resumo e na `[METRICA]` `sem_nome`.
+- **Grupo** (`resolve_group_b`): comparação pelo **valor inteiro** do rating, não pela primeira
+  letra — `MENOR_500` e `MAIOR_500` começam igual e a regra da A juntaria os dois. `RATING_GROUPS_B`:
+  `A`, `D`, `MENOR_500`, `MAIOR_500`, `OUTROS`.
+- **Rating fora da lista ou vazio** cai em `b_outros.csv` (a planilha coringa), é contado em
+  `ratings_desconhecidos` e sai como `AVISO:` no resumo — não interrompe a geração.
+- Saída em `out_b/` (`config.OUTPUT_DIR_B`), nunca em `out/`: cada operação limpa e reescreve só a
+  própria pasta. `OUTPUT_FILES_B`/`CSV_PARA_GRUPO_B` são os equivalentes de `OUTPUT_FILES`/
+  `CSV_PARA_GRUPO` (ver `contratos.md`).
+
+### Pipeline
+
+`gerar_base_b.gerar(dry_run, deve_cancelar)` — mesma forma da `gerar()` da A (imprime em stdout,
+emite `[METRICA]`, levanta `OperacaoCancelada` nos pontos de checagem), com três diferenças: não
+tem período, não gera relatório Excel e não tem `com_relatorio`. O filtro manual de `filtros/` é o
+mesmo, aplicado do mesmo jeito. CLI: `python gerar_base_b.py [--previa]`.
+
 ## Ao mexer aqui
 
 - Mudou regra de elegibilidade, bucket ou período: atualize este arquivo **e** a seção
   "Regras de elegibilidade" do `README.md`.
-- Mudou nome ou conjunto de CSVs: veja o checklist em `contratos.md` — são quatro lugares.
+- Mudou nome ou conjunto de CSVs: veja o checklist em `contratos.md` — são quatro lugares (e o
+  conjunto da Operação B tem o próprio, na mesma seção).
+- Regra da Operação A não vale automaticamente para a B e vice-versa: elas são separadas de
+  propósito. Mudança que precisa valer nas duas se faz nos dois arquivos, conscientemente.
 - `gerar_base.py` precisa continuar imprimindo em `stdout` e expondo `gerar()` com essa assinatura:
   a tela depende disso (ver `app.md`).

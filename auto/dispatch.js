@@ -28,12 +28,25 @@ const INICIO_EXECUCAO = Date.now();
 const ROOT = __dirname;
 const AUTH_PATH = path.join(ROOT, 'scripts/out/auth.json');
 const LOG_PATH = path.join(ROOT, 'logs/disparos.csv');
-const CONFIG_PATH = path.join(ROOT, 'config/dispatches.json');
+// Cada operacao tem o proprio conjunto de bases, templates e pasta de CSV. O
+// resto do disparo (fases, login, confirmacoes) e identico nas duas, entao o
+// --operacao so troca de onde sai a configuracao.
 // Numero de template por grupo: fora do git (muda quase toda rodada), semeado do
 // .example na primeira leitura. A tela e o agendador escrevem nele.
-const NUMEROS_PATH = path.join(ROOT, 'config/template-numeros.json');
-const NUMEROS_EXEMPLO_PATH = path.join(ROOT, 'config/template-numeros.example.json');
-const DEFAULT_BASES_DIR = path.resolve(ROOT, '../out');
+const OPERACOES = {
+  a: {
+    config: path.join(ROOT, 'config/dispatches.json'),
+    numeros: path.join(ROOT, 'config/template-numeros.json'),
+    numerosExemplo: path.join(ROOT, 'config/template-numeros.example.json'),
+    basesDir: path.resolve(ROOT, '../out'),
+  },
+  b: {
+    config: path.join(ROOT, 'config/dispatches-b.json'),
+    numeros: path.join(ROOT, 'config/template-numeros-b.json'),
+    numerosExemplo: path.join(ROOT, 'config/template-numeros-b.example.json'),
+    basesDir: path.resolve(ROOT, '../out_b'),
+  },
+};
 const LOGIN_URL = 'https://auth.jabuti.ai/sign-in';
 const DASHBOARD_URL = 'https://dashboard.jabuti.ai/meta/campaigns/manage';
 const EMAIL = process.env.JABUTI_EMAIL || 'auto-porto@jabuti.ai';
@@ -46,14 +59,23 @@ function ask(question) {
 }
 
 function parseArgs(argv) {
-  const args = { hora: null, basesDir: DEFAULT_BASES_DIR, fases: FASES_VALIDAS.slice() };
+  const args = { hora: null, operacao: 'a', basesDir: null, fases: FASES_VALIDAS.slice() };
 
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--hora') args.hora = argv[++i];
     else if (argv[i] === '--bases-dir') args.basesDir = path.resolve(argv[++i] || '');
     else if (argv[i] === '--fases') args.fases = parseFases(argv[++i]);
-    else throw new Error(`Argumento desconhecido: "${argv[i]}". Use --hora HH:MM [--bases-dir <pasta>] [--fases campanha,lista,transmissao].`);
+    else if (argv[i] === '--operacao') args.operacao = String(argv[++i] || '').trim().toLowerCase();
+    else throw new Error(`Argumento desconhecido: "${argv[i]}". Use --hora HH:MM [--operacao a|b] [--bases-dir <pasta>] [--fases campanha,lista,transmissao].`);
   }
+
+  if (!OPERACOES[args.operacao]) {
+    throw new Error(`Operacao desconhecida: "${args.operacao}". Use a ou b.`);
+  }
+
+  // --bases-dir continua mandando (e o que o modo teste usa); sem ele, cada
+  // operacao le a propria pasta de saida.
+  if (!args.basesDir) args.basesDir = OPERACOES[args.operacao].basesDir;
 
   return args;
 }
@@ -67,23 +89,24 @@ function contarContatos(csvPath) {
 
 // Numero de template por grupo. Se o arquivo de runtime nao existe, semeia do
 // .example; se nem ele existe ou o JSON esta quebrado, devolve {} (cai no '01').
-function lerNumeros() {
+function lerNumeros(operacao) {
+  const { numeros, numerosExemplo } = OPERACOES[operacao];
   try {
-    if (!fs.existsSync(NUMEROS_PATH) && fs.existsSync(NUMEROS_EXEMPLO_PATH)) {
-      fs.copyFileSync(NUMEROS_EXEMPLO_PATH, NUMEROS_PATH);
+    if (!fs.existsSync(numeros) && fs.existsSync(numerosExemplo)) {
+      fs.copyFileSync(numerosExemplo, numeros);
     }
-    return JSON.parse(fs.readFileSync(NUMEROS_PATH, 'utf8'));
+    return JSON.parse(fs.readFileSync(numeros, 'utf8'));
   } catch {
     return {};
   }
 }
 
-function resolverBases(configs, basesDir) {
+function resolverBases(configs, basesDir, operacao) {
   if (!fs.existsSync(basesDir)) {
     throw new Error(`Pasta de bases nao encontrada: ${basesDir}`);
   }
 
-  const numeros = lerNumeros();
+  const numeros = lerNumeros(operacao);
 
   return configs.map((cfg) => {
     const csv = path.join(basesDir, cfg.csv);
@@ -379,13 +402,14 @@ async function createBroadcast(page, { key, nome, template, target }) {
 async function main() {
   ensureLogFile();
   const args = parseArgs(process.argv.slice(2));
-  const configs = resolverBases(JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')), args.basesDir);
+  const configPath = OPERACOES[args.operacao].config;
+  const configs = resolverBases(JSON.parse(fs.readFileSync(configPath, 'utf8')), args.basesDir, args.operacao);
 
   const horaInput = args.hora || (await ask('Horário do disparo (HH:MM): '));
   const { hh, mm } = parseHora(horaInput);
   const today = new Date();
 
-  console.log(`Bases: ${args.basesDir}`);
+  console.log(`Operacao ${args.operacao.toUpperCase()} · bases: ${args.basesDir}`);
   for (const cfg of configs) {
     console.log(`  ${cfg.nome} -> ${cfg.contatos} contatos, template ${cfg.template}`);
   }
@@ -398,6 +422,7 @@ async function main() {
 
   progresso({
     evento: 'plano',
+    operacao: args.operacao,
     fases: args.fases,
     bases: configs.map((cfg) => ({ key: cfg.key, nome: cfg.nome, contatos: cfg.contatos, template: cfg.template })),
   });

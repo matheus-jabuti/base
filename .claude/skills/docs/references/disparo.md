@@ -38,13 +38,36 @@ de 1 a 3 dígitos. **Não escreva o número atual em documentação** — leia o
 
 Adicionar, remover ou renomear base é edição de `dispatches.json`; não deve exigir mudança de código.
 
+## Operação B (`--operacao b`)
+
+Uma segunda operação de disparo, paralela à padrão (`--operacao a`, o default). **O disparo em si é
+idêntico** — mesmas fases, mesmo login, mesmas confirmações, mesmo log. O que muda é só de onde sai a
+configuração, no mapa `OPERACOES` no topo do `dispatch.js`:
+
+| | `a` | `b` |
+| --- | --- | --- |
+| Estrutura das bases | `config/dispatches.json` | `config/dispatches-b.json` |
+| Número do template | `config/template-numeros.json` | `config/template-numeros-b.json` |
+| Baseline versionado | `template-numeros.example.json` | `template-numeros-b.example.json` |
+| Pasta padrão de CSV | `../out` | `../out_b` |
+| Bases de teste | `bases/` | `bases-b/` |
+
+`--bases-dir` continua mandando quando é passado (é o que o modo teste usa); sem ele, cada operação
+lê a própria pasta. As cinco entradas da B são separadas por rating, com o contencioso quebrado em
+`menor_500`/`maior_500`, e **cada uma é o próprio `grupo`** — número de template independente por
+planilha. O evento `plano` carrega `operacao` pra tela rotular a execução.
+
+Não há agendador para a B: ela é disparada pela tela ou pela linha de comando, e o agendamento
+acontece no dashboard como num disparo normal.
+
 ## Execução (`main()`)
 
 1. Garante `logs/disparos.csv` (com header) e a pasta de `auth.json`.
-2. `parseArgs`: `--hora HH:MM`, `--bases-dir <pasta>` (padrão `../out`) e `--fases <lista>` (fases a
+2. `parseArgs`: `--hora HH:MM`, `--operacao a|b` (padrão `a`), `--bases-dir <pasta>` (padrão: a pasta
+   da operação escolhida) e `--fases <lista>` (fases a
    criar, separadas por vírgula: `campanha`/`lista`/`transmissao`, qualquer ordem na linha de comando
    — rodam sempre nessa ordem; padrão as três, normalizado por `parseFases` — vazio ou nome
-   desconhecido é erro). Argumento desconhecido é erro.
+   desconhecido é erro). Argumento desconhecido, ou operação fora de `a`/`b`, é erro.
 3. `resolverBases`: valida que a pasta e os cinco CSVs existem e conta os contatos **antes** de abrir o
    browser — CSV faltando falha cedo, e não no meio do disparo.
 4. Sem `--hora`, pergunta no terminal. O horário vale para as cinco.

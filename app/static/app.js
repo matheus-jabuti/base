@@ -18,6 +18,8 @@ const ROTAS = {
   preparar: ['Preparar disparo', 'templates · horário · o que criar'],
   templates: ['Templates', 'um número por segmento · prefixo fixo por base'],
   agenda: ['Agenda', 'o servidor dispara sozinho nos horários salvos'],
+  'preparar-b': ['Preparar Operação B', 'cinco planilhas por rating · horário · o que criar'],
+  'templates-b': ['Templates da Operação B', 'um número por planilha · prefixo fixo por base'],
   monitorar: ['Monitorar', 'execução ao vivo, atualiza por SSE'],
   historico: ['Histórico', 'todo disparo registrado por base'],
 };
@@ -136,6 +138,7 @@ function irPara(aba) {
 
   if (location.hash !== `#${aba}`) location.hash = aba;
   if (aba === 'historico') carregarHistorico();
+  if ((aba === 'preparar-b' || aba === 'templates-b') && typeof entrarOperacaoB === 'function') entrarOperacaoB();
   if (aba === 'agenda') entrarAgenda();
   else pararPollAgenda();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -415,8 +418,8 @@ function agendado() {
   return $('hora').value ? true : null;
 }
 
-function alvoEmMinutos() {
-  const [hh, mm] = ($('hora').value || '').split(':').map(Number);
+function alvoEmMinutos(hora) {
+  const [hh, mm] = (hora || '').split(':').map(Number);
   if (Number.isNaN(hh)) return 0;
 
   const alvo = new Date();
@@ -425,8 +428,8 @@ function alvoEmMinutos() {
   return Math.round((alvo.getTime() - Date.now()) / 60000);
 }
 
-function textoRelativo() {
-  const minutos = alvoEmMinutos();
+function textoRelativo(hora) {
+  const minutos = alvoEmMinutos(hora);
 
   if (minutos < -1) return `horário já passou hoje (${-minutos} min atrás) — será agendado ~10 min à frente`;
   if (minutos < 10) return 'muito perto do horário atual — será agendado ~10 min à frente';
@@ -451,7 +454,7 @@ function atualizarResumo() {
   pilula.textContent = agenda === null ? '—' : agenda ? 'agendado' : 'envio imediato';
   pilula.className = `pilula ${agenda === null ? '' : agenda ? 'agendado' : 'imediato'}`;
 
-  $('hora-relativa').textContent = textoRelativo();
+  $('hora-relativa').textContent = textoRelativo($('hora').value);
   $('hora-data').textContent = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   $('resumo-contatos').textContent = numero(contatos);
@@ -504,8 +507,9 @@ function trocarModo(modo) {
 
   const faixa = $('faixa-modo');
   faixa.className = `faixa-modo ${modo}`;
+  // A faixa fica visível nas duas operações, então cita as duas pastas de teste.
   faixa.innerHTML = modo === 'teste'
-    ? '<strong>Modo teste.</strong> Dispara as bases de 1 contato em auto/bases/ — nada chega a cliente real.<span class="complemento">Para valer, troque para Produção.</span>'
+    ? '<strong>Modo teste.</strong> Dispara as bases de 1 contato de auto/bases/ (ou auto/bases-b/, na Operação B) — nada chega a cliente real.<span class="complemento">Para valer, troque para Produção.</span>'
     : '<strong>Modo produção.</strong> As mensagens vão para os clientes reais da base gerada.<span class="complemento">Para ensaiar, troque para Teste — 1 contato por base.</span>';
 
   // Em teste o backend nunca escreve o relatorio; o check fica desabilitado.
@@ -514,6 +518,8 @@ function trocarModo(modo) {
   relatorio.closest('.opcao').classList.toggle('desabilitada', modo === 'teste');
 
   carregarBases();
+  // O toggle do topo vale pras duas operacoes; a B so recarrega se ja tiver sido aberta.
+  if (typeof estadoB !== 'undefined' && estadoB.carregado) carregarBasesB();
 }
 
 /* ------------------------------------------------ filtro manual */
@@ -529,6 +535,8 @@ async function carregarFiltro() {
     : 'nenhum arquivo em filtros/';
 
   atualizarResumo();
+  // O filtro manual e o mesmo pras duas operacoes (pasta filtros/).
+  if (typeof estadoB !== 'undefined' && estadoB.carregado) atualizarResumoB();
 }
 
 // Digitos crus -> "(DD) 9 NNNN-NNNN" (celular) ou "(DD) NNNN-NNNN" (fixo, sem
@@ -559,17 +567,18 @@ function abrirModalFiltro() {
 
 /* ------------------------------------------------ painel de revisao */
 
-function montarChecklist(dryRun) {
+// O painel de revisão e a aba Monitorar servem as duas operações. Tudo que
+// muda entre elas (bases, horário, URL, textos) chega neste contexto — quem
+// dispara monta o seu e passa adiante, em vez de a tela ler o DOM da Operação A.
+function montarChecklist(ctx) {
   const itens = [];
-  const vazias = estado.bases.filter((base) => !base.contatos);
+  const vazias = ctx.bases.filter((base) => !base.contatos);
 
   if (estado.vpn?.ok) itens.push(['ok', `VPN conectada — ${estado.vpn.detalhe}.`]);
   else itens.push(['erro', 'VPN sem resposta. A execução vai parar no primeiro passo.']);
 
-  if ($('gerar-base').checked) {
-    const inicio = $('data-inicio').value.split('-').reverse().join('/');
-    const fim = $('data-fim').value.split('-').reverse().join('/');
-    itens.push(['ok', `Base gerada agora do período <strong>${inicio} → ${fim}</strong>.`]);
+  if (ctx.gerarBase) {
+    itens.push(['ok', ctx.textoBase]);
   } else {
     itens.push(['alerta', 'Reaproveitando os CSVs que já estão na pasta — podem ser de outro dia.']);
   }
@@ -586,12 +595,12 @@ function montarChecklist(dryRun) {
     itens.push(['ok', 'Todas as bases têm contatos.']);
   }
 
-  if (dryRun) itens.push(['ok', 'Pré-visualização: nada é gravado em disco nem enviado.']);
-  else if (estado.modo === 'teste') itens.push(['ok', 'Modo teste: 1 contato por base, nenhum cliente real.']);
+  if (ctx.dryRun) itens.push(['ok', 'Pré-visualização: nada é gravado em disco nem enviado.']);
+  else if (ctx.modo === 'teste') itens.push(['ok', 'Modo teste: 1 contato por base, nenhum cliente real.']);
   else itens.push(['alerta', 'Depois de criado no dashboard, o agendamento só é desfeito por lá.']);
 
-  if (!dryRun) {
-    const fases = fasesEscolhidas();
+  if (!ctx.dryRun) {
+    const fases = ctx.fases;
     if (fases.length < 3) {
       itens.push(['alerta', `Só vai criar: <strong>${fases.map((fase) => ROTULO_FASE[fase]).join(', ') || 'nada'}</strong>.`]);
       if (fases.includes('transmissao') && !(fases.includes('lista') && fases.includes('campanha'))) {
@@ -603,34 +612,36 @@ function montarChecklist(dryRun) {
   return itens;
 }
 
-function abrirRevisao(dryRun) {
-  const contatos = total();
-  const agenda = agendado();
-  const producao = estado.modo === 'producao' && !dryRun;
+let ctxRevisao = null;
 
-  $('revisao-modo').className = `pilula-modo ${estado.modo}`;
+function abrirRevisao(ctx) {
+  ctxRevisao = ctx;
+  const { dryRun, contatos } = ctx;
+  const producao = ctx.modo === 'producao' && !dryRun;
+
+  $('revisao-modo').className = `pilula-modo ${ctx.modo}`;
   $('revisao-modo').textContent = dryRun
     ? 'pré-visualização · nada é enviado'
-    : estado.modo === 'producao' ? 'produção · clientes reais' : 'teste · 1 contato por base';
+    : ctx.modo === 'producao' ? 'produção · clientes reais' : 'teste · 1 contato por base';
 
   $('revisao-titulo').textContent = dryRun
-    ? 'Rodar pré-visualização da base'
-    : `Confirmar o disparo de ${numero(contatos)} contatos`;
+    ? `Rodar pré-visualização da base${ctx.operacao === 'b' ? ' (Operação B)' : ''}`
+    : `Confirmar o disparo de ${numero(contatos)} contatos${ctx.operacao === 'b' ? ' · Operação B' : ''}`;
 
   $('revisao-quando').innerHTML = dryRun
-    ? 'Gera as contagens do período sem escrever CSV, sem abrir o dashboard e sem enviar mensagem.'
-    : `${agenda ? 'Agendado para' : 'Envio imediato às'} <strong>${$('hora').value}</strong> — ${textoRelativo()}.`;
+    ? 'Gera as contagens sem escrever CSV, sem abrir o dashboard e sem enviar mensagem.'
+    : `Agendado para <strong>${ctx.hora}</strong> — ${textoRelativo(ctx.hora)}.`;
 
-  $('revisao-bases').innerHTML = estado.bases.map((base) => {
+  $('revisao-bases').innerHTML = ctx.bases.map((base) => {
     const vazia = !base.contatos;
     return `
       <div class="${vazia ? 'apagada' : ''}">
-        <span>${rotulo(base.nome)} · ${templateEscolhido(base)}</span>
+        <span>${rotulo(base.nome)} · ${base.template}</span>
         <span>${vazia ? 'pulada' : numero(base.contatos)}</span>
       </div>`;
   }).join('');
 
-  $('revisao-checklist').innerHTML = montarChecklist(dryRun).map(([tipo, texto]) => `
+  $('revisao-checklist').innerHTML = montarChecklist(ctx).map(([tipo, texto]) => `
     <li>
       <span class="sinal ${tipo === 'ok' ? '' : tipo}">${tipo === 'ok' ? '✓' : '!'}</span>
       <span>${texto}</span>
@@ -638,7 +649,6 @@ function abrirRevisao(dryRun) {
 
   const botao = $('btn-confirmar');
   botao.classList.toggle('simples', !producao);
-  botao.dataset.dryRun = String(dryRun);
   $('btn-confirmar-texto').textContent = producao
     ? 'Segure para disparar'
     : dryRun ? 'Rodar pré-visualização' : 'Disparar em modo teste';
@@ -651,7 +661,7 @@ function abrirRevisao(dryRun) {
 function fecharRevisao() {
   abortarSegurar();
   $('painel-revisao').hidden = true;
-  $('btn-revisar').focus();
+  $(ctxRevisao?.operacao === 'b' ? 'btn-revisar-b' : 'btn-revisar').focus();
 }
 
 let seguraTimer = null;
@@ -676,26 +686,70 @@ function abortarSegurar() {
 
 function confirmarRevisao() {
   abortarSegurar();
-  const dryRun = $('btn-confirmar').dataset.dryRun === 'true';
   $('painel-revisao').hidden = true;
-  executar(dryRun);
+  if (ctxRevisao) executar(ctxRevisao);
 }
 
 function acionarConfirmacao() {
   if ($('btn-confirmar').classList.contains('simples')) confirmarRevisao();
 }
 
-/* ------------------------------------------------ monitorar */
+// Contexto da Operação A: o que o painel de revisão, o monitor e o EventSource
+// precisam saber sobre esta rodada. A Operação B monta o seu em operacao-b.js.
+function contextoA(dryRun) {
+  const fases = fasesEscolhidas();
+  const inicio = $('data-inicio').value.split('-').reverse().join('/');
+  const fim = $('data-fim').value.split('-').reverse().join('/');
 
-function prepararExecucao(dryRun) {
-  estado.execucao = {
-    inicio: Date.now(),
+  return {
+    operacao: 'a',
+    dryRun,
     hora: $('hora').value,
     modo: estado.modo,
-    dryRun,
-    fases: dryRun ? ETAPAS.slice() : fasesEscolhidas(),
-    agendado: agendado(),
+    fases,
     contatos: total(),
+    gerarBase: $('gerar-base').checked,
+    comRelatorio: $('com-relatorio').checked,
+    textoBase: `Base gerada agora do período <strong>${inicio} → ${fim}</strong>.`,
+    bases: estado.bases.map((base) => ({
+      key: base.key,
+      nome: base.nome,
+      contatos: base.contatos,
+      template: templateEscolhido(base),
+    })),
+    urlTemplates: '/api/templates',
+    templates: lerTemplates(),
+    urlExecutar: '/api/executar',
+    parametros: new URLSearchParams({
+      hora: $('hora').value,
+      modo: estado.modo,
+      gerar: $('gerar-base').checked,
+      com_relatorio: $('com-relatorio').checked,
+      data_inicio: $('data-inicio').value,
+      data_fim: $('data-fim').value,
+      dry_run: dryRun,
+      fases: fases.join(','),
+    }),
+    aoEncerrar: atualizarResumo,
+  };
+}
+
+/* ------------------------------------------------ monitorar */
+
+function prepararExecucao(ctx) {
+  const dryRun = ctx.dryRun;
+
+  estado.execucao = {
+    inicio: Date.now(),
+    operacao: ctx.operacao,
+    hora: ctx.hora,
+    modo: ctx.modo,
+    dryRun,
+    fases: dryRun ? ETAPAS.slice() : ctx.fases,
+    agendado: Boolean(ctx.hora),
+    contatos: ctx.contatos,
+    comRelatorio: ctx.comRelatorio,
+    aoEncerrar: ctx.aoEncerrar,
     bases: new Map(),
     filtroRemovidos: 0,
     tempoTotal: null,
@@ -727,14 +781,9 @@ function prepararExecucao(dryRun) {
 
   // Nada de coluna vazia esperando o primeiro evento: as bases ja conhecidas
   // aparecem na fila, e as metricas entram como esqueleto ate chegar valor.
-  desenharSubbases(estado.bases.map((base) => ({
-    key: base.key,
-    nome: base.nome,
-    contatos: base.contatos,
-    template: templateEscolhido(base),
-  })));
+  desenharSubbases(ctx.bases);
 
-  if ($('gerar-base').checked) esqueletoMetricas();
+  if (ctx.gerarBase) esqueletoMetricas();
   else {
     $('cartao-metricas').hidden = true;
     $('metricas').innerHTML = '';
@@ -743,12 +792,13 @@ function prepararExecucao(dryRun) {
   $('btn-cancelar').hidden = false;
   $('btn-cancelar').disabled = false;
 
+  const marcaOperacao = ctx.operacao === 'b' ? 'Operação B · ' : '';
   $('execucao-titulo').textContent = dryRun
-    ? 'Pré-visualização em andamento'
-    : `Execução em andamento · ${estado.modo}`;
+    ? `${marcaOperacao}Pré-visualização em andamento`
+    : `${marcaOperacao}Execução em andamento · ${ctx.modo}`;
 
   marcarPasso('vpn', 'rodando');
-  marcarPasso('base', '', $('gerar-base').checked ? 'aguarda a VPN responder' : 'vai reaproveitar os CSVs da pasta');
+  marcarPasso('base', '', ctx.gerarBase ? 'aguarda a VPN responder' : 'vai reaproveitar os CSVs da pasta');
   marcarPasso('disparo', '', dryRun ? 'não roda em pré-visualização' : 'aguarda a base ficar pronta');
 
   atualizarSubtitulo();
@@ -994,11 +1044,11 @@ function escreverLog(texto, tipo) {
 
 /* ------------------------------------------------ execucao */
 
-async function executar(dryRun) {
-  const salvos = await fetch('/api/templates', {
+async function executar(ctx) {
+  const salvos = await fetch(ctx.urlTemplates, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(lerTemplates()),
+    body: JSON.stringify(ctx.templates),
   });
 
   if (!salvos.ok) {
@@ -1008,22 +1058,11 @@ async function executar(dryRun) {
   }
 
   estado.rodando = true;
-  atualizarResumo();
-  prepararExecucao(dryRun);
+  ctx.aoEncerrar?.();
+  prepararExecucao(ctx);
   irPara('monitorar');
 
-  const parametros = new URLSearchParams({
-    hora: $('hora').value,
-    modo: estado.modo,
-    gerar: $('gerar-base').checked,
-    com_relatorio: $('com-relatorio').checked,
-    data_inicio: $('data-inicio').value,
-    data_fim: $('data-fim').value,
-    dry_run: dryRun,
-    fases: fasesEscolhidas().join(','),
-  });
-
-  const fonte = new EventSource(`/api/executar?${parametros}`);
+  const fonte = new EventSource(`${ctx.urlExecutar}?${ctx.parametros}`);
 
   fonte.onmessage = (evento) => {
     const { tipo, dado } = JSON.parse(evento.data);
@@ -1066,7 +1105,11 @@ function encerrar(status) {
   clearInterval(cronometro);
   $('btn-cancelar').hidden = true;
   $('ponto-monitorar').hidden = true;
-  $('execucao-titulo').textContent = estado.execucao.dryRun ? 'Pré-visualização concluída' : `Execução encerrada · ${estado.execucao.modo}`;
+
+  const marcaOperacao = estado.execucao.operacao === 'b' ? 'Operação B · ' : '';
+  $('execucao-titulo').textContent = estado.execucao.dryRun
+    ? `${marcaOperacao}Pré-visualização concluída`
+    : `${marcaOperacao}Execução encerrada · ${estado.execucao.modo}`;
 
   for (const item of document.querySelectorAll('.trilha > li.rodando')) {
     item.className = status === 'ok' || status === 'pre-visualizacao' ? 'ok' : status === 'cancelado' ? 'cancelado' : 'erro';
@@ -1080,7 +1123,7 @@ function encerrar(status) {
   if (status === 'erro') $('bloco-log').open = true;
 
   $('acoes-fim').hidden = false;
-  atualizarResumo();
+  estado.execucao.aoEncerrar?.();
   carregarUltimaExecucao();
 }
 
@@ -1156,7 +1199,8 @@ function desenharArquivos() {
   }
 
   // Modo teste nunca escreve o relatorio (o backend bloqueia), entao nao anuncia.
-  if ($('com-relatorio').checked && !estado.execucao.dryRun && estado.execucao.modo === 'producao') {
+  // A Operacao B nao gera relatorio Excel: chega aqui sempre com comRelatorio false.
+  if (estado.execucao.comRelatorio && !estado.execucao.dryRun && estado.execucao.modo === 'producao') {
     itens.push('<span class="opcao"><span>Relatório Excel</span><strong>pasta relatorio/</strong></span>');
   }
 
@@ -1525,8 +1569,8 @@ async function iniciar() {
   $('gerar-base').onchange = atualizarResumo;
   for (const campo of document.querySelectorAll('.fase')) campo.onchange = atualizarResumo;
 
-  $('btn-revisar').onclick = () => abrirRevisao(false);
-  $('btn-previa').onclick = () => abrirRevisao(true);
+  $('btn-revisar').onclick = () => abrirRevisao(contextoA(false));
+  $('btn-previa').onclick = () => abrirRevisao(contextoA(true));
   $('btn-voltar-ajustar').onclick = fecharRevisao;
 
   const confirmar = $('btn-confirmar');

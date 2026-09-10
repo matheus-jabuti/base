@@ -36,10 +36,12 @@ python -m app.server                 # UI at http://disparo.porto (or http://127
 python gerar_base.py                 # DB → out/*.csv  (default period: yesterday→today; Monday→last Friday)
 python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10 --sem-relatorio
 python extract.py                    # manual path: in/*.xlsx (sheets TempA/TempB) → out/*.csv
+python gerar_base_b.py               # Operação B: DB → out_b/*.csv (no period, no report)
 
 python -m pytest -q                  # Python side: rules in contatos.py / gerar_base.py (tests/)
 cd auto && npm test                  # Node side: assert-based checks of lib/dispatch-logic.js
 cd auto && node dispatch.js --hora 14:30 [--bases-dir bases]
+cd auto && node dispatch.js --operacao b --hora 14:30 [--bases-dir bases-b]
 ```
 
 Both DBs are only reachable over the company VPN. `app/passos.py:checar_vpn` probes them with a raw
@@ -80,6 +82,28 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
 `aplicar_filtro()` returns a per-group breakdown of what it removed (not just a total), which
 `gerar_base.gerar()` also writes to `relatorio/filtro_removidos_*.csv` and surfaces via the
 `[METRICA]` stdout protocol — see "Progress protocol" below and `.claude/skills/docs/references/geracao.md`.
+
+### Operação B
+
+A second dispatch operation living **beside** the one above (called Operação A when the two need
+telling apart), not on top of it. Everything is parallel and separate — a change on one side must
+never reach the other:
+
+- **Generation**: `gerar_base_b.py` + `contatos_b.py` + `sql/consulta_operacao_b.sql`, reading the
+  customer registry alone (`attributes->'campos'->>'operacao' = 'B'`, one row per phone). No period,
+  no messagesdb cross-check, no Excel report. Output goes to `out_b/`, never `out/`.
+- **Rating rules**: five CSVs, one per rating — `A`, `D`, `MENOR_500`, `MAIOR_500`, and `Outros`
+  (also the catch-all for empty/unknown). Matching is on the **whole value**, not the first letter as
+  in `contatos.py` — `MENOR_500` and `MAIOR_500` share one. A row with no name still dispatches, with
+  the name `Cliente` (Operação A drops it); names are title-cased.
+- **Dispatch**: `dispatch.js --operacao b`, driven by `auto/config/dispatches-b.json` +
+  `auto/config/template-numeros-b.json` (test bases in `auto/bases-b/`). Each of the five has its own
+  template number.
+- **UI**: `app/operacao_b.py` (`/api/b/...`) and `app/static/operacao-b.js`, in the sidebar group
+  "Operação B". The revision panel, the Monitorar tab, the VPN chip, the produção/teste toggle and
+  the manual filter (`filtros/`) are shared infrastructure — everything else is its own.
+- **No scheduler.** Operação B is deliberately out of `agendador.py`/`agenda.json`: scheduling
+  happens on the dashboard, like a normal dispatch. Don't wire it in without being asked.
 
 ### The contract between the halves
 

@@ -53,6 +53,7 @@ Nenhuma tarefa está pronta com a documentação divergindo do código.
 | --- | --- |
 | Regra de elegibilidade, bucket, `ind_baixa`, período padrão | `references/geracao.md`, `README.md` (seção "Regras de elegibilidade") |
 | Agrupamento por rating, normalização, dedup, nome de CSV de saída | `references/geracao.md`, `references/contratos.md`, `README.md` (tabela "Saida"), `auto/config/dispatches.json`, `auto/bases/` |
+| Qualquer coisa da Operação B (consulta, rating, planilhas, templates, rota) | `references/geracao.md` (§Operação B), `references/contratos.md` (§1 e §4), `references/disparo.md` (§Operação B), `references/app.md`, `README.md` (§Operação B), `auto/config/dispatches-b.json`, `auto/bases-b/` |
 | Query em `sql/` (colunas, filtros, derivação de `tipo`) | `references/geracao.md` |
 | Flag de CLI, comando, dependência | `references/operacao.md`, `README.md`, `CLAUDE.md` |
 | Etapa/seletor/ordem do dashboard | `auto/.claude/docs/fluxo-disparo.md`, `references/disparo.md` |

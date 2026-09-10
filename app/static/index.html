@@ -34,6 +34,16 @@
       Agenda
     </button>
 
+    <div class="nav-grupo">Operação B</div>
+    <button type="button" class="nav-item" data-aba="preparar-b">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Preparar B
+    </button>
+    <button type="button" class="nav-item" data-aba="templates-b">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h8"/></svg>
+      Templates B
+    </button>
+
     <div class="nav-grupo">Acompanhamento</div>
     <button type="button" class="nav-item" data-aba="monitorar">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
@@ -194,6 +204,128 @@
           <button type="button" class="botao-principal" id="tpl-salvar"><span>Salvar templates</span></button>
           <button type="button" class="botao-fantasma" id="tpl-descartar">Descartar mudanças</button>
           <span class="dica" id="tpl-estado"></span>
+        </div>
+      </section>
+
+      <!-- ===================================================== PREPARAR B ===================================================== -->
+      <section class="view" id="view-preparar-b" hidden>
+        <div class="colunas">
+          <div class="coluna-principal">
+
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>Quando</h2>
+                <span class="dica">acima de ~10 min de folga o dashboard agenda</span>
+              </div>
+              <div class="quando">
+                <span class="pilula" id="hora-modo-b"></span>
+                <input type="time" id="hora-b" step="60" aria-label="Horário do disparo da Operação B">
+                <div class="quando-texto">
+                  <span id="hora-relativa-b"></span>
+                  <span id="hora-data-b"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>O que criar no dashboard</h2>
+                <span class="dica">por padrão cria as três, nesta ordem</span>
+              </div>
+              <div class="opcoes">
+                <label class="opcao">
+                  <input type="checkbox" class="fase-b" value="campanha" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Campanha</span>
+                </label>
+                <label class="opcao">
+                  <input type="checkbox" class="fase-b" value="lista" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Lista de distribuição</span>
+                </label>
+                <label class="opcao">
+                  <input type="checkbox" class="fase-b" value="transmissao" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Transmissão</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>As cinco planilhas</h2>
+                <span class="dica" id="dica-bases-b">carregando...</span>
+              </div>
+              <ul class="bases" id="bases-b"></ul>
+            </div>
+
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>Templates deste disparo</h2>
+                <span class="dica"><button type="button" class="link" data-ir="templates-b">ajustar →</button></span>
+              </div>
+              <dl class="tpl-resumo" id="preparar-templates-b"></dl>
+            </div>
+
+            <details class="cartao recolhivel" id="bloco-geracao-b">
+              <summary>Geração da base (padrão)</summary>
+              <div class="opcoes">
+                <label class="opcao">
+                  <input type="checkbox" id="gerar-base-b" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Gerar as cinco planilhas antes de disparar</span>
+                </label>
+                <span class="opcao desabilitada">
+                  <span>Período</span>
+                  <strong>não se aplica — a consulta traz a base fechada da operação B</strong>
+                </span>
+                <button type="button" class="opcao acionavel" id="btn-filtro-b">
+                  <span>Filtro manual</span>
+                  <strong id="filtro-resumo-b">carregando...</strong>
+                </button>
+              </div>
+            </details>
+
+          </div>
+
+          <aside class="coluna-lateral">
+            <div class="cartao resumo">
+              <div class="resumo-total">
+                <strong id="resumo-contatos-b">0</strong>
+                <span id="resumo-bases-b">nenhuma base carregada</span>
+              </div>
+              <dl class="resumo-lista" id="resumo-lista-b"></dl>
+              <button type="button" class="botao-principal" id="btn-revisar-b">
+                <span>Revisar e disparar</span>
+                <small id="btn-revisar-nota-b"></small>
+              </button>
+              <button type="button" class="botao-fantasma largo" id="btn-previa-b">Pré-visualizar sem gravar</button>
+              <p class="dica centro">A Operação B não tem agenda automática: o agendamento é feito no dashboard, como no disparo normal.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===================================================== TEMPLATES B ===================================================== -->
+      <section class="view" id="view-templates-b" hidden>
+        <div class="cartao">
+          <div class="cartao-topo">
+            <h2>Templates da Operação B</h2>
+            <span class="dica" id="dica-templates-b">um número por planilha · prefixo fixo por base</span>
+          </div>
+          <p class="tpl-intro">
+            Cada uma das cinco planilhas tem o próprio número de template, para poder variar a
+            mensagem por rating. O que for salvo aqui grava em
+            <code>template-numeros-b.json</code> (fora do git) e no navegador, e não interfere na
+            Operação A.
+          </p>
+          <div class="tpl-grid" id="templates-grupos-b"></div>
+        </div>
+
+        <div class="acoes-fim" id="tpl-acoes-b" hidden>
+          <button type="button" class="botao-principal" id="tpl-salvar-b"><span>Salvar templates</span></button>
+          <button type="button" class="botao-fantasma" id="tpl-descartar-b">Descartar mudanças</button>
+          <span class="dica" id="tpl-estado-b"></span>
         </div>
       </section>
 
@@ -419,5 +551,6 @@
 </div>
 
 <script src="/static/app.js"></script>
+<script src="/static/operacao-b.js"></script>
 </body>
 </html>

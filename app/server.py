@@ -26,7 +26,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import agendador, passos
+from app import agendador, operacao_b, passos
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -174,6 +174,47 @@ def executar(
             hora=_validar_hora(hora),
             modo=_validar_modo(modo),
             com_relatorio=com_relatorio,
+            gerar=gerar,
+            dry_run=dry_run,
+            fases=_validar_fases(fases),
+        )
+    )
+
+
+@app.get("/api/b/templates")
+def templates_b():
+    return operacao_b.ler_templates()
+
+
+@app.put("/api/b/templates")
+def salvar_templates_b(entradas: list[dict]):
+    try:
+        return operacao_b.gravar_templates(entradas)
+    except ValueError as erro:
+        raise HTTPException(400, str(erro))
+
+
+@app.get("/api/b/bases")
+def bases_b(modo: str = "producao"):
+    return operacao_b.contagens(_validar_modo(modo))
+
+
+@app.get("/api/b/executar")
+def executar_b(
+    hora: str,
+    modo: str = "producao",
+    gerar: bool = True,
+    dry_run: bool = False,
+    fases: str = "campanha,lista,transmissao",
+):
+    """Mesmo botao unico da Operacao A, sem periodo: a base B nao tem recorte de data."""
+    if dry_run and not gerar:
+        raise HTTPException(400, "Pre-visualizacao exige gerar a base.")
+
+    return _sse(
+        operacao_b.executar(
+            hora=_validar_hora(hora),
+            modo=_validar_modo(modo),
             gerar=gerar,
             dry_run=dry_run,
             fases=_validar_fases(fases),
