@@ -11,28 +11,32 @@ arquitetura; o **passo a passo literal** (URLs, seletores, ordem, timeouts) fica
 | `lib/dispatch-logic.js` | Lógica **pura**: formatação de data/hora, nome do disparo, nome do template, regex da opção de lista, regex da opção de template (`templateOptionRegex` — casa sem diferenciar caixa, ancorado nas pontas), `horarioAgendamento` (horário resolvido do agendamento), `parseFases` (normaliza `--fases`). Sem Playwright, sem rede, sem `fs`. |
 | `lib/dispatch-logic.test.js` | Checagens com `assert`, rodadas por `npm test`. A suíte do lado Node — o lado Python tem a dele em `tests/` (`pytest`, ver `padroes.md`). |
 | `dispatch.js` | Orquestração: browser, login, formulários, retries, log, códigos de saída. |
-| `config/dispatches.json` | As cinco bases (dados, não código). |
+| `config/dispatches.json` | Estrutura das cinco bases (dados, não código) — **sem** o número do template. |
+| `config/template-numeros.example.json` | Baseline `{grupo: "NN"}` versionado. |
+| `config/template-numeros.json` | Número vivo por grupo. **Fora do versionamento** (semeado do `.example`). |
 | `bases/*.csv` | Bases de teste, um contato cada — versionadas de propósito. |
 | `logs/disparos.csv` | Uma linha por base por execução. Fora do versionamento. |
 
 Regra: se dá para testar sem browser, vai para `lib/dispatch-logic.js` e ganha teste. Se precisa de
 página, fica em `dispatch.js`.
 
-## `config/dispatches.json`
+## `config/dispatches.json` + o número do template
 
-Uma entrada por base, com `key`, `nome` (prefixo do nome do disparo), `csv` (**só o nome do arquivo** —
-a pasta vem de `--bases-dir`), `grupo`, `template_prefix` e `template_numero`.
+`dispatches.json` tem uma entrada por base, com `key`, `nome` (prefixo do nome do disparo), `csv`
+(**só o nome do arquivo** — a pasta vem de `--bases-dir`), `grupo` e `template_prefix`. **Não** guarda
+o número — ele muda quase toda rodada e sujava o git.
 
-`grupo` (`amigavel` / `amigavel_dez` / `contencioso`) só é lido pela tela, que edita **um número por
-grupo** em vez de um por base — as três bases amigáveis A/B/W, C e N/A Rating saem com o mesmo número,
-a D/E/Z tem o dela (recebe um template com número diferente) e o contencioso o dele. O `dispatch.js`
-ignora o campo e continua tratando as cinco bases uma a uma.
+O número vive em `config/template-numeros.json` (gitignored), um `{ "<grupo>": "NN" }`. Se o arquivo
+não existe, `dispatch.js:lerNumeros()` (e o lado Python, `passos._ler_numeros()`) o semeia de
+`config/template-numeros.example.json` (versionado). Sem nenhum dos dois, cai em `"01"`.
 
-O template é quebrado em prefixo + número porque na prática só o número muda de rodada para rodada
-(`WPP_A_E_B_07` → `WPP_A_E_B_08`). `buildTemplateName` junta os dois com `pad2`, aceitando de 1 a 3
-dígitos. A tela edita só o número. **Não escreva o número atual em documentação** — leia o arquivo.
+`grupo` (`amigavel` / `amigavel_dez` / `contencioso`): as três bases amigáveis A/B/W, C e N/A Rating
+saem com o mesmo número, a D/E/Z tem o dela e o contencioso o dele. `resolverBases` monta
+`buildTemplateName(cfg.template_prefix, numeros[cfg.grupo] || '01')` — o template é prefixo + número
+porque na prática só o número muda de rodada para rodada (`WPP_A_E_B_07` → `WPP_A_E_B_08`), aceitando
+de 1 a 3 dígitos. **Não escreva o número atual em documentação** — leia o arquivo.
 
-Adicionar, remover ou renomear base é edição deste arquivo; não deve exigir mudança de código.
+Adicionar, remover ou renomear base é edição de `dispatches.json`; não deve exigir mudança de código.
 
 ## Execução (`main()`)
 

@@ -53,8 +53,9 @@ criar, templates, periodo, filtro, ultima execucao.
 sempre o mesmo numero), Amigavel D/E/Z (numero proprio) e Contencioso (tem o
 proprio, ate 10; os amigaveis ate 7). O prefixo de cada base fica fixo, so o
 numero muda de rodada pra rodada, e o nome final (`WPP_contencioso_07`) aparece ao
-vivo. **Salvar templates** grava em `dispatches.json` e vale pro disparo manual e
-pra Agenda.
+vivo. **Salvar templates** grava o numero em `auto/config/template-numeros.json`
+(fora do git — nao suja o `git status`) e no `localStorage` do navegador; vale pro
+disparo manual e pra Agenda.
 
 Marcar so `campanha` e `lista` (sem `transmissao`) e util pra deixar tudo montado
 e disparar a transmissao depois. Marcar `transmissao` sem `campanha`/`lista` so
@@ -219,6 +220,8 @@ Telefone com menos de 10 digitos e descartado, porque nao e discavel.
 | `app/agendador.py` | Thread que dispara sozinha nos horarios de `auto/config/agenda.json` |
 | `app/static/` | A tela: HTML, CSS e JS sem build |
 | `auto/config/agenda.json` | Horarios dos disparos automaticos (`[{data, hora, ativo}]`) |
+| `auto/config/dispatches.json` | Estrutura das 5 bases (sem o numero do template) |
+| `auto/config/template-numeros.json` | Numero do template por grupo — fora do git, semeado do `.example` |
 | `auto/` | Automacao Playwright do dashboard (veja `auto/CLAUDE.md`) |
 
 ## Disparo pela linha de comando

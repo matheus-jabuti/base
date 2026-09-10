@@ -27,15 +27,19 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   No Playwright, no network — unit-testable in isolation.
 - `lib/dispatch-logic.test.js` — assert-based self-check for the above (`npm test`).
 - `config/dispatches.json` — one entry per base: `key`, `nome` (naming prefix), `csv` (file name only —
-  the folder comes from `--bases-dir`), `template_prefix` and `template_numero`. The template name is
-  built as `<prefix>_<numero>` (`buildTemplateName`), because in practice only the trailing number
-  changes between rounds — the UI edits that number without retyping the whole name. Edit this file to
-  change templates or to add/remove bases — no code change needed.
+  the folder comes from `--bases-dir`), `grupo` and `template_prefix`. **Structure only, no template
+  number** — edit this file to add/remove/rename bases, no code change needed.
+- `config/template-numeros.json` — the template number per group (`{ "<grupo>": "NN" }`), the half that
+  changes almost every round. **Gitignored.** `dispatch.js:lerNumeros` (and the Python side,
+  `passos._ler_numeros`) seeds it from `config/template-numeros.example.json` (committed baseline) on
+  first read; falls back to `"01"`. `resolverBases` builds `<prefix>_<numero>` with `buildTemplateName`.
+  Written by the UI (`PUT /api/templates`) and the scheduler, never by hand.
 - `config/agenda.json` — **not read by `dispatch.js`**. Modo + horários + templates dos disparos
   automáticos (`{modo, itens: [{data, hora, ativo, templates}]}`), gerenciados pela aba Agenda da tela
-  e disparados pela thread `app/agendador.py`, que grava os `templates` da linha neste
-  `dispatches.json` antes de cada disparo. `modo` default `teste` (bases de `bases/`); `producao` lê
-  `../out`. Vive aqui só por proximidade com `dispatches.json`; runtime state em `logs/agenda_estado.json`.
+  e disparados pela thread `app/agendador.py`, que grava os `templates` da linha em
+  `config/template-numeros.json` antes de cada disparo. `modo` default `teste` (bases de `bases/`);
+  `producao` lê `../out`. Vive aqui só por proximidade com `dispatches.json`; runtime state em
+  `logs/agenda_estado.json`.
 - `dispatch.js` — orchestrator. Takes the target time from `--hora HH:MM` (falls back to a terminal
   prompt when the flag is absent), the CSV folder from `--bases-dir` (default `../out`), and the phases
   to create from `--fases` (comma list of `campanha`/`lista`/`transmissao`, any order; default all
@@ -78,9 +82,9 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
 - No duplicate-name check before creating a list/campaign/broadcast — each run's name already embeds
   date+time, so same-day re-runs at a different time won't collide. Add a check if same-time re-runs
   become a real scenario.
-- `config/dispatches.json` templates already hold real prefixes (`WPP_A_E_B`, `WPP_rating_c`,
-  `WPP_contencioso`) — no longer placeholders. The trailing number changes every round, so read the
-  file for the current value instead of trusting a number written down here.
+- `config/dispatches.json` holds real prefixes (`WPP_A_E_B`, `WPP_rating_c`, `WPP_contencioso`). The
+  trailing number lives in `config/template-numeros.json` (gitignored) and changes every round — read
+  that file (or its `.example`) for the current value, never trust a number written down here.
 - No check that the chosen template actually exists on the platform. A wrong number still fails late,
   when `fillBroadcastSelectors` can't find the option — after list and campaign were already created —
   but the error now lists the available option names so the real name is one glance away. Casing is no

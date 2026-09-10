@@ -68,18 +68,31 @@ consome via `atualizarMetrica`, que ignora chave desconhecida (só cria um card 
   depois de imprimir `[FATAL] <mensagem>`. É por esse código que a tela marca o passo como erro —
   não perca o `process.exitCode`.
 
-## 4. `auto/config/dispatches.json`
+## 4. Template: estrutura versionada + número fora do git
 
-Escrito por dois lados: à mão (estrutura) e pela tela (`PUT /api/templates`).
+O nome do template (`buildTemplateName` = `<prefixo>_<número>`) vem de dois arquivos:
 
-- A tela só pode alterar `template_prefix` e `template_numero`; `key`, `nome`, `csv` e `grupo` são
-  estrutura e são reescritos a partir do arquivo atual.
-- `grupo` define como a tela agrupa os steppers (um número por grupo, ver `app.md`); o `PUT` continua
-  mandando uma entrada **por base**, com o número do grupo repetido. Base sem `grupo` vira grupo
-  próprio, então o campo é opcional.
-- `template_numero` é validado duas vezes, com a mesma regra: `gravar_templates` em Python
-  (1 a 3 dígitos, `zfill(2)`) e `buildTemplateName` em JS. Mudou a regra, mude os dois.
-- O arquivo é regravado com `indent=2` e `ensure_ascii=False`; mantenha assim para o diff ficar limpo.
+| Arquivo | Git | Conteúdo |
+| --- | --- | --- |
+| `auto/config/dispatches.json` | versionado | Só estrutura: `key`, `nome`, `csv`, `grupo`, `template_prefix`. Editado à mão. |
+| `auto/config/template-numeros.example.json` | versionado | Baseline `{ "<grupo>": "NN" }`. Muda só quando alguém troca o padrão de propósito. |
+| `auto/config/template-numeros.json` | **gitignored** | O número vivo por grupo. Semeado do `.example` na 1ª leitura. Escrito pela tela e pelo agendador. |
+
+Por que separar: o número muda quase toda rodada e sujava o `git status`/histórico.
+
+- **Leitura**: `passos.ler_templates()` (Python) devolve a estrutura com
+  `template_numero` de cada grupo sobreposto (`_ler_numeros()`, fallback `"01"`) — a forma é a mesma
+  de antes, então `/api/templates`, a tela e o agendador não mudaram. `dispatch.js:lerNumeros()` faz o
+  mesmo do lado Node, em `resolverBases`.
+- **Escrita**: `PUT /api/templates` → `passos.gravar_templates` colapsa as entradas por base em
+  `{grupo: número}` e grava **só** `template-numeros.json` (nunca `dispatches.json`). O agendador chama
+  `passos.gravar_numeros_template` direto. A tela também espelha em `localStorage`
+  (`disparo.templateNumeros`), ver `app.md`.
+- `grupo` define o agrupamento (um número por grupo, ver `app.md`); o `PUT` continua mandando uma
+  entrada por base, com o número do grupo repetido. Base sem `grupo` vira grupo próprio (campo opcional).
+- O número é validado duas vezes, mesma regra: `gravar_numeros_template` em Python (1 a 3 dígitos,
+  `zfill(2)`) e `buildTemplateName` em JS. Mudou a regra, mude os dois.
+- Os JSONs são gravados com `indent=2` e `ensure_ascii=False`.
 
 ## 5. A hora
 
@@ -132,8 +145,8 @@ O `app/agendador.py` é o segundo consumidor de `passos.executar()` (a tela é o
 regras valem: assinatura aditiva, pipeline imprimindo o progresso, nada de `input()`. Os dois
 compartilham `passos.LOCK_EXECUCAO` — só um disparo roda de cada vez. `auto/config/agenda.json`
 (`{modo, itens: [{data, hora, ativo, templates}]}`) é escrito só pela aba Agenda; o `dispatch.js` não
-o lê. Antes de cada disparo automático o agendador grava os números de `templates` da linha no
-`dispatches.json` (via `passos.gravar_templates`) — então um disparo pela agenda sobrescreve o que
-estiver salvo na aba Preparar. O `modo` da agenda (default `teste`, migrado como `teste` a partir do
+o lê. Antes de cada disparo automático o agendador grava os números de `templates` da linha em
+`template-numeros.json` (via `passos.gravar_numeros_template`) — então um disparo pela agenda
+sobrescreve o que estiver salvo na rota Templates. O `modo` da agenda (default `teste`, migrado como `teste` a partir do
 formato antigo) é próprio: `producao` lê `out/` e gera a base antes, `teste` lê `auto/bases/`. Não é o
 mesmo `estado.modo` do toggle do topo da tela, que vale só pro disparo manual.

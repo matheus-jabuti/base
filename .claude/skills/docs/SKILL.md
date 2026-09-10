@@ -57,7 +57,7 @@ Nenhuma tarefa está pronta com a documentação divergindo do código.
 | Flag de CLI, comando, dependência | `references/operacao.md`, `README.md`, `CLAUDE.md` |
 | Etapa/seletor/ordem do dashboard | `auto/.claude/docs/fluxo-disparo.md`, `references/disparo.md` |
 | Evento `[ETAPA]`, endpoint HTTP, evento SSE | `references/contratos.md`, `references/app.md`, `references/disparo.md` |
-| Estrutura de `auto/config/dispatches.json` | `references/contratos.md`, `references/disparo.md`, `app/passos.py:gravar_templates` |
+| Estrutura de `auto/config/dispatches.json` ou dos arquivos `template-numeros*.json` | `references/contratos.md` (§4), `references/disparo.md`, `app/passos.py` (`ler_templates`/`gravar_numeros_template`), `auto/dispatch.js:lerNumeros` |
 | Colunas de `auto/logs/disparos.csv` | `references/disparo.md`, `app/static/app.js` (tabela de histórico) |
 | Convenção nova de código ou decisão de estilo | `references/padroes.md` |
 | Lacuna intencional ("não fizemos X de propósito") | `auto/CLAUDE.md` → "Known gaps" |

@@ -34,8 +34,8 @@ mesmo sem `.env` preenchido.
 | --- | --- |
 | `GET /` | Serve `index.html` |
 | `GET /api/vpn` | Testa os dois bancos, devolve `{ok, conexoes[]}` |
-| `GET /api/templates` | Conteúdo de `auto/config/dispatches.json` |
-| `PUT /api/templates` | Regrava **apenas** `template_prefix` e `template_numero` |
+| `GET /api/templates` | Estrutura de `dispatches.json` com o `template_numero` de cada grupo sobreposto (`passos.ler_templates`) |
+| `PUT /api/templates` | Grava **só o número** por grupo, em `auto/config/template-numeros.json` (gitignored). `dispatches.json` não é tocado |
 | `GET /api/bases?modo=` | Por base: nome, csv, template montado, contatos, se o CSV existe |
 | `GET /api/periodo-padrao` | Reusa `gerar_base.periodo_padrao()` |
 | `GET /api/executar` | O botão único — SSE com a execução inteira. Aceita `dry_run=true` (exige `gerar=true`) e `fases` (lista separada por vírgula: `campanha`/`lista`/`transmissao`, default as três, validado por `_validar_fases`) |
@@ -95,8 +95,12 @@ Cada passo é um gerador que produz tuplas `(tipo, dado)`; `server.py` só as em
   `rodando`/`ok`/`erro`/`pulado`/`cancelado`) e fecha com `("fim", {status})`, onde `status` é
   `ok`/`erro`/`cancelado`/`pre-visualizacao`. Em dry-run, pula o disparo inteiro.
 - **`cancelar()`** — usado por `POST /api/cancelar` (ver acima).
-- **`gravar_templates(...)`** — valida prefixo não vazio e número de 1 a 3 dígitos, aplica `zfill(2)` e
-  regrava o JSON. `key`, `nome` e `csv` são estrutura, não configuração: nunca vêm da tela.
+- **`ler_templates()` / `gravar_templates(...)`** — `ler_templates` devolve as entradas de
+  `dispatches.json` com o `template_numero` de cada grupo sobreposto de `template-numeros.json`
+  (`_ler_numeros`, que semeia do `.example` se faltar; fallback `"01"`). `gravar_templates` colapsa as
+  entradas por base em `{grupo: número}` e grava **só** `template-numeros.json`
+  (`gravar_numeros_template`, valida 1–3 dígitos + `zfill(2)`); `dispatches.json` (estrutura) nunca é
+  tocado. Ver `contratos.md` §4.
 - **`contar_csv` / `contagens(modo)`** — contam linhas não vazias menos o cabeçalho, na pasta do modo.
 - **`ultimos_disparos(limite, busca, status, modo)`** — filtros aplicados **antes** do corte por
   `limite`, senão a busca só enxergaria as últimas N linhas em vez do log inteiro.
@@ -118,9 +122,9 @@ bases de `auto/bases/` como estão.
   bool, templates: {grupo: "NN"}}`. Editada só pela aba Agenda. O id de um item é `"data hora"` —
   mexer no horário cria um item novo. `templates` é obrigatório e tem um número (1 a 3 dígitos,
   `zfill(2)`) por grupo de `passos.grupos_templates()` (hoje `amigavel`, `amigavel_dez` e
-  `contencioso`, a mesma divisão dos steppers de Preparar). Antes de cada disparo, `_aplicar_templates` grava esses números
-  no `dispatches.json` via `passos.gravar_templates` — cada base mantém o próprio prefixo, só o número
-  (compartilhado pelo grupo) vem da linha da agenda. Item sem `templates` completo é registrado como
+  `contencioso`, a mesma divisão da rota Templates). Antes de cada disparo, `_aplicar_templates` grava
+  esses números em `template-numeros.json` via `passos.gravar_numeros_template` — cada base mantém o
+  próprio prefixo (de `dispatches.json`), só o número (compartilhado pelo grupo) vem da linha da agenda. Item sem `templates` completo é registrado como
   `erro` e não dispara. Formato antigo (lista sem `modo`) é migrado na leitura assumindo `modo:
   "teste"` — **nunca `producao` por omissão**.
 - **`modo`** (`teste` \| `producao`, default `teste`) — decide de onde saem as bases do disparo
@@ -198,10 +202,15 @@ bases de `auto/bases/` como estão.
   (`.tpl-resolvido`, `data-prefix` + número, atualizado ao vivo por `aplicarNumeroGrupo`). O stepper
   edita só o número; o prefixo vem do servidor e volta intacto. Mexer liga `estado.tplSujo` e mostra a
   barra `#tpl-acoes`: "Salvar templates" (`salvarTemplates` → `PUT /api/templates` com `lerTemplates()`,
-  depois `carregarBases()`) ou "Descartar" (só `carregarBases()`). `executar()` também faz o mesmo
-  `PUT` antes de disparar, então salvar aqui é conveniência (e deixa a Agenda enxergar os números
-  novos). `lerTemplates()` monta uma entrada por base repetindo o número do grupo e o prefixo de cada
-  uma.
+  depois `carregarBases()`) ou "Descartar" (`descartarTemplates` → limpa o `localStorage` e
+  `carregarBases()`). `executar()` também faz o mesmo `PUT` antes de disparar, então salvar aqui é
+  conveniência (e deixa a Agenda enxergar os números novos). `lerTemplates()` (JS) monta uma entrada
+  por base repetindo o número do grupo e o prefixo de cada uma.
+- **Espelho em `localStorage`** (`disparo.templateNumeros`, `{grupo: "NN"}`): `gravarNumerosLS` grava a
+  cada mudança/salvamento; `desenharTemplates` reaplica sobre o que o servidor devolveu e marca
+  `tplSujo` se divergir (o servidor mudou por fora — agendador, reset do arquivo de runtime). Serve
+  para o navegador lembrar a última escolha mesmo se `template-numeros.json` for apagado. `try/catch`
+  em tudo (modo privado).
 - **Painel de revisão** (`#painel-revisao`) no lugar do `confirm()` do navegador: `abrirRevisao(dryRun)`
   monta o modo, o título com o total, o horário (sempre agendado), a mini-tabela
   base · template · contatos e a checklist de `montarChecklist()` — VPN, período da geração (ou aviso

@@ -18,6 +18,9 @@ __pycache__/
 /auto/node_modules/
 /auto/logs/*
 !/auto/logs/.gitkeep
+# Numero de template por grupo: muda quase toda rodada, nao versiona.
+# Semeado de template-numeros.example.json na primeira leitura.
+/auto/config/template-numeros.json
 /auto/scripts/out/
 /auto/old-bases-old/
 

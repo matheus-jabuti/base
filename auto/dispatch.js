@@ -29,6 +29,10 @@ const ROOT = __dirname;
 const AUTH_PATH = path.join(ROOT, 'scripts/out/auth.json');
 const LOG_PATH = path.join(ROOT, 'logs/disparos.csv');
 const CONFIG_PATH = path.join(ROOT, 'config/dispatches.json');
+// Numero de template por grupo: fora do git (muda quase toda rodada), semeado do
+// .example na primeira leitura. A tela e o agendador escrevem nele.
+const NUMEROS_PATH = path.join(ROOT, 'config/template-numeros.json');
+const NUMEROS_EXEMPLO_PATH = path.join(ROOT, 'config/template-numeros.example.json');
 const DEFAULT_BASES_DIR = path.resolve(ROOT, '../out');
 const LOGIN_URL = 'https://auth.jabuti.ai/sign-in';
 const DASHBOARD_URL = 'https://dashboard.jabuti.ai/meta/campaigns/manage';
@@ -61,16 +65,32 @@ function contarContatos(csvPath) {
   return Math.max(linhas.length - 1, 0);
 }
 
+// Numero de template por grupo. Se o arquivo de runtime nao existe, semeia do
+// .example; se nem ele existe ou o JSON esta quebrado, devolve {} (cai no '01').
+function lerNumeros() {
+  try {
+    if (!fs.existsSync(NUMEROS_PATH) && fs.existsSync(NUMEROS_EXEMPLO_PATH)) {
+      fs.copyFileSync(NUMEROS_EXEMPLO_PATH, NUMEROS_PATH);
+    }
+    return JSON.parse(fs.readFileSync(NUMEROS_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
 function resolverBases(configs, basesDir) {
   if (!fs.existsSync(basesDir)) {
     throw new Error(`Pasta de bases nao encontrada: ${basesDir}`);
   }
 
+  const numeros = lerNumeros();
+
   return configs.map((cfg) => {
     const csv = path.join(basesDir, cfg.csv);
     if (!fs.existsSync(csv)) throw new Error(`CSV nao encontrado: ${csv}`);
 
-    return { ...cfg, csv, contatos: contarContatos(csv), template: buildTemplateName(cfg.template_prefix, cfg.template_numero) };
+    const numero = numeros[cfg.grupo || cfg.key] || '01';
+    return { ...cfg, csv, contatos: contarContatos(csv), template: buildTemplateName(cfg.template_prefix, numero) };
   });
 }
 

@@ -28,6 +28,10 @@ if str(BASE_DIR) not in sys.path:
 
 AUTO_DIR = BASE_DIR / "auto"
 DISPATCHES_FILE = AUTO_DIR / "config" / "dispatches.json"
+# O numero de template por grupo muda quase toda rodada: mora fora do git, num
+# arquivo de runtime semeado do .example na primeira leitura.
+NUMEROS_FILE = AUTO_DIR / "config" / "template-numeros.json"
+NUMEROS_EXEMPLO_FILE = AUTO_DIR / "config" / "template-numeros.example.json"
 DISPATCH_SCRIPT = AUTO_DIR / "dispatch.js"
 LOG_DISPAROS = AUTO_DIR / "logs" / "disparos.csv"
 
@@ -133,8 +137,55 @@ def checar_vpn() -> list[Conexao]:
     return resultados
 
 
+def _ler_numeros() -> dict:
+    """Numero de template por grupo, do arquivo de runtime (gitignored).
+
+    Se ele nao existe, semeia do .example; se nem o .example existe, devolve {}.
+    """
+    if not NUMEROS_FILE.exists() and NUMEROS_EXEMPLO_FILE.exists():
+        shutil.copyfile(NUMEROS_EXEMPLO_FILE, NUMEROS_FILE)
+
+    try:
+        dados = json.loads(NUMEROS_FILE.read_text(encoding="utf-8"))
+        return {str(k): str(v) for k, v in dados.items()} if isinstance(dados, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def gravar_numeros_template(numeros: dict) -> dict:
+    """Grava o numero de template de cada grupo no arquivo de runtime.
+
+    Valida 1 a 3 digitos e aplica zfill(2), a mesma regra do buildTemplateName no JS.
+    """
+    limpos: dict[str, str] = {}
+    for grupo, valor in numeros.items():
+        digitos = str(valor).strip()
+        if not digitos.isdigit() or len(digitos) > 3:
+            raise ValueError(f"Numero de template invalido para '{grupo}': '{valor}'. Use de 1 a 3 digitos.")
+        limpos[str(grupo)] = digitos.zfill(2)
+
+    atuais = _ler_numeros()
+    atuais.update(limpos)
+    NUMEROS_FILE.write_text(json.dumps(atuais, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    return atuais
+
+
 def ler_templates() -> list[dict]:
-    return json.loads(DISPATCHES_FILE.read_text(encoding="utf-8"))
+    """Estrutura das bases (dispatches.json) com o numero de cada grupo sobreposto.
+
+    dispatches.json guarda so key/nome/csv/grupo/template_prefix; o numero vem do
+    arquivo de runtime. A forma devolvida (com template_numero por entrada) e a
+    mesma de antes, pra tela e agendador nao precisarem mudar.
+    """
+    bases = json.loads(DISPATCHES_FILE.read_text(encoding="utf-8"))
+    numeros = _ler_numeros()
+
+    for cfg in bases:
+        grupo = cfg.get("grupo", cfg["key"])
+        cfg["template_numero"] = numeros.get(grupo, "01")
+
+    return bases
 
 
 def grupos_templates() -> list[str]:
@@ -153,29 +204,24 @@ def grupos_templates() -> list[str]:
 
 
 def gravar_templates(entradas: list[dict]) -> list[dict]:
-    """Regrava so prefixo e numero; key/nome/csv sao estrutura, nao configuracao."""
-    atuais = ler_templates()
-    por_key = {entrada.get("key"): entrada for entrada in entradas}
+    """Grava so o numero de cada grupo (no arquivo de runtime).
 
-    for cfg in atuais:
-        nova = por_key.get(cfg["key"])
-        if not nova:
+    A tela e o agendador mandam uma entrada por base; prefixo/key/nome/csv sao
+    estrutura e ficam so no dispatches.json. Colapsa as entradas em um numero por
+    grupo e delega pra gravar_numeros_template.
+    """
+    por_key = {cfg["key"]: cfg.get("grupo", cfg["key"]) for cfg in ler_templates()}
+    numeros: dict[str, str] = {}
+
+    for entrada in entradas:
+        grupo = por_key.get(entrada.get("key"))
+        if grupo is None:
             continue
+        numeros[grupo] = str(entrada.get("template_numero", "")).strip()
 
-        prefixo = str(nova.get("template_prefix", "")).strip()
-        numero = str(nova.get("template_numero", "")).strip()
+    gravar_numeros_template(numeros)
 
-        if not prefixo:
-            raise ValueError(f"Prefixo de template vazio em '{cfg['nome']}'.")
-        if not numero.isdigit() or len(numero) > 3:
-            raise ValueError(f"Numero de template invalido em '{cfg['nome']}': '{numero}'. Use de 1 a 3 digitos.")
-
-        cfg["template_prefix"] = prefixo
-        cfg["template_numero"] = numero.zfill(2)
-
-    DISPATCHES_FILE.write_text(json.dumps(atuais, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
-    return atuais
+    return ler_templates()
 
 
 def contar_csv(caminho: Path) -> int:

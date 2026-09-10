@@ -35,6 +35,32 @@ const GRUPOS = {
   contencioso: 'Contencioso',
 };
 
+// O número de template por grupo não é versionado (muda quase toda rodada). O
+// servidor guarda num arquivo de runtime; o navegador espelha aqui, pra lembrar
+// a última escolha mesmo se o arquivo do servidor for resetado.
+const LS_NUMEROS = 'disparo.templateNumeros';
+
+function lerNumerosLS() {
+  try {
+    const bruto = JSON.parse(localStorage.getItem(LS_NUMEROS));
+    return bruto && typeof bruto === 'object' ? bruto : {};
+  } catch {
+    return {};
+  }
+}
+
+function gravarNumerosLS() {
+  const nums = {};
+  for (const campo of document.querySelectorAll('.stepper input[data-grupo]')) {
+    nums[campo.dataset.grupo] = campo.value.trim();
+  }
+  try {
+    localStorage.setItem(LS_NUMEROS, JSON.stringify(nums));
+  } catch {
+    /* modo privado / storage cheio: segue sem espelho */
+  }
+}
+
 // Ordem em que o dispatch.js roda as fases: campanha, depois a lista, depois a
 // transmissão (que precisa das duas). Mesma ordem dos checkboxes no HTML.
 const ETAPAS = ['campanha', 'lista', 'transmissao'];
@@ -286,6 +312,18 @@ function desenharTemplates() {
     alvo.appendChild(card);
   }
 
+  // O navegador guarda a última escolha: se diferir do que o servidor devolveu,
+  // aplica e marca como não salvo — o operador decide (Salvar empurra, Descartar
+  // volta pro servidor).
+  for (const [grupo, valor] of Object.entries(lerNumerosLS())) {
+    if (!/^\d{1,3}$/.test(String(valor))) continue;
+    const campo = document.querySelector(`.grupo .stepper input[data-grupo="${grupo}"]`);
+    if (campo && campo.value !== valor && campo.value !== String(valor).padStart(2, '0')) {
+      aplicarNumeroGrupo(grupo, String(valor).padStart(2, '0'));
+    }
+  }
+
+  gravarNumerosLS();
   $('dica-templates').textContent = `${plural(agruparBases().length, 'grupo', 'grupos')} · ${plural(estado.bases.length, 'base', 'bases')}`;
   resumoTemplatesPreparar();
 }
@@ -302,9 +340,19 @@ function aplicarNumeroGrupo(grupo, valor, origem) {
   }
 
   estado.tplSujo = true;
+  gravarNumerosLS();
   atualizarAcoesTemplates();
   resumoTemplatesPreparar();
   atualizarResumo();
+}
+
+async function descartarTemplates() {
+  try {
+    localStorage.removeItem(LS_NUMEROS);
+  } catch {
+    /* ignore */
+  }
+  await carregarBases();
 }
 
 function resumoTemplatesPreparar() {
@@ -1460,7 +1508,7 @@ async function iniciar() {
   }
 
   $('tpl-salvar').onclick = salvarTemplates;
-  $('tpl-descartar').onclick = () => carregarBases();
+  $('tpl-descartar').onclick = descartarTemplates;
 
   window.onhashchange = () => irPara(location.hash.replace('#', ''));
 

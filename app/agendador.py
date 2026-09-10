@@ -365,20 +365,12 @@ _SITUACAO_FIM = {"ok": "disparado", "erro": "erro", "cancelado": "cancelado"}
 
 
 def _aplicar_templates(templates: dict) -> None:
-    """Grava o numero de cada grupo no dispatches.json antes do disparo.
+    """Grava o numero de cada grupo antes do disparo automatico.
 
-    Cada base mantem o proprio prefixo; so o numero, compartilhado pelo grupo,
-    vem da linha da agenda. Mesma divisao da tela Preparar.
+    `templates` ja e {grupo: "NN"} (validado por _validar_templates); vai direto
+    pro arquivo de runtime de numeros, sem tocar no dispatches.json.
     """
-    entradas = [
-        {
-            "key": cfg["key"],
-            "template_prefix": cfg["template_prefix"],
-            "template_numero": templates[cfg.get("grupo", cfg["key"])],
-        }
-        for cfg in passos.ler_templates()
-    ]
-    passos.gravar_templates(entradas)
+    passos.gravar_numeros_template(templates)
 
 
 def _disparar_item(item: dict) -> None:
