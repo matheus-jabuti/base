@@ -130,12 +130,17 @@ na Operacao A (`MENOR_500` e `MAIOR_500` comecam igual). Rating fora dos cinco
 esperados nao interrompe a geracao: cai em `b_outros.csv` e aparece como aviso
 no fim da execucao.
 
-O nome sai capitalizado (`MARIA DAS DORES` -> `Maria Das Dores`). Quem nao tem
-nome no cadastro **entra no disparo mesmo assim**, com o nome `Cliente` — ao
-contrario da Operacao A, que descarta o registro sem nome.
+O nome sai capitalizado (`MARIA DAS DORES` -> `Maria Das Dores`). No cadastro da
+operacao B ele vem preenchido em todos os registros e e so o primeiro nome
+(`Nivaldo`, `Fernanda`). Quem nao tiver nome **entra no disparo mesmo assim**,
+com o nome `Cliente` — ao contrario da Operacao A, que descarta o registro sem
+nome.
 
 Nao ha periodo: a consulta ja devolve a base fechada de quem esta marcado como
-`operacao = 'B'`, um registro por telefone. Tambem nao ha relatorio Excel nem
+`operacao = 'B'`, um registro por telefone. O cadastro guarda o historico do
+cliente (varias linhas por telefone, e o rating muda conforme o atraso e o saldo
+andam), entao a consulta fica sempre com a **linha mais recente** de cada
+telefone — e o mesmo cliente cai sempre na mesma planilha. Tambem nao ha relatorio Excel nem
 agenda automatica — o agendamento acontece no dashboard, como no disparo
 normal.
 

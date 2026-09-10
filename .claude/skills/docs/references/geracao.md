@@ -212,9 +212,17 @@ base fechada, um registro por telefone. Colunas: `telefone`, `nome`, `cpf`, `buc
 Os campos têm nomes próprios, diferentes dos da Operação A: telefone em
 `campos->>'phone_number'` (não `attributes->>'phone_number'`), `des_cpf` no lugar de `des_regis`,
 `segmentacao` no lugar do bucket derivado por dias de atraso, `prioridade` no lugar de
-`cod_indicador->RAT_AMIG`. O `nome` foi acrescentado à consulta original — sem ele a planilha sairia
-sem a coluna `name`; sai por `COALESCE(nom_clien, nome)` porque a chave não é garantida nesses
-registros, e quem vier sem nenhuma das duas é tratado na geração.
+`cod_indicador->RAT_AMIG`, e **`nome` no lugar de `nom_clien`** — `nom_clien` não existe em nenhum
+registro da operação B. O `nome` foi acrescentado à consulta original, que não o trazia: sem ele a
+planilha sairia sem a coluna `name`.
+
+**A tabela guarda histórico**: o mesmo telefone aparece em várias linhas (uma por atualização do
+cadastro), e uma fatia relevante delas troca de `prioridade` ao longo do tempo — o cliente muda de
+faixa conforme os dias de atraso e o saldo andam. Por isso o `DISTINCT ON` **precisa** de desempate:
+`ORDER BY phone_number, created_at DESC, id DESC` fica com a linha mais recente, que é o estado atual
+da dívida (`id` só como critério final de estabilidade). Sem ele o Postgres escolhe uma linha
+arbitrária e o mesmo cliente cai numa planilha diferente a cada execução. `updated_at` é sempre nulo
+nesses registros — não sirva de critério.
 
 Note que `consulta_novos.sql` (Operação A) filtra `operacao is null`, então as duas bases não se
 sobrepõem no banco.
@@ -224,7 +232,10 @@ sobrepõem no banco.
 - **Telefone e dedup**: idênticos aos da A (mesma função, dedup global por telefone).
 - **Nome**: `normalize_name_b` capitaliza (`MARIA DAS DORES` → `Maria Das Dores`) e, **sem nome,
   devolve `Cliente`** em vez de descartar a linha — é a diferença de comportamento mais importante
-  em relação à A. Quantos caíram nesse caso sai no resumo e na `[METRICA]` `sem_nome`.
+  em relação à A. Quantos caíram nesse caso sai no resumo e na `[METRICA]` `sem_nome`. Na base atual
+  o campo vem preenchido em todos os registros e traz **só o primeiro nome**, já capitalizado, então
+  o fallback é rede de segurança e não o caso comum — mas continua valendo, porque nada no cadastro
+  garante o preenchimento.
 - **Grupo** (`resolve_group_b`): comparação pelo **valor inteiro** do rating, não pela primeira
   letra — `MENOR_500` e `MAIOR_500` começam igual e a regra da A juntaria os dois. `RATING_GROUPS_B`:
   `A`, `D`, `MENOR_500`, `MAIOR_500`, `OUTROS`.
