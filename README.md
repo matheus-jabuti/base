@@ -44,12 +44,12 @@ uma com endereco proprio (`#preparar`, `#templates`, ...). O modo (producao/test
 o estado da VPN e o tema ficam ancorados no rodape da barra lateral, visiveis em
 qualquer rota.
 
-**Preparar.** O card **Quando** (relogio, comeca em agora +15min) primeiro; abaixo,
-uma linha por base (so leitura) com o volume de contatos em barra e o template
-resolvido; um card **Templates deste disparo** com o nome final por grupo e um
-atalho pra rota Templates; o card **O que criar no dashboard** (campanha, lista de
-distribuicao e transmissao — nessa ordem, as tres marcadas por padrao; desmarque
-as que nao quer criar nesta rodada); e, recolhido em **Periodo e geracao
+**Preparar.** Em ordem: o card **Quando** (relogio, comeca em agora +15min); o card
+**O que criar no dashboard** (campanha, lista de distribuicao e transmissao — nessa
+ordem, as tres marcadas por padrao; desmarque as que nao quer criar nesta rodada);
+**Bases desta rodada** (uma linha por base so leitura, volume de contatos em barra
+e o template resolvido); **Templates deste disparo** (nome final por grupo e atalho
+pra rota Templates); e, recolhido em **Periodo e geracao
 (padrao)**, pular a geracao reaproveitando os CSVs de `out/`, desligar o relatorio
 Excel, mudar o periodo e ver os telefones do filtro manual em `filtros/`. A coluna
 da direita resume o que vai sair — total de contatos, modo, horario, o que vai
