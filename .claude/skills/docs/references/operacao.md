@@ -7,7 +7,14 @@ pip install -r requirements-dev.txt   # requirements.txt + pytest
 cp .env.example .env          # preencher DB_*, CUSTOMERS_DB_*, OWNER_ID
 
 cd auto && npm install && npx playwright install chromium
+
+# opcional: abrir a tela como http://disparo.porto (uma vez, pede admin)
+powershell -ExecutionPolicy Bypass -File tools\registrar-host.ps1
 ```
+
+`registrar-host.ps1` só adiciona `127.0.0.1 disparo.porto` ao arquivo hosts do Windows. O servidor
+(`app/server.py:_escolher_porta`) usa a porta 80 quando está livre (aí o endereço não tem porta),
+senão a 8000; `PORT` no `.env`/ambiente fixa o valor.
 
 Dependências Python fixadas em `requirements.txt` (pandas, SQLAlchemy, psycopg2, openpyxl, fastapi,
 uvicorn); `requirements-dev.txt` soma o `pytest`. O Playwright é `devDependency` de `auto/` — o
@@ -18,7 +25,7 @@ download do Chromium é passo separado.
 ## Comandos
 
 ```bash
-python -m app.server                      # tela em http://127.0.0.1:8000 (caminho normal)
+python -m app.server                      # tela em http://disparo.porto (ou http://127.0.0.1:<PORT>, default 80/8000)
 
 python gerar_base.py                      # banco -> out/*.csv
 python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10
@@ -49,7 +56,8 @@ Mesmo em teste, lista, campanha e transmissão **são criadas de verdade** no da
 ## Rodada normal pela tela
 
 1. VPN ligada (o chip no rodapé da barra lateral confere sozinho ao abrir).
-2. `python -m app.server`, abrir `http://127.0.0.1:8000` — abre na rota **Preparar**.
+2. `python -m app.server`, abrir o endereço que ele imprime (`http://disparo.porto` se `registrar-host.ps1`
+   já rodou, senão `http://127.0.0.1:<porta>`) — abre na rota **Preparar**.
 3. Se precisar, ajustar o número do template na rota **Templates** (um por grupo: amigável A/B/W+C+N/A
    Rating juntas, D/E/Z e contencioso à parte) e **Salvar templates**.
 4. Escolher o horário no relógio (começa em agora +15min) — o disparo é sempre agendado; a tela avisa quando

@@ -8,8 +8,12 @@ por SSE — que, ao terminar, vira a tela de resultado. O rodapé da sidebar anc
 automáticos — quem dispara é a thread do `app/agendador.py` (ver "Agendador" abaixo), não a tela.
 
 ```bash
-python -m app.server      # http://127.0.0.1:8000
+python -m app.server      # http://disparo.porto  (ou http://127.0.0.1:<PORT>, default 80/8000)
 ```
+
+Porta: `_escolher_porta()` lê `PORT` (ambiente/`.env`), senão 80 se livre, senão 8000. `disparo.porto`
+depende de `tools/registrar-host.ps1` ter rodado uma vez (adiciona ao hosts). `app/static/` usa só
+caminhos relativos (`/api/...`), então host e porta não aparecem no front.
 
 ## Camadas
 

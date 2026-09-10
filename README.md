@@ -32,7 +32,13 @@ cd auto && npm test   # regras de auto/lib/dispatch-logic.js
 python -m app.server
 ```
 
-Abre em <http://127.0.0.1:8000>. As rotas ficam numa **barra lateral** a esquerda
+Abre em <http://127.0.0.1> (porta 80 se estiver livre, senao 8000 — o servidor
+avisa o endereco ao subir). Pra abrir como **`http://disparo.porto`**, rode uma
+vez `powershell -ExecutionPolicy Bypass -File tools\registrar-host.ps1` (pede
+administrador — so adiciona `disparo.porto` ao arquivo hosts). Fixar a porta:
+`PORT` no `.env` ou no ambiente.
+
+As rotas ficam numa **barra lateral** a esquerda
 — **Preparar**, **Templates**, **Agenda**, **Monitorar** e **Historico** —, cada
 uma com endereco proprio (`#preparar`, `#templates`, ...). O modo (producao/teste),
 o estado da VPN e o tema ficam ancorados no rodape da barra lateral, visiveis em

@@ -31,7 +31,7 @@ pip install -r requirements-dev.txt   # requirements.txt + pytest
 cp .env.example .env                 # DB credentials, OWNER_ID — never committed
 cd auto && npm install && npx playwright install chromium
 
-python -m app.server                 # UI at http://127.0.0.1:8000 (normal path)
+python -m app.server                 # UI at http://disparo.porto (or http://127.0.0.1:<PORT>, default 80/8000)
 
 python gerar_base.py                 # DB → out/*.csv  (default period: yesterday→today; Monday→last Friday)
 python gerar_base.py --data-inicio 2026-08-01 --data-fim 2026-08-10 --sem-relatorio

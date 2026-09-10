@@ -3,14 +3,21 @@
 Roda com:
     python -m app.server
 
-Serve a tela em http://127.0.0.1:8000 e expoe os passos como endpoints. Os
-passos longos (gerar base, disparar) devolvem SSE, que o browser consome com
-EventSource — assim a tela mostra o log ao vivo em vez de um spinner mudo.
+Serve a tela em http://disparo.porto (ou http://127.0.0.1:<porta>) e expoe os
+passos como endpoints. Os passos longos (gerar base, disparar) devolvem SSE, que
+o browser consome com EventSource — assim a tela mostra o log ao vivo em vez de
+um spinner mudo.
+
+Porta: variavel PORT (do ambiente ou do .env), default 80 se estiver livre,
+senao 8000. Com PORT=80 o endereco fica http://disparo.porto sem porta — precisa
+rodar tools/registrar-host.ps1 uma vez pra apontar disparo.porto pro 127.0.0.1.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import socket
 from dataclasses import asdict
 from datetime import date, datetime
 from pathlib import Path
@@ -243,11 +250,42 @@ def historico(limite: int = 10, busca: str = "", status: str = "", modo: str = "
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+def _porta_livre(porta: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", porta))
+            return True
+        except OSError:
+            return False
+
+
+def _escolher_porta() -> int:
+    """PORT do ambiente/.env; senao 80 (endereco sem porta), caindo pra 8000."""
+    try:
+        from config import load_env
+
+        load_env()
+    except Exception:
+        pass
+
+    if os.environ.get("PORT", "").strip():
+        return int(os.environ["PORT"])
+
+    return 80 if _porta_livre(80) else 8000
+
+
 def main() -> None:
     import uvicorn
 
+    porta = _escolher_porta()
+    endereco = "disparo.porto" if porta == 80 else f"disparo.porto:{porta}"
+
+    print(f"\n  Disparo Porto  ->  http://{endereco}", flush=True)
+    print(f"                     http://127.0.0.1:{porta}", flush=True)
+    print("  (disparo.porto so resolve depois de rodar tools/registrar-host.ps1 uma vez)\n", flush=True)
+
     agendador.iniciar()
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    uvicorn.run(app, host="127.0.0.1", port=porta, log_level="warning")
 
 
 if __name__ == "__main__":
