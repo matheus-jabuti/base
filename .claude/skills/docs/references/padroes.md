@@ -76,9 +76,21 @@ arquivos entra com teste em `tests/`. `.github/workflows/ci.yml` roda as duas su
 
 ## Refatoração
 
-Não refatore por conta própria. Duplicação existente é aceita quando é deliberada (os dois pipelines;
-o `horarioAgendamento` do `dispatch.js` e o `agendado()` da tela) — está documentada em `contratos.md`
-como par a manter em sincronia. Se precisar generalizar algo, pergunte antes.
+Não refatore por conta própria. Duplicação existente é aceita quando é deliberada (os dois pipelines
+da Operação A; a geração da Operação A e da B; o `horarioAgendamento` do `dispatch.js` e o
+`agendado()` da tela) — está documentada em `contratos.md` como par a manter em sincronia. Se
+precisar generalizar algo, pergunte antes.
+
+## Operação A vs. Operação B
+
+Padrão é Operação A: pedido sem citar operação, ou citando "disparo normal"/"Operação A", é sobre o
+disparo normal. Só toca arquivo da Operação B (`*_b.py`, `operacao-b.js`, `*-b.json`, `bases-b/`,
+`out_b/`, `consulta_operacao_b.sql`) quando o usuário citar Operação B — e nunca como efeito colateral
+de uma tarefa da outra. **Exceção: infraestrutura compartilhada** (VPN, trava de execução,
+cancelamento, filtro manual, painel de revisão, aba Monitorar, componentes de CSS, motor de fases do
+`dispatch.js`) vale para as duas sempre — mexeu ali, confira o efeito nas duas. A **geração** é
+separada de propósito: regra que precisa valer nas duas se muda nos dois arquivos, não generalizando
+um. Regra completa em `SKILL.md` e em `CLAUDE.md` (raiz) → "Scope".
 
 ## Git — commit e push a cada alteração
 

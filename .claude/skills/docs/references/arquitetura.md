@@ -11,6 +11,12 @@ transmissão criada.
 para `out/` envia de verdade. O modo teste (`--bases-dir bases` / botão "teste" na tela) troca a
 origem para `auto/bases/`, que tem um contato por base.
 
+**Duas operações.** O disparo descrito aqui é a **Operação A** (o normal). Existe uma **Operação B**
+paralela — consulta, planilhas, templates, pasta e rota próprias — que só entra em cena quando a
+tarefa a cita explicitamente. Infraestrutura (VPN, trava de execução, filtro manual, tela
+compartilhada, motor de fases do `dispatch.js`) serve as duas; a geração é separada de propósito.
+Regra completa em `SKILL.md` → "Operação A vs. Operação B" e em `CLAUDE.md` (raiz) → "Scope".
+
 ## As três metades
 
 ```

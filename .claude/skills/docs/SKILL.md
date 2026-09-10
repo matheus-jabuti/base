@@ -18,9 +18,9 @@ se divergir, o código vence e **este conjunto de documentos deve ser corrigido 
 | Documento | Leia quando |
 | --- | --- |
 | `references/arquitetura.md` | Visão geral: as três metades, o fluxo de ponta a ponta, mapa de arquivos |
-| `references/geracao.md` | Mexer no pipeline Python (`gerar_base.py`, `extract.py`, `contatos.py`, `banco.py`, `sql/`) |
-| `references/disparo.md` | Mexer na automação Playwright (`auto/`) |
-| `references/app.md` | Mexer na tela (`app/server.py`, `app/passos.py`, `app/static/`) |
+| `references/geracao.md` | Mexer no pipeline Python — Operação A (`gerar_base.py`, `extract.py`, `contatos.py`, `banco.py`, `sql/`) **ou** Operação B (`gerar_base_b.py`, `contatos_b.py`, `sql/consulta_operacao_b.sql`), §Operação B |
+| `references/disparo.md` | Mexer na automação Playwright (`auto/`), incluindo `--operacao b` |
+| `references/app.md` | Mexer na tela (`app/server.py`, `app/passos.py`, `app/operacao_b.py`, `app/static/`) |
 | `references/contratos.md` | Qualquer mudança que atravesse a fronteira entre duas metades |
 | `references/padroes.md` | Antes de escrever código — convenções, estilo, o que não fazer |
 | `references/operacao.md` | Rodar o projeto, modo teste, troubleshooting, o que fazer quando falha |
@@ -31,6 +31,30 @@ Documentos vizinhos que continuam válidos e **não** são duplicados aqui:
 - `auto/CLAUDE.md` — arquitetura do disparo, lacunas intencionais, bugs achados em execução real.
 - `auto/.claude/docs/fluxo-disparo.md` — passo a passo literal do dashboard (URLs, seletores, ordem).
 - `CLAUDE.md` (raiz) — resumo curto carregado em todo contexto; aponta pra cá.
+
+## Operação A vs. Operação B — a que a tarefa se refere
+
+Existem duas operações de disparo. **O padrão é Operação A.**
+
+- **"Operação A", "disparo normal" ou nada dito → Operação A.** Toda tarefa é sobre o disparo normal,
+  a não ser que o usuário diga "Operação B" (ou "op B", "B"). "Muda a regra de elegibilidade",
+  "arruma o fluxo de template", "a base está errada" — tudo Operação A.
+- **Só mexe em arquivo da Operação B quando o usuário citar Operação B**: `gerar_base_b.py`,
+  `contatos_b.py`, `sql/consulta_operacao_b.sql`, `app/operacao_b.py`, `app/static/operacao-b.js`,
+  `auto/config/dispatches-b.json`, `auto/config/template-numeros-b*.json`, `auto/bases-b/`, `out_b/`.
+  Nunca como efeito colateral de uma tarefa da Operação A — e o inverso também.
+- **Infraestrutura compartilhada serve as duas, de propósito.** Mexer num destes = conferir o efeito
+  nas duas operações, seja qual for a citada: `checar_vpn`, `LOCK_EXECUCAO` / `_evento_cancelamento`
+  / `_registrar_processo`, `_FilaDeLinhas` / `_drenar`, `contatos.normalize_phone` / `write_csv` / o
+  filtro manual, o painel de revisão + aba Monitorar + chip de VPN + toggle produção/teste em
+  `app.js`, componentes de CSS compartilhados (`.quando`, `.grupo`, `.stepper*`, `.opcao`, …), o motor
+  de fases / login / confirmações do `dispatch.js`, `auto/logs/disparos.csv`.
+- **A geração é onde elas divergem e devem continuar divergindo.** `contatos.py`/`gerar_base.py` (A) e
+  `contatos_b.py`/`gerar_base_b.py` (B) são arquivos separados com regras de negócio separadas — SQL
+  diferente, buckets de rating diferentes, tratamento de nome diferente, sem relatório na B. Regra que
+  precisa valer nas duas se muda nos dois arquivos, conscientemente, nunca generalizando um no lugar.
+
+Tarefa ambígua quanto à operação: pergunte antes de editar. Detalhe em `CLAUDE.md` (raiz) → "Scope".
 
 ## Regras de uso
 

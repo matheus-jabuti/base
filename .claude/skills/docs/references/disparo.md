@@ -40,6 +40,9 @@ Adicionar, remover ou renomear base é edição de `dispatches.json`; não deve 
 
 ## Operação B (`--operacao b`)
 
+> Só mexe aqui quando a tarefa cita **Operação B**. O resto de `disparo.md` (motor de fases, login,
+> confirmações) é infraestrutura e vale para as duas. Ver `SKILL.md` → "Operação A vs. Operação B".
+
 Uma segunda operação de disparo, paralela à padrão (`--operacao a`, o default). **O disparo em si é
 idêntico** — mesmas fases, mesmo login, mesmas confirmações, mesmo log. O que muda é só de onde sai a
 configuração, no mapa `OPERACOES` no topo do `dispatch.js`:

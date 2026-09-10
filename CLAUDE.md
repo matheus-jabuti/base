@@ -24,6 +24,32 @@ is self-contained; the parent's Porto-tools guidance does not apply here.
 `out/` sends for real. Test mode (`--bases-dir bases` / "modo teste" in the UI) swaps the source to
 `auto/bases/`, which holds one contact per base.
 
+## Scope — Operação A vs. Operação B
+
+There are two dispatch operations. **Default to Operação A.**
+
+- **"Operação A", "disparo normal", or no mention at all → Operação A.** Every request is about the
+  normal dispatch unless the user says "Operação B" (or "op B", "B"). "Change the eligibility rule",
+  "fix the template flow", "the base is wrong" — all Operação A.
+- **Only when the user names Operação B do you touch Operação B files** — `gerar_base_b.py`,
+  `contatos_b.py`, `sql/consulta_operacao_b.sql`, `app/operacao_b.py`, `app/static/operacao-b.js`,
+  `auto/config/dispatches-b.json`, `auto/config/template-numeros-b*.json`, `auto/bases-b/`, `out_b/`.
+  Never edit these as a side effect of an Operação A task, and never edit Operação A files as a side
+  effect of an Operação B task.
+- **Shared infrastructure always serves both, on purpose.** Touching one of these means checking the
+  effect on *both* operations, whichever one the task named: `checar_vpn`, `passos.LOCK_EXECUCAO` /
+  `_evento_cancelamento` / `_registrar_processo`, `passos._FilaDeLinhas` / `_drenar`,
+  `contatos.normalize_phone` / `write_csv` / the manual filter (`filtros/`, `aplicar_filtro`,
+  `ler_telefones_filtro`), the revision panel + Monitorar tab + VPN chip + produção/teste toggle in
+  `app/static/app.js`, shared CSS components (`.quando`, `.grupo`, `.stepper*`, `.opcao`, …),
+  `auto/dispatch.js`'s phase engine / login / confirmations, `auto/logs/disparos.csv`.
+- **Generation is where they diverge and must stay divergent.** `contatos.py`/`gerar_base.py` (A) and
+  `contatos_b.py`/`gerar_base_b.py` (B) are separate files with separate business rules — different
+  SQL, different rating buckets, different name handling, no report for B. A rule that must apply to
+  both is changed in both files, deliberately, never by generalizing one in place.
+
+When a request is ambiguous about which operation, ask before editing.
+
 ## Commands
 
 ```bash
@@ -86,12 +112,16 @@ disable; empty folder is a no-op. Files in `filtros/` are **not** deleted after 
 ### Operação B
 
 A second dispatch operation living **beside** the one above (called Operação A when the two need
-telling apart), not on top of it. Everything is parallel and separate — a change on one side must
-never reach the other:
+telling apart), not on top of it. See "Scope — Operação A vs. Operação B" above for the rule on which
+files a task may touch. Everything is parallel and separate — a change on one side must never reach
+the other, except the shared infrastructure listed in that section:
 
 - **Generation**: `gerar_base_b.py` + `contatos_b.py` + `sql/consulta_operacao_b.sql`, reading the
   customer registry alone (`attributes->'campos'->>'operacao' = 'B'`, one row per phone). No period,
-  no messagesdb cross-check, no Excel report. Output goes to `out_b/`, never `out/`.
+  no messagesdb cross-check, **no Excel report — permanently, by design** (the query is already the
+  final base; `gerar_base_b.gerar()` has no `com_relatorio` param). The manual-filter audit CSV
+  (`relatorio/filtro_removidos_*.csv`) is still written, but only when the filter actually removes a
+  contact. Output goes to `out_b/`, never `out/`.
 - **Rating rules**: five CSVs, one per rating — `A`, `D`, `MENOR_500`, `MAIOR_500`, and `Outros`
   (also the catch-all for empty/unknown). Matching is on the **whole value**, not the first letter as
   in `contatos.py` — `MENOR_500` and `MAIOR_500` share one. A row with no name still dispatches, with

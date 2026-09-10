@@ -124,6 +124,11 @@ nível de módulo basta pras duas.
 
 ## Os passos da Operação B (`app/operacao_b.py`)
 
+> Esta seção e "Front da Operação B" abaixo só se aplicam quando a tarefa cita **Operação B**. O
+> resto de `app.md` — painel de revisão, aba Monitorar, chip de VPN, toggle produção/teste, contexto
+> de execução, componentes de CSS — é compartilhado e vale para as duas. Ver `SKILL.md` → "Operação A
+> vs. Operação B".
+
 Espelho do `passos.py`, com configuração própria — `dispatches-b.json`, `template-numeros-b.json`,
 `BASES_DIR` apontando para `out_b/` e `auto/bases-b/` — e `disparar()` chamando
 `dispatch.js --operacao b`. A mesma superfície de funções (`ler_templates`, `gravar_templates`,

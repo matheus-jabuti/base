@@ -198,6 +198,10 @@ Caminho manual, para quando a planilha chega pronta.
 
 ## Operação B — `gerar_base_b.py` + `contatos_b.py`
 
+> Tudo desta seção só se aplica quando a tarefa cita **Operação B**. Pedido sem citar operação, ou
+> citando "disparo normal", é sobre a Operação A — seção acima. Ver `SKILL.md` → "Operação A vs.
+> Operação B".
+
 Uma segunda operação de disparo, paralela à descrita acima (chamada de Operação A quando as duas
 precisam ser distinguidas). **Não compartilha regra de negócio com a A** — o que compartilha é só
 mecânica pura: `normalize_phone`, `write_csv`, `clear_output_folder` e o filtro manual, todos
@@ -249,8 +253,12 @@ sobrepõem no banco.
 
 `gerar_base_b.gerar(dry_run, deve_cancelar)` — mesma forma da `gerar()` da A (imprime em stdout,
 emite `[METRICA]`, levanta `OperacaoCancelada` nos pontos de checagem), com três diferenças: não
-tem período, não gera relatório Excel e não tem `com_relatorio`. O filtro manual de `filtros/` é o
-mesmo, aplicado do mesmo jeito. CLI: `python gerar_base_b.py [--previa]`.
+tem período, **não gera relatório Excel — permanentemente, de propósito** (a consulta já é a base
+fechada; não existe `com_relatorio` e não deve passar a existir), e por isso não tem esse parâmetro.
+A única coisa que ainda pode ir pra `relatorio/` é o CSV de auditoria do filtro manual
+(`filtro_removidos_*.csv`), e só quando o filtro remove algum contato. O filtro manual de `filtros/`
+é o mesmo da Operação A, aplicado do mesmo jeito. CLI: `python gerar_base_b.py [--previa]` — sem
+`--previa` grava os CSVs em `out_b/` e não dispara nada; `--previa` só imprime as contagens.
 
 ## Ao mexer aqui
 
