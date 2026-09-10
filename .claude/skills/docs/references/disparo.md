@@ -150,8 +150,16 @@ caminho de sucesso quanto no `main().catch` de erro fatal (`interrompido: true`)
 
 ## Rastro
 
-- Nome de lista, campanha e transmissão: `<nome da base> - DD/MM/AAAA - HHhMM` (`buildDispatchName`).
-- Descrição dos três: `by automação` — é o que identifica o que veio da automação.
+- Nome de lista, campanha e transmissão: `<nome da base> - DD/MM/AAAA - HHhMM` (`buildDispatchName`),
+  onde `<nome da base>` é o `nome` do `dispatches.json`/`dispatches-b.json`.
+- Descrição dos três: `by automação` na Operação A, `by automação · Operação B` na B (mapa `DESCRICAO`,
+  passado como parâmetro para `createList`/`createCampaign`/`createBroadcast`). É o que identifica o
+  que veio da automação, e de qual operação.
+- **Como separar as duas operações no dashboard**: os itens da B se identificam nos dois campos
+  visíveis — o nome começa com `Operacao B - ` (o que também agrupa os cinco quando a listagem é
+  ordenada por nome) e a descrição traz `· Operação B`. Os dois existem de propósito: o nome é o que
+  se lê numa listagem, a descrição é o que sobrevive a alguém renomear o item na mão. Mudou um,
+  mude o outro — e o `README.md`, que cita o formato.
 - Erro em uma base gera screenshot em `scripts/out/erro-<key>-<timestamp>.png`.
 - `logs/disparos.csv`, colunas na ordem: `data`, `hora_alvo`, `tipo` (recebe a `key` da base), `nome`,
   `modo` (`agendado`, ou `-` quando a fase `transmissao` ficou de fora; `imediato` é legado, não sai mais), `hora_execucao` (ISO),

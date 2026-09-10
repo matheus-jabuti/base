@@ -36,6 +36,12 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   (seeded from `template-numeros-b.example.json`), and `../out_b` as the default bases folder
   (`bases-b/` for test mode). The `plano` event carries `operacao` so the UI can label the run.
   There is no scheduler for it — Operação B is dispatched from the UI or the CLI only.
+  **Every item it creates is marked as Operação B on the dashboard, in both visible fields**: the
+  name (`Operacao B - <planilha> - <data> - <HHhMM>`, from `nome` in `dispatches-b.json` — which also
+  groups all of them together when the listing is sorted by name) and the description
+  (`by automação · Operação B`, from the `DESCRICAO` map, passed through `createList`/
+  `createCampaign`/`createBroadcast`). Keep both: the name is what you read in a listing, the
+  description is what survives someone renaming an item.
 - `config/template-numeros.json` — the template number per group (`{ "<grupo>": "NN" }`), the half that
   changes almost every round. **Gitignored.** `dispatch.js:lerNumeros` (and the Python side,
   `passos._ler_numeros`) seeds it from `config/template-numeros.example.json` (committed baseline) on

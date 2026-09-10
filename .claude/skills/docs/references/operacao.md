@@ -57,7 +57,7 @@ exercitar a automação do dashboard inteira — login, campanha, lista, transmi
 para cliente real. Use sempre que estiver mexendo em `auto/`.
 
 Mesmo em teste, lista, campanha e transmissão **são criadas de verdade** no dashboard, com descrição
-`by automação`. Não existe dry-run.
+`by automação` (`by automação · Operação B` na Operação B). Não existe dry-run.
 
 ## Rodada normal pela tela
 

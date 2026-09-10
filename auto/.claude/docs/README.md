@@ -11,7 +11,8 @@ código para trocar template ou trocar base). O template fica quebrado em `templ
 o formulário de transmissão o horário alvo já estiver a menos de ~2min
 (ou já tiver passado — ex: upload de lista demorou), a transmissão é enviada na hora em vez de agendada.
 Nome/descrição de lista, campanha e transmissão usam a descrição `by automação` para identificar o que
-veio da automação. Implementação: `dispatch.js` (orquestração) + `lib/dispatch-logic.js` (lógica pura,
+veio da automação (`by automação · Operação B` quando o disparo é da Operação B — ver
+`../../CLAUDE.md`). Implementação: `dispatch.js` (orquestração) + `lib/dispatch-logic.js` (lógica pura,
 testável via `npm test`). Log de progresso em `logs/disparos.csv`.
 
 ## Atualização — junção com a geração de base

@@ -51,7 +51,7 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 1. `page.goto('https://dashboard.jabuti.ai/meta/campaigns/add')`
 2. Preenche `input[name="name"]` com o nome montado (ex.: `Disparo amigavel C -
    12/08/2026 - 09H30`).
-3. Preenche `textarea[name="description"]` com `by automação`.
+3. Preenche `textarea[name="description"]` com a descrição da operação (`by automação`, ou `by automação · Operação B`).
 4. Clica `Salvar Campanha`.
 5. Espera o toast `Criada com sucesso` aparecer (`confirmSavedOrWarn`, timeout 30s) —
    essa tela **não redireciona** ao salvar, fica no mesmo formulário. Se o toast não
@@ -65,7 +65,7 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
 
 1. `page.goto('https://dashboard.jabuti.ai/meta/distribution-list/add')`
 2. Preenche `input[name="name"]` com o mesmo nome da campanha.
-3. Preenche `textarea[name="description"]` com `by automação`.
+3. Preenche `textarea[name="description"]` com a descrição da operação (`by automação`, ou `by automação · Operação B`).
 4. Sobe o arquivo de `config.csv` daquela entrada em `input[type="file"]`.
 5. Espera o texto `Arquivo CSV validado com sucesso` aparecer (timeout 15s).
 6. Clica `Salvar Lista de Distribuição`.
@@ -93,7 +93,7 @@ junto de qualquer mudança no código (ver `CLAUDE.md`, seção "Working convent
      aparecer na opção (indexação/processamento assíncrono do CSV no backend), recarrega
      a página `/meta/broadcasts/add` e tenta de novo — até 6 tentativas, ~10s de espera
      entre elas.
-2. Preenche `input[name="name"]` e `textarea[name="description"]` (`by automação`) da
+2. Preenche `input[name="name"]` e `textarea[name="description"]` (a descrição da operação) da
    própria transmissão.
 3. Resolve o horário do agendamento (`horarioAgendamento`, `lib/dispatch-logic.js`) e
    **sempre agenda** — nunca envio imediato, pra sempre sobrar janela de cancelamento no

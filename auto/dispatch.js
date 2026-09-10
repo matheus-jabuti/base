@@ -51,7 +51,13 @@ const LOGIN_URL = 'https://auth.jabuti.ai/sign-in';
 const DASHBOARD_URL = 'https://dashboard.jabuti.ai/meta/campaigns/manage';
 const EMAIL = process.env.JABUTI_EMAIL || 'auto-porto@jabuti.ai';
 const PASSWORD = process.env.JABUTI_PASSWORD || 'porto123';
-const DESCRICAO = 'by automação';
+// Descrição gravada em toda campanha/lista/transmissão criada aqui: marca o
+// item como feito pela automação e diz de qual operação ele é, pra dar pra
+// separar no dashboard sem depender só do nome.
+const DESCRICAO = {
+  a: 'by automação',
+  b: 'by automação · Operação B',
+};
 
 function ask(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -196,26 +202,26 @@ async function confirmSavedOrWarn(page, contexto) {
   }
 }
 
-async function createList(page, nome, csv) {
+async function createList(page, nome, csv, descricao) {
   // domcontentloaded, nao networkidle: fill() ja espera o campo ficar
   // acionavel, entao networkidle so somava espera de rede sem trazer sinal novo.
   await page.goto('https://dashboard.jabuti.ai/meta/distribution-list/add', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('input[name="name"]');
   await page.fill('input[name="name"]', nome);
-  await page.fill('textarea[name="description"]', DESCRICAO);
+  await page.fill('textarea[name="description"]', descricao);
   await page.setInputFiles('input[type="file"]', path.resolve(csv));
   await page.waitForSelector('text=Arquivo CSV validado com sucesso', { timeout: 15000 });
   await page.click('button:has-text("Salvar Lista de Distribuição")');
   await confirmSavedOrWarn(page, `Lista "${nome}"`);
 }
 
-async function createCampaign(page, nome) {
+async function createCampaign(page, nome, descricao) {
   // mesmo motivo de createList: domcontentloaded + espera no campo real,
   // sem depender de rede ociosa.
   await page.goto('https://dashboard.jabuti.ai/meta/campaigns/add', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('input[name="name"]');
   await page.fill('input[name="name"]', nome);
-  await page.fill('textarea[name="description"]', DESCRICAO);
+  await page.fill('textarea[name="description"]', descricao);
   await page.click('button:has-text("Salvar Campanha")');
   await confirmSavedOrWarn(page, `Campanha "${nome}"`);
 }
@@ -342,7 +348,7 @@ async function confirmBroadcastCreated(page, nome) {
   }
 }
 
-async function createBroadcast(page, { key, nome, template, target }) {
+async function createBroadcast(page, { key, nome, template, target, descricao }) {
   const inicioBase = Date.now();
   const ATTEMPTS = 6;
   const PAUSE_MS = 10000;
@@ -372,7 +378,7 @@ async function createBroadcast(page, { key, nome, template, target }) {
   console.log(`[tempo] "${nome}": selecao lista/campanha/template em ${formatDuracao(tSelecao - inicioBase)} (${tentativas} tentativa${tentativas > 1 ? 's' : ''})`);
 
   await page.fill('input[name="name"]', nome);
-  await page.fill('textarea[name="description"]', DESCRICAO);
+  await page.fill('textarea[name="description"]', descricao);
 
   // Sempre agendado — nunca envio imediato — pra sempre haver uma janela de
   // cancelamento no dashboard antes da mensagem sair.
@@ -419,6 +425,7 @@ async function main() {
 
   const target = targetDateTime(today, hh, mm);
   const horaAlvoLabel = `${pad2(hh)}H${pad2(mm)}`;
+  const descricao = DESCRICAO[args.operacao];
 
   progresso({
     evento: 'plano',
@@ -496,14 +503,14 @@ async function main() {
     }
 
     if (args.fases.includes('campanha')) {
-      await rodarFase('campanha', (estado) => createCampaign(page, estado.nome));
+      await rodarFase('campanha', (estado) => createCampaign(page, estado.nome, descricao));
     }
     if (args.fases.includes('lista')) {
-      await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv));
+      await rodarFase('lista', (estado) => createList(page, estado.nome, estado.cfg.csv, descricao));
     }
     if (args.fases.includes('transmissao')) {
       await rodarFase('transmissao', async (estado) => {
-        estado.modo = await createBroadcast(page, { key: estado.cfg.key, nome: estado.nome, template: estado.cfg.template, target });
+        estado.modo = await createBroadcast(page, { key: estado.cfg.key, nome: estado.nome, template: estado.cfg.template, target, descricao });
       });
     }
 

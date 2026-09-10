@@ -141,6 +141,15 @@ normal.
 
 O filtro manual de `filtros/` vale para as duas operacoes, sem separacao.
 
+**Como reconhecer no dashboard.** Campanha, lista e transmissao criadas pela Operacao B saem
+marcadas nos dois campos visiveis:
+
+- nome: `Operacao B - <planilha> - DD/MM/AAAA - HHhMM` (ex.: `Operacao B - Contencioso menor 500 -
+  10/09/2026 - 14H30`) — ordenando a listagem por nome, os cinco ficam juntos;
+- descricao: `by automação · Operação B`, em vez do `by automação` da operacao normal.
+
+Renomear um item na mao nao apaga a marca: a descricao continua dizendo de qual operacao ele veio.
+
 **Preparar B.** Mesmos cards da rota Preparar (Quando, O que criar, as cinco
 planilhas, templates da rodada), sem periodo e sem relatorio Excel. O botao
 **Revisar e disparar** abre o mesmo painel de revisao e o andamento vai pra rota
