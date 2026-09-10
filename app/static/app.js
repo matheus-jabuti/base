@@ -9,7 +9,17 @@ const estado = {
   filtro: { telefones: 0, arquivos: [], numeros: [] },
   ultimaExecucao: null,
   execucao: null,
+  tplSujo: false,
   agenda: { itens: [], sujo: false, modo: 'teste' },
+};
+
+// Título e subtítulo da barra de topo por rota.
+const ROTAS = {
+  preparar: ['Preparar disparo', 'templates · horário · o que criar'],
+  templates: ['Templates', 'um número por segmento · prefixo fixo por base'],
+  agenda: ['Agenda', 'o servidor dispara sozinho nos horários salvos'],
+  monitorar: ['Monitorar', 'execução ao vivo, atualiza por SSE'],
+  historico: ['Histórico', 'todo disparo registrado por base'],
 };
 
 // A VPN as vezes demora a subir; tenta de novo antes de acusar erro.
@@ -25,7 +35,9 @@ const GRUPOS = {
   contencioso: 'Contencioso',
 };
 
-const ETAPAS = ['lista', 'campanha', 'transmissao'];
+// Ordem em que o dispatch.js roda as fases: campanha, depois a lista, depois a
+// transmissão (que precisa das duas). Mesma ordem dos checkboxes no HTML.
+const ETAPAS = ['campanha', 'lista', 'transmissao'];
 
 const ROTULO_ETAPA = {
   lista: 'criando lista',
@@ -79,20 +91,22 @@ function alternarTema() {
 /* ------------------------------------------------ abas */
 
 function irPara(aba) {
-  if (!['preparar', 'agenda', 'monitorar', 'historico'].includes(aba)) aba = 'preparar';
+  if (!ROTAS[aba]) aba = 'preparar';
   estado.aba = aba;
 
-  for (const botao of document.querySelectorAll('.aba')) {
+  for (const botao of document.querySelectorAll('.nav-item')) {
     const ativa = botao.dataset.aba === aba;
     botao.classList.toggle('ativa', ativa);
     if (ativa) botao.setAttribute('aria-current', 'page');
     else botao.removeAttribute('aria-current');
   }
 
-  $('view-preparar').hidden = aba !== 'preparar';
-  $('view-agenda').hidden = aba !== 'agenda';
-  $('view-monitorar').hidden = aba !== 'monitorar';
-  $('view-historico').hidden = aba !== 'historico';
+  for (const secao of document.querySelectorAll('.view')) {
+    secao.hidden = secao.id !== `view-${aba}`;
+  }
+
+  $('rota-titulo').textContent = ROTAS[aba][0];
+  $('rota-sub').textContent = ROTAS[aba][1];
 
   if (location.hash !== `#${aba}`) location.hash = aba;
   if (aba === 'historico') carregarHistorico();
@@ -143,7 +157,10 @@ async function verificarVpn() {
 
 async function carregarBases() {
   estado.bases = await fetch(`/api/bases?modo=${estado.modo}`).then((r) => r.json());
+  estado.tplSujo = false;
+  desenharTemplates();
   desenharBases();
+  atualizarAcoesTemplates();
 }
 
 // As bases do mesmo grupo sempre saem com o mesmo numero de template, entao a
@@ -166,6 +183,8 @@ function agruparBases() {
   return grupos;
 }
 
+// Preparar mostra as bases da rodada só para leitura (contagem + volume). A
+// edição do número de template vive na rota Templates.
 function desenharBases() {
   const lista = $('bases');
   lista.innerHTML = '';
@@ -181,15 +200,10 @@ function desenharBases() {
         <div class="volume"><i></i></div>
       </div>
       <div class="contagem"><span></span><small></small></div>
-      <div class="stepper">
-        <button type="button" data-passo="-1" aria-label="Diminuir">−</button>
-        <input type="text" inputmode="numeric" maxlength="3" aria-label="Número do template">
-        <button type="button" data-passo="1" aria-label="Aumentar">+</button>
-      </div>
     `;
 
     item.querySelector('strong').textContent = rotulo(base.nome);
-    item.querySelector('em').textContent = base.template.replace(/_\d{1,3}$/, '_');
+    item.querySelector('em').textContent = templateEscolhido(base);
 
     const barra = item.querySelector('.volume i');
     barra.style.width = `${Math.max((base.contatos / maior) * 100, base.contatos ? 4 : 2)}%`;
@@ -200,37 +214,127 @@ function desenharBases() {
     contagem.querySelector('span').textContent = numero(base.contatos);
     contagem.querySelector('small').textContent = base.contatos ? 'contatos' : base.existe ? 'CSV vazio' : 'sem CSV';
 
-    const campo = item.querySelector('input');
-    campo.dataset.grupo = grupoDaBase(base);
-    campo.value = base.template.match(/_(\d{1,3})$/)?.[1] || '';
+    lista.appendChild(item);
+  }
 
-    const max = grupoDaBase(base) === 'contencioso' ? 10 : 7;
+  $('dica-bases').textContent = `${plural(estado.bases.length, 'base', 'bases')} · ${agruparBases().length} grupos`;
+  atualizarResumo();
+}
 
-    for (const botao of item.querySelectorAll('.stepper button')) {
+/* ------------------------------------------------ rota templates */
+
+// Um cartão por grupo (amigavel / amigavel_dez / contencioso): um stepper, e uma
+// linha por base do grupo com o nome final resolvido (prefixo + número).
+function desenharTemplates() {
+  const alvo = $('templates-grupos');
+  alvo.innerHTML = '';
+
+  for (const grupo of agruparBases()) {
+    const max = grupo.grupo === 'contencioso' ? 10 : 7;
+    const numeroAtual = grupo.bases[0].template.match(/_(\d{1,3})$/)?.[1] || '';
+
+    const card = document.createElement('div');
+    card.className = `grupo${grupo.grupo === 'contencioso' ? ' contencioso' : ''}`;
+    card.innerHTML = `
+      <div class="grupo-topo">
+        <strong></strong>
+        <div class="stepper">
+          <button type="button" data-passo="-1" aria-label="Diminuir">−</button>
+          <input type="text" inputmode="numeric" maxlength="3" aria-label="Número do template">
+          <button type="button" data-passo="1" aria-label="Aumentar">+</button>
+        </div>
+      </div>
+      <ul class="grupo-bases"></ul>
+      <div class="grupo-pe">máx ${String(max).padStart(2, '0')}</div>
+    `;
+
+    card.querySelector('strong').textContent = grupo.rotulo;
+
+    const campo = card.querySelector('input');
+    campo.dataset.grupo = grupo.grupo;
+    campo.value = numeroAtual;
+
+    const ul = card.querySelector('.grupo-bases');
+    for (const base of grupo.bases) {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="nome"></span><code class="tpl-resolvido"></code><span class="cont"></span>';
+      li.querySelector('.nome').textContent = rotulo(base.nome);
+
+      const cod = li.querySelector('.tpl-resolvido');
+      cod.dataset.prefix = base.template.replace(/_\d{1,3}$/, '');
+      cod.textContent = `${cod.dataset.prefix}_${(numeroAtual || '').padStart(2, '0')}`;
+
+      li.querySelector('.cont').textContent = base.contatos ? numero(base.contatos) : base.existe ? 'CSV vazio' : 'sem CSV';
+      ul.appendChild(li);
+    }
+
+    for (const botao of card.querySelectorAll('.stepper button')) {
       botao.onclick = () => {
         let atual = Number(campo.value || 0) + Number(botao.dataset.passo);
         if (atual > max) atual = 1;
         if (atual < 1) atual = max;
-        // Bases do mesmo grupo compartilham o numero: mexe em todas de uma vez.
-        for (const irmao of document.querySelectorAll(`.stepper input[data-grupo="${campo.dataset.grupo}"]`)) {
-          irmao.value = String(atual).padStart(2, '0');
-        }
-        atualizarResumo();
+        aplicarNumeroGrupo(grupo.grupo, String(atual).padStart(2, '0'));
       };
     }
 
     campo.oninput = () => {
-      for (const irmao of document.querySelectorAll(`.stepper input[data-grupo="${campo.dataset.grupo}"]`)) {
-        if (irmao !== campo) irmao.value = campo.value;
-      }
-      atualizarResumo();
+      const limpo = campo.value.replace(/\D/g, '').slice(0, 3);
+      if (campo.value !== limpo) campo.value = limpo;
+      aplicarNumeroGrupo(grupo.grupo, limpo, campo);
     };
 
-    lista.appendChild(item);
+    alvo.appendChild(card);
   }
 
-  $('dica-bases').textContent = `um número de template por grupo · ${agruparBases().length} grupos`;
+  $('dica-templates').textContent = `${plural(agruparBases().length, 'grupo', 'grupos')} · ${plural(estado.bases.length, 'base', 'bases')}`;
+  resumoTemplatesPreparar();
+}
+
+function aplicarNumeroGrupo(grupo, valor, origem) {
+  const card = document.querySelector(`.grupo .stepper input[data-grupo="${grupo}"]`)?.closest('.grupo');
+  if (!card) return;
+
+  const campo = card.querySelector('input[data-grupo]');
+  if (campo !== origem) campo.value = valor;
+
+  for (const cod of card.querySelectorAll('.tpl-resolvido')) {
+    cod.textContent = `${cod.dataset.prefix}_${(valor || '').padStart(2, '0')}`;
+  }
+
+  estado.tplSujo = true;
+  atualizarAcoesTemplates();
+  resumoTemplatesPreparar();
   atualizarResumo();
+}
+
+function resumoTemplatesPreparar() {
+  $('preparar-templates').innerHTML = agruparBases().map((grupo) => {
+    const nomes = [...new Set(grupo.bases.map((base) => templateEscolhido(base)))].join(' · ');
+    return `<div><dt>${grupo.rotulo}</dt><dd>${nomes}</dd></div>`;
+  }).join('');
+}
+
+function atualizarAcoesTemplates() {
+  $('tpl-acoes').hidden = !estado.tplSujo;
+  $('tpl-estado').textContent = estado.tplSujo ? 'mudanças não salvas' : '';
+}
+
+async function salvarTemplates() {
+  const resposta = await fetch('/api/templates', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(lerTemplates()),
+  });
+
+  if (!resposta.ok) {
+    const erro = await resposta.json().catch(() => ({}));
+    alert(erro.detail || 'Não consegui salvar os templates.');
+    return;
+  }
+
+  await carregarBases();
+  $('tpl-estado').textContent = 'salvo';
+  setTimeout(() => { if (!estado.tplSujo) $('tpl-estado').textContent = ''; }, 2500);
 }
 
 function lerTemplates() {
@@ -312,14 +416,19 @@ function atualizarResumo() {
 
   const fases = fasesEscolhidas();
   const criar = fases.length === 3
-    ? 'lista, campanha e transmissão'
+    ? 'campanha, lista e transmissão'
     : fases.map((fase) => ROTULO_FASE[fase]).join(', ') || 'nada selecionado';
+
+  const periodo = $('gerar-base').checked
+    ? `${dataBR($('data-inicio').value)} → ${dataBR($('data-fim').value)}`
+    : 'reaproveita os CSVs da pasta';
 
   const linhas = [
     ['Modo', estado.modo === 'producao' ? 'produção' : 'teste', estado.modo === 'producao'],
     ['Horário', `${$('hora').value || '--:--'} · ${agenda === null ? '—' : agenda ? 'agendado' : 'imediato'}`, false],
     ['Criar', criar, fases.length < 3],
     ['Templates', numeros.join(' / ') || '—', false],
+    ['Período', periodo, false],
     ['Filtro manual', estado.filtro.telefones ? `${numero(estado.filtro.telefones)} números` : 'vazio', false],
     ['Última execução', estado.ultimaExecucao || '—', false],
   ];
@@ -1342,13 +1451,16 @@ async function iniciar() {
 
   definirHora(new Date(Date.now() + 15 * 60 * 1000));
 
-  for (const botao of document.querySelectorAll('.aba')) {
+  for (const botao of document.querySelectorAll('.nav-item')) {
     botao.onclick = () => irPara(botao.dataset.aba);
   }
 
   for (const botao of document.querySelectorAll('[data-ir]')) {
     botao.onclick = () => irPara(botao.dataset.ir);
   }
+
+  $('tpl-salvar').onclick = salvarTemplates;
+  $('tpl-descartar').onclick = () => carregarBases();
 
   window.onhashchange = () => irPara(location.hash.replace('#', ''));
 

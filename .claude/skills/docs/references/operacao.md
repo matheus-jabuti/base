@@ -29,17 +29,18 @@ python -m pytest -q                       # suíte Python (contatos.py, gerar_ba
 cd auto && npm test                       # suíte Node (dispatch-logic.js)
 cd auto && node dispatch.js --hora 14:30                        # lê de ../out (PRODUÇÃO)
 cd auto && node dispatch.js --hora 14:30 --bases-dir bases      # bases de teste
-cd auto && node dispatch.js --hora 14:30 --fases lista,campanha # só cria lista e campanha
+cd auto && node dispatch.js --hora 14:30 --fases campanha,lista # só cria campanha e lista
 ```
 
 Sem `--hora`, o `dispatch.js` pergunta no terminal. Sem `--data-*`, o `gerar_base.py` usa ontem→hoje
-(na segunda-feira, sexta→hoje). `--fases` (vírgula, subconjunto de `lista`/`campanha`/`transmissao`,
-qualquer ordem) escolhe o que criar; padrão as três. Uma fase de fora não roda.
+(na segunda-feira, sexta→hoje). `--fases` (vírgula, subconjunto de `campanha`/`lista`/`transmissao`,
+qualquer ordem na linha de comando; rodam sempre nessa ordem) escolhe o que criar; padrão as três.
+Uma fase de fora não roda.
 
 ## Modo teste
 
 Troca a origem dos CSVs de `out/` para `auto/bases/`, que tem **um contato por base**. Serve para
-exercitar a automação do dashboard inteira — login, lista, campanha, transmissão — sem mandar mensagem
+exercitar a automação do dashboard inteira — login, campanha, lista, transmissão — sem mandar mensagem
 para cliente real. Use sempre que estiver mexendo em `auto/`.
 
 Mesmo em teste, lista, campanha e transmissão **são criadas de verdade** no dashboard, com descrição
@@ -47,18 +48,19 @@ Mesmo em teste, lista, campanha e transmissão **são criadas de verdade** no da
 
 ## Rodada normal pela tela
 
-1. VPN ligada (o chip no topo confere sozinho ao abrir).
-2. `python -m app.server`, abrir `http://127.0.0.1:8000` — abre na aba **Preparar**.
-3. Ajustar o número do template (um por grupo: amigável A/B/W+C+N/A Rating juntas, D/E/Z e contencioso à parte).
+1. VPN ligada (o chip no rodapé da barra lateral confere sozinho ao abrir).
+2. `python -m app.server`, abrir `http://127.0.0.1:8000` — abre na rota **Preparar**.
+3. Se precisar, ajustar o número do template na rota **Templates** (um por grupo: amigável A/B/W+C+N/A
+   Rating juntas, D/E/Z e contencioso à parte) e **Salvar templates**.
 4. Escolher o horário, pelos atalhos ou no relógio — o disparo é sempre agendado; a tela avisa quando
    o horário já passou ou está perto demais (aí é agendado 10min pra frente).
 5. Conferir a faixa de modo (produção × teste) e clicar em **Revisar e disparar**: o painel mostra
    bases, templates, horário resolvido e a checagem de VPN, período, filtro e bases vazias. Em
    produção, o disparo exige segurar o botão por 1,5s.
-6. A aba **Monitorar** assume: VPN → base → disparo, com as cinco bases mostrando a etapa atual
-   (lista/campanha/transmissão), métricas da geração e tempo por fase na lateral.
-7. Terminou: a mesma aba vira o resultado — frase de fechamento, tabela por base e arquivos gerados.
-   O log técnico fica recolhido embaixo (abre sozinho em caso de erro) e a aba **Histórico** já mostra
+6. A rota **Monitorar** assume: VPN → base → disparo, com as cinco bases mostrando a etapa atual
+   (campanha/lista/transmissão), métricas da geração e tempo por fase na lateral.
+7. Terminou: a mesma rota vira o resultado — frase de fechamento, tabela por base e arquivos gerados.
+   O log técnico fica recolhido embaixo (abre sozinho em caso de erro) e a rota **Histórico** já mostra
    as linhas novas.
 
 No cartão "Geração da base" dá para pular a geração (reaproveitando os CSVs já em `out/`), desligar o
@@ -70,7 +72,7 @@ geração inteira sem escrever CSV nem abrir o dashboard.
 | Sintoma | Onde |
 | --- | --- |
 | Falha por base, no dashboard | `auto/scripts/out/erro-<key>-<timestamp>.png` (screenshot da tela real) |
-| Histórico de execuções | `auto/logs/disparos.csv` (também na aba Histórico, com busca e filtros) |
+| Histórico de execuções | `auto/logs/disparos.csv` (também na rota Histórico, com busca e filtros) |
 | Conferência da base gerada | `relatorio/Base_interacoes_porto_AAAAMMDD.xlsx`, abas Base/Interagiram/Novos/Disparo |
 
 ## Problemas conhecidos

@@ -1,9 +1,11 @@
 # Tela (`app/`, FastAPI + JS sem build)
 
-Caminho normal de uso: quatro abas fixas (Preparar / Agenda / Monitorar / Histórico), um painel de
-revisão antes do disparo, e o acompanhamento ao vivo alimentado por SSE — que, ao terminar, vira a
-tela de resultado. A aba **Agenda** gerencia a lista de disparos automáticos; quem dispara é a thread
-do `app/agendador.py` (ver "Agendador" abaixo), não a tela.
+Caminho normal de uso: cinco rotas numa barra lateral fixa à esquerda (Preparar / Templates / Agenda /
+Monitorar / Histórico), um painel de revisão antes do disparo, e o acompanhamento ao vivo alimentado
+por SSE — que, ao terminar, vira a tela de resultado. O rodapé da sidebar ancora o estado do sistema
+(chip de VPN, segmento Produção/Teste, alternador de tema), visível em todas as rotas. A rota
+**Templates** edita um número de template por segmento; a rota **Agenda** gerencia a lista de disparos
+automáticos — quem dispara é a thread do `app/agendador.py` (ver "Agendador" abaixo), não a tela.
 
 ```bash
 python -m app.server      # http://127.0.0.1:8000
@@ -36,7 +38,7 @@ mesmo sem `.env` preenchido.
 | `PUT /api/templates` | Regrava **apenas** `template_prefix` e `template_numero` |
 | `GET /api/bases?modo=` | Por base: nome, csv, template montado, contatos, se o CSV existe |
 | `GET /api/periodo-padrao` | Reusa `gerar_base.periodo_padrao()` |
-| `GET /api/executar` | O botão único — SSE com a execução inteira. Aceita `dry_run=true` (exige `gerar=true`) e `fases` (lista separada por vírgula: `lista`/`campanha`/`transmissao`, default as três, validado por `_validar_fases`) |
+| `GET /api/executar` | O botão único — SSE com a execução inteira. Aceita `dry_run=true` (exige `gerar=true`) e `fases` (lista separada por vírgula: `campanha`/`lista`/`transmissao`, default as três, validado por `_validar_fases`) |
 | `POST /api/cancelar` | Sinaliza cancelamento da execução em andamento. `409` se não há nenhuma rodando |
 | `GET /api/filtro` | Arquivos, contagem e lista dos telefones (`numeros`) em `filtros/`, sem precisar de VPN/DB |
 | `GET /api/filtro/ultimo-removido` | Download do CSV mais recente de removidos pelo filtro (`relatorio/filtro_removidos_*.csv`); `404` se nenhum existe |
@@ -50,7 +52,8 @@ mesmo sem `.env` preenchido.
 Validações em `server.py`: `hora` no formato `HH:MM` com faixa válida (normalizada para dois dígitos),
 `modo` restrito às chaves de `passos.BASES_DIR`, datas em `AAAA-MM-DD` com início ≤ fim, `dry_run=true`
 sem `gerar=true` é `400` (pré-visualizar sem gerar base não faz sentido), `fases` só aceita
-`lista`/`campanha`/`transmissao` e não pode ficar vazia (`_validar_fases`, devolve na ordem canônica).
+`campanha`/`lista`/`transmissao` e não pode ficar vazia (`_validar_fases`, devolve na ordem canônica:
+campanha → lista → transmissao).
 
 **Lock de execução única**: um `threading.Lock` global; geração e disparo mexem nos mesmos CSVs, e dois
 cliques em paralelo dariam base pela metade ou disparo duplicado. Segunda chamada concorrente responde
@@ -81,7 +84,7 @@ Cada passo é um gerador que produz tuplas `(tipo, dado)`; `server.py` só as em
 - **`filtro_atual()` / `ultimo_arquivo_filtro_removidos()`** — dados por trás de `/api/filtro` e
   `/api/filtro/ultimo-removido`.
 - **`disparar(hora, modo, fases=None)`** — `subprocess.Popen` do `node dispatch.js`, lendo o stdout linha a linha.
-  `fases` (lista de `lista`/`campanha`/`transmissao`) vira `--fases`; `None` ou as três não passa a flag.
+  `fases` (lista de `campanha`/`lista`/`transmissao`) vira `--fases`; `None` ou as três não passa a flag.
   Linha com o prefixo `[ETAPA] ` vira evento `etapa` com o JSON já decodificado (inclusive o novo
   evento `tempo`, ver `contratos.md`); linha começando com `[ERRO]`/`[FATAL]` vira `erro`; o resto vira
   `log`. `returncode != 0` emite `falhou`; cancelado via `_matar_processo` emite `("cancelado", True)`.
@@ -148,12 +151,13 @@ bases de `auto/bases/` como estão.
 
 ## Front (`app/static/app.js`)
 
-- **Quatro views no mesmo documento** (`view-preparar` / `view-agenda` / `view-monitorar` /
-  `view-historico`), trocadas por `irPara(aba)`, que sincroniza o `location.hash`, marca a aba ativa,
-  recarrega o histórico ao entrar nele e, ao entrar/sair de Agenda, liga/desliga o poll de status
+- **Cinco views no mesmo documento** (`view-preparar` / `view-templates` / `view-agenda` /
+  `view-monitorar` / `view-historico`), trocadas por `irPara(aba)`, que sincroniza o `location.hash`,
+  marca o `.nav-item` ativo, escreve título/subtítulo da barra de topo (mapa `ROTAS`), recarrega o
+  histórico ao entrar nele e, ao entrar/sair de Agenda, liga/desliga o poll de status
   (`entrarAgenda` / `pararPollAgenda`). `window.onhashchange` chama o mesmo `irPara`, e o boot entra
   pela hash da URL. Preparar, Agenda e Monitorar usam o wrapper `.colunas` (coluna principal + lateral
-  fixa de 300px, grid a partir de 980px — abaixo disso empilha).
+  fixa de 300px, grid a partir de 1040px — abaixo disso empilha).
 - **Aba Agenda**: `estado.agenda = { itens, sujo, grupos, modo }` é a cópia de trabalho. `grupos`
   (rótulo + número atual por grupo) vem de `GET /api/templates` em `carregarGruposAgenda`, e monta os
   campos de template do formulário de adicionar e de cada linha. Adicionar/remover/ativar linha e
@@ -165,29 +169,39 @@ bases de `auto/bases/` como estão.
   vermelho. "Re-armar" (só para item que falhou/perdeu, e só com a agenda salva) é um
   `POST /api/agenda/rearmar` imediato. Enquanto a aba está aberta, um poll de 15s atualiza a lateral
   (`GET /api/agenda/status`), sincroniza o `modo` se não houver edição pendente, e recarrega as linhas.
-- **Contexto sempre visível**: barra superior fixa (`position: sticky`) com marca, abas, chip de VPN
-  (clicável, refaz a checagem), segmento de modo e alternador de tema; logo abaixo, a faixa de modo.
-  A aba Monitorar ganha um ponto pulsante (`#ponto-monitorar`) enquanto há execução rodando.
+- **Contexto sempre visível**: a sidebar (`.side`, `position: sticky`) leva a marca, as cinco rotas
+  (`.nav-item`) e, ancorados no rodapé (`.side-rodape`), o chip de VPN (clicável, refaz a checagem), o
+  segmento de modo e o alternador de tema. A rota Monitorar ganha um ponto pulsante
+  (`#ponto-monitorar`) enquanto há execução rodando. A `#faixa-modo` fica no topo da coluna principal,
+  logo abaixo da barra de título. Em telas < 880px a sidebar vira uma faixa horizontal.
 - **Tema**: claro por padrão, escuro por `prefers-color-scheme`, e `data-tema` no `<html>` quando o
   usuário escolhe explicitamente (`alternarTema` cicla claro → escuro → sistema, guardado em
   `localStorage`). Toda cor sai de token em `:root`; nenhuma cor é definida só dentro do media query.
   `[hidden] { display: none !important; }` é obrigatório: vários blocos têm `display` próprio
   (grid/flex) e ganhariam do `[hidden]` do navegador.
-- Uma linha por base em Preparar, com barra de volume proporcional ao maior CSV e o rótulo
-  `contatos` / `CSV vazio` / `sem CSV`. Base vazia continua listada (o `dispatch.js` espera os cinco
-  arquivos).
-- **O que criar no dashboard**: três checkboxes (`.fase`, valores `lista`/`campanha`/`transmissao`),
-  todas marcadas por padrão. `fasesEscolhidas()` lê as marcadas na ordem do DOM (que é a canônica) e o
-  resultado entra na querystring de `/api/executar` como `fases`, no resumo lateral (linha "Criar") e
-  em `estado.execucao.fases`. Nenhuma marcada desabilita "Revisar e disparar". O painel de revisão
-  avisa quando não são as três, e avisa de novo se `transmissao` está marcada sem `lista`+`campanha`
-  (a transmissão precisa que elas já existam no dashboard). A pré-visualização ignora as fases.
-- O stepper de template edita só o número; o prefixo vem do servidor e vai de volta intacto.
-- **Um número por grupo** (`grupoDaBase()` + mapa `GRUPOS`), mesmo com uma linha por base: mexer no
-  stepper (ou digitar no campo) de uma amigável A/B/W, C ou N/A Rating replica nas outras do grupo; a
-  D/E/Z (`amigavel_dez`) tem o dela e o contencioso o dele.
-  `lerTemplates()` monta uma entrada por base antes do `PUT`, repetindo o número do grupo e mandando o
-  prefixo de cada uma.
+- **Preparar** (`desenharBases`): uma linha por base **só leitura** (nome, contagem, barra de volume
+  proporcional ao maior CSV, rótulo `contatos` / `CSV vazio` / `sem CSV`, e o template resolvido). Base
+  vazia continua listada (o `dispatch.js` espera os cinco arquivos). Um card "Templates deste disparo"
+  (`resumoTemplatesPreparar`) mostra o nome resolvido por grupo com link `data-ir="templates"`. O
+  período e as opções de geração ficam num `<details id="bloco-geracao">` recolhido (padrão: gera +
+  relatório, período `/api/periodo-padrao`); o resumo lateral repete o período em modo leitura.
+- **O que criar no dashboard**: três checkboxes (`.fase`, valores `campanha`/`lista`/`transmissao`, nessa
+  ordem no DOM), todos marcados por padrão. `fasesEscolhidas()` lê os marcados na ordem do DOM (que é a
+  canônica de execução) e o resultado entra na querystring de `/api/executar` como `fases`, no resumo
+  lateral (linha "Criar") e em `estado.execucao.fases`. Nenhum marcado desabilita "Revisar e disparar".
+  O painel de revisão avisa quando não são as três, e avisa de novo se `transmissao` está marcada sem
+  `lista`+`campanha` (a transmissão precisa que elas já existam no dashboard). A pré-visualização ignora
+  as fases.
+- **Rota Templates** (`desenharTemplates`): um cartão `.grupo` por grupo de `agruparBases()`
+  (`amigavel` / `amigavel_dez` / `contencioso`), cada um com **um** stepper (`.stepper input[data-grupo]`,
+  máx 07 para amigável, 10 para contencioso) e uma linha por base do grupo com o nome final resolvido
+  (`.tpl-resolvido`, `data-prefix` + número, atualizado ao vivo por `aplicarNumeroGrupo`). O stepper
+  edita só o número; o prefixo vem do servidor e volta intacto. Mexer liga `estado.tplSujo` e mostra a
+  barra `#tpl-acoes`: "Salvar templates" (`salvarTemplates` → `PUT /api/templates` com `lerTemplates()`,
+  depois `carregarBases()`) ou "Descartar" (só `carregarBases()`). `executar()` também faz o mesmo
+  `PUT` antes de disparar, então salvar aqui é conveniência (e deixa a Agenda enxergar os números
+  novos). `lerTemplates()` monta uma entrada por base repetindo o número do grupo e o prefixo de cada
+  uma.
 - **Painel de revisão** (`#painel-revisao`) no lugar do `confirm()` do navegador: `abrirRevisao(dryRun)`
   monta o modo, o título com o total, o horário (sempre agendado), a mini-tabela
   base · template · contatos e a checklist de `montarChecklist()` — VPN, período da geração (ou aviso

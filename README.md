@@ -32,28 +32,34 @@ cd auto && npm test   # regras de auto/lib/dispatch-logic.js
 python -m app.server
 ```
 
-Abre em <http://127.0.0.1:8000>. Sao quatro abas fixas no topo — **Preparar**,
-**Agenda**, **Monitorar** e **Historico** —, cada uma com endereco proprio
-(`#preparar`, `#agenda`, `#monitorar`, `#historico`). O modo (producao/teste) e o
-estado da VPN ficam sempre visiveis na barra do topo, em qualquer aba.
+Abre em <http://127.0.0.1:8000>. As rotas ficam numa **barra lateral** a esquerda
+— **Preparar**, **Templates**, **Agenda**, **Monitorar** e **Historico** —, cada
+uma com endereco proprio (`#preparar`, `#templates`, ...). O modo (producao/teste),
+o estado da VPN e o tema ficam ancorados no rodape da barra lateral, visiveis em
+qualquer rota.
 
-**Preparar.** Uma linha por base, com o volume de contatos em barra, e o numero
-do template por grupo — Amigavel (A/B/W, C e N/A Rating usam sempre o mesmo
-numero), Amigavel D/E/Z (numero proprio) e Contencioso (tem o proprio). O
-prefixo fica fixo, so o numero muda de
-rodada pra rodada. Abaixo, o horario (com atalhos: agora, +15min, +30min,
-+60min), o card **O que criar no dashboard** (lista de distribuicao, campanha e
-transmissao — as tres marcadas por padrao; desmarque as que nao quer criar nesta
-rodada) e as opcoes de geracao: pular a geracao reaproveitando os CSVs que ja
-estao em `out/`, desligar o relatorio Excel, mudar o periodo e ver os arquivos e
-telefones do filtro manual em `filtros/`. A coluna da direita resume o que vai
-sair — total de contatos, modo, horario, o que vai criar, templates, filtro,
-ultima execucao.
+**Preparar.** Uma linha por base (so leitura) com o volume de contatos em barra e
+o template resolvido; um card **Templates deste disparo** com o nome final por
+grupo e um atalho pra rota Templates; o horario (com atalhos: agora, +15min,
++30min, +60min); o card **O que criar no dashboard** (campanha, lista de
+distribuicao e transmissao — nessa ordem, as tres marcadas por padrao; desmarque
+as que nao quer criar nesta rodada); e, recolhido em **Periodo e geracao
+(padrao)**, pular a geracao reaproveitando os CSVs de `out/`, desligar o relatorio
+Excel, mudar o periodo e ver os telefones do filtro manual em `filtros/`. A coluna
+da direita resume o que vai sair — total de contatos, modo, horario, o que vai
+criar, templates, periodo, filtro, ultima execucao.
 
-Marcar so `lista` e `campanha` (sem `transmissao`) e util pra deixar tudo
-montado e disparar a transmissao depois. Marcar `transmissao` sem `lista`/`campanha`
-so funciona se elas ja tiverem sido criadas antes no dashboard — o painel de
-revisao avisa.
+**Templates.** Um cartao por segmento — Amigavel (A/B/W, C e N/A Rating usam
+sempre o mesmo numero), Amigavel D/E/Z (numero proprio) e Contencioso (tem o
+proprio, ate 10; os amigaveis ate 7). O prefixo de cada base fica fixo, so o
+numero muda de rodada pra rodada, e o nome final (`WPP_contencioso_07`) aparece ao
+vivo. **Salvar templates** grava em `dispatches.json` e vale pro disparo manual e
+pra Agenda.
+
+Marcar so `campanha` e `lista` (sem `transmissao`) e util pra deixar tudo montado
+e disparar a transmissao depois. Marcar `transmissao` sem `campanha`/`lista` so
+funciona se elas ja tiverem sido criadas antes no dashboard — o painel de revisao
+avisa.
 Em modo teste o relatorio Excel nunca e escrito (o check fica desabilitado) —
 ensaio nao deixa arquivo em `relatorio/`.
 
@@ -66,7 +72,7 @@ Em producao o disparo exige **segurar o botao por 1,5s**; em teste e na
 pre-visualizacao e um clique so.
 
 **Agenda.** A lista de disparos automaticos: uma linha por data + hora, com o
-numero de template de cada grupo (amigavel, amigavel D/E/Z e contencioso, igual a aba Preparar).
+numero de template de cada grupo (amigavel, amigavel D/E/Z e contencioso, igual a rota Templates).
 Enquanto `python -m app.server` estiver rodando nesta maquina (com a VPN ligada),
 o servidor dispara sozinho em cada horario. Preencha data, hora e os templates,
 clique em **Adicionar horario**, depois **Salvar agenda** (os campos de template
@@ -87,18 +93,18 @@ da direita mostra o proximo disparo e se o agendador esta ligado.
 
 O disparo automatico comeca na hora exata do item; como todo disparo e agendado
 na plataforma (nunca enviado na hora), a transmissao fica agendada ~10min pra
-frente. Ele **nao aparece na aba Monitorar** — o resultado fica no Historico. Um
+frente. Ele **nao aparece na rota Monitorar** — o resultado fica no Historico. Um
 atraso de ~10 a 30min entre o horario do item e a mensagem chegar e esperado (a
 pipeline leva alguns minutos, mais os 10min do agendamento e a fila da
 plataforma).
 
 **Monitorar.** Acompanhamento ao vivo: VPN, geracao da base e disparo, com as
-cinco bases mostrando em qual etapa cada uma esta (lista, campanha,
+cinco bases mostrando em qual etapa cada uma esta (campanha, lista,
 transmissao). A coluna lateral mostra as metricas da geracao (conversas no
 periodo, elegiveis, filtro removido etc.) e o tempo de cada fase. Um botao
 **Cancelar execucao** interrompe uma rodada em andamento (o disparo para na
 hora; a geracao da base para no proximo ponto de checagem, nao
-instantaneamente). Ao terminar, a mesma aba vira o resultado: o que foi
+instantaneamente). Ao terminar, a mesma rota vira o resultado: o que foi
 agendado ou enviado, tabela por base com contatos, tempo e status, e os
 arquivos gerados (CSV de removidos pelo filtro, relatorio, log tecnico).
 
@@ -221,7 +227,7 @@ Telefone com menos de 10 digitos e descartado, porque nao e discavel.
 cd auto
 node dispatch.js --hora 14:30                        # le de ../out
 node dispatch.js --hora 14:30 --bases-dir bases      # bases de teste
-node dispatch.js --hora 14:30 --fases lista,campanha # so lista e campanha
+node dispatch.js --hora 14:30 --fases campanha,lista # so campanha e lista
 ```
 
 Sem `--hora`, o script pergunta o horario no terminal.
@@ -229,4 +235,4 @@ Sem `--hora`, o script pergunta o horario no terminal.
 | Opcao | Efeito |
 | --- | --- |
 | `--bases-dir <pasta>` | De onde ler os CSVs (padrao `../out`; `bases` para o modo teste) |
-| `--fases <lista>` | Quais fases criar, separadas por virgula: `lista`, `campanha`, `transmissao`. Padrao: as tres. Ordem nao importa |
+| `--fases <lista>` | Quais fases criar, separadas por virgula: `campanha`, `lista`, `transmissao` (nessa ordem de execucao). Padrao: as tres. A ordem que voce passa nao importa |

@@ -8,333 +8,388 @@
 </head>
 <body>
 
-<header class="topo">
-  <div class="topo-interno">
+<div class="app">
+
+  <!-- ===================================================== SIDEBAR ===================================================== -->
+  <nav class="side" aria-label="Navegação">
     <div class="marca">
       <span class="marca-selo" aria-hidden="true">P</span>
-      <strong>Disparo Porto</strong>
+      <span class="marca-texto">
+        <strong>Disparo Porto</strong>
+        <small>console de cobrança</small>
+      </span>
     </div>
 
-    <nav class="abas" id="abas" aria-label="Seções">
-      <button type="button" class="aba ativa" data-aba="preparar" aria-current="page">Preparar</button>
-      <button type="button" class="aba" data-aba="agenda">Agenda</button>
-      <button type="button" class="aba" data-aba="monitorar">
-        <span class="ponto-aba" id="ponto-monitorar" hidden></span>Monitorar
-      </button>
-      <button type="button" class="aba" data-aba="historico">Histórico</button>
-    </nav>
-
-    <span class="espaco"></span>
-
-    <button type="button" class="pilula-vpn checando" id="chip-vpn" title="Conferir a VPN de novo">
-      <span class="led" aria-hidden="true"></span>
-      <span id="chip-vpn-texto">Conferindo a VPN...</span>
+    <div class="nav-grupo">Operação</div>
+    <button type="button" class="nav-item ativa" data-aba="preparar" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2.4" fill="var(--painel)"/><circle cx="15" cy="12" r="2.4" fill="var(--painel)"/><circle cx="9" cy="18" r="2.4" fill="var(--painel)"/></svg>
+      Preparar
+    </button>
+    <button type="button" class="nav-item" data-aba="templates">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Templates
+    </button>
+    <button type="button" class="nav-item" data-aba="agenda">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Agenda
     </button>
 
-    <div class="segmento" id="segmento-modo" role="group" aria-label="Modo de disparo">
-      <button type="button" data-modo="producao" class="ativo">Produção</button>
-      <button type="button" data-modo="teste">Teste</button>
-    </div>
+    <div class="nav-grupo">Acompanhamento</div>
+    <button type="button" class="nav-item" data-aba="monitorar">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+      Monitorar
+      <span class="ponto-aba" id="ponto-monitorar" hidden></span>
+    </button>
+    <button type="button" class="nav-item" data-aba="historico">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>
+      Histórico
+    </button>
 
-    <button type="button" class="botao-icone" id="btn-tema" aria-label="Alternar tema">◐</button>
-  </div>
-
-  <div class="faixa-modo" id="faixa-modo"></div>
-</header>
-
-<main class="conteudo">
-
-  <!-- ===================================================== PREPARAR ===================================================== -->
-  <section class="view" id="view-preparar">
-    <div class="colunas">
-      <div class="coluna-principal">
-
-        <div class="cartao">
-          <div class="cartao-topo">
-            <h2>Bases e templates</h2>
-            <span class="dica" id="dica-bases">um número de template por grupo</span>
-          </div>
-          <ul class="bases" id="bases"></ul>
-        </div>
-
-        <div class="cartao">
-          <div class="cartao-topo">
-            <h2>Quando</h2>
-            <span class="dica">acima de ~2 min de folga o dashboard agenda</span>
-          </div>
-          <div class="quando">
-            <span class="pilula" id="hora-modo"></span>
-            <input type="time" id="hora" step="60" aria-label="Horário do disparo">
-            <div class="quando-texto">
-              <span id="hora-relativa"></span>
-              <span id="hora-data"></span>
-            </div>
-            <div class="atalhos" id="atalhos-hora">
-              <button type="button" data-minutos="0">agora</button>
-              <button type="button" data-minutos="15">+15min</button>
-              <button type="button" data-minutos="30">+30min</button>
-              <button type="button" data-minutos="60">+60min</button>
-              <button type="button" data-hora="10:00">10:00</button>
-              <button type="button" data-hora="14:30">14:30</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="cartao">
-          <div class="cartao-topo">
-            <h2>O que criar no dashboard</h2>
-            <span class="dica">por padrão cria as três</span>
-          </div>
-          <div class="opcoes">
-            <label class="opcao">
-              <input type="checkbox" class="fase" value="lista" checked>
-              <span class="marca-check" aria-hidden="true"></span>
-              <span>Lista de distribuição</span>
-            </label>
-            <label class="opcao">
-              <input type="checkbox" class="fase" value="campanha" checked>
-              <span class="marca-check" aria-hidden="true"></span>
-              <span>Campanha</span>
-            </label>
-            <label class="opcao">
-              <input type="checkbox" class="fase" value="transmissao" checked>
-              <span class="marca-check" aria-hidden="true"></span>
-              <span>Transmissão</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="cartao">
-          <div class="cartao-topo">
-            <h2>Geração da base</h2>
-            <span class="dica">período padrão: ontem → hoje</span>
-          </div>
-          <div class="opcoes">
-            <label class="opcao">
-              <input type="checkbox" id="gerar-base" checked>
-              <span class="marca-check" aria-hidden="true"></span>
-              <span>Gerar base antes de disparar</span>
-            </label>
-            <label class="opcao">
-              <input type="checkbox" id="com-relatorio" checked>
-              <span class="marca-check" aria-hidden="true"></span>
-              <span>Relatório Excel</span>
-            </label>
-            <label class="opcao periodo">
-              <span>Período</span>
-              <input type="date" id="data-inicio" aria-label="Data de início">
-              <span class="ate">→</span>
-              <input type="date" id="data-fim" aria-label="Data de fim">
-            </label>
-            <button type="button" class="opcao acionavel" id="btn-filtro">
-              <span>Filtro manual</span>
-              <strong id="filtro-resumo">carregando...</strong>
-            </button>
-          </div>
-        </div>
-
+    <div class="side-rodape">
+      <button type="button" class="pilula-vpn checando" id="chip-vpn" title="Conferir a VPN de novo">
+        <span class="led" aria-hidden="true"></span>
+        <span id="chip-vpn-texto">Conferindo a VPN...</span>
+      </button>
+      <div class="segmento" id="segmento-modo" role="group" aria-label="Modo de disparo">
+        <button type="button" data-modo="producao" class="ativo">Produção</button>
+        <button type="button" data-modo="teste">Teste</button>
       </div>
-
-      <aside class="coluna-lateral">
-        <div class="cartao resumo">
-          <div class="resumo-total">
-            <strong id="resumo-contatos">0</strong>
-            <span id="resumo-bases">nenhuma base carregada</span>
-          </div>
-          <dl class="resumo-lista" id="resumo-lista"></dl>
-          <button type="button" class="botao-principal" id="btn-revisar">
-            <span>Revisar e disparar</span>
-            <small id="btn-revisar-nota"></small>
-          </button>
-          <button type="button" class="botao-fantasma largo" id="btn-previa">Pré-visualizar sem gravar</button>
-          <p class="dica centro">A pré-visualização gera as contagens sem escrever CSV nem enviar nada.</p>
-        </div>
-      </aside>
+      <button type="button" class="botao-icone" id="btn-tema" aria-label="Alternar tema">◐</button>
     </div>
-  </section>
+  </nav>
 
-  <!-- ===================================================== MONITORAR ===================================================== -->
-  <section class="view" id="view-monitorar" hidden>
-    <div class="vazio-aba" id="monitorar-vazio">
-      <strong>Nenhuma execução ainda</strong>
-      <span>Monte o disparo em <button type="button" class="link" data-ir="preparar">Preparar</button>. O andamento aparece aqui e continua disponível depois que terminar.</span>
+  <!-- ===================================================== MAIN ===================================================== -->
+  <main class="main">
+    <div class="topbar">
+      <h1 id="rota-titulo">Preparar disparo</h1>
+      <span class="topbar-sub" id="rota-sub">templates · horário · o que criar</span>
     </div>
 
-    <div id="monitorar-conteudo" hidden>
-      <div class="barra-execucao">
-        <span class="cronometro" id="cronometro">00:00</span>
-        <span class="barra-execucao-texto">
-          <strong id="execucao-titulo">Execução em andamento</strong>
-          <span id="execucao-sub"></span>
-        </span>
-        <span class="espaco"></span>
-        <button type="button" class="botao-fantasma perigo" id="btn-cancelar" hidden>Cancelar execução</button>
-      </div>
-      <div class="progresso-fita"><i id="progresso-fita"></i></div>
+    <div class="faixa-modo" id="faixa-modo"></div>
 
-      <div class="colunas">
-        <div class="coluna-principal">
+    <div class="conteudo">
 
-          <div class="resultado" id="resultado" hidden>
-            <span class="resultado-icone" id="resultado-icone" aria-hidden="true"></span>
-            <span class="resultado-texto">
-              <strong id="resultado-titulo"></strong>
-              <span id="resultado-sub"></span>
-            </span>
-          </div>
+      <!-- ===================================================== PREPARAR ===================================================== -->
+      <section class="view" id="view-preparar">
+        <div class="colunas">
+          <div class="coluna-principal">
 
-          <div class="cartao">
-            <ol class="trilha" id="trilha">
-              <li data-passo="vpn">
-                <span class="bolha"></span>
-                <div class="texto"><strong>Conferindo a VPN</strong><em></em></div>
-              </li>
-              <li data-passo="base">
-                <span class="bolha"></span>
-                <div class="texto"><strong>Gerando a base</strong><em></em></div>
-              </li>
-              <li data-passo="disparo">
-                <span class="bolha"></span>
-                <div class="texto">
-                  <strong>Disparando no dashboard</strong><em></em>
-                  <ul class="subbases" id="subbases"></ul>
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>Bases desta rodada</h2>
+                <span class="dica" id="dica-bases">carregando...</span>
+              </div>
+              <ul class="bases" id="bases"></ul>
+            </div>
+
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>Templates deste disparo</h2>
+                <span class="dica"><button type="button" class="link" data-ir="templates">ajustar →</button></span>
+              </div>
+              <dl class="tpl-resumo" id="preparar-templates"></dl>
+            </div>
+
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>Quando</h2>
+                <span class="dica">acima de ~10 min de folga o dashboard agenda</span>
+              </div>
+              <div class="quando">
+                <span class="pilula" id="hora-modo"></span>
+                <input type="time" id="hora" step="60" aria-label="Horário do disparo">
+                <div class="quando-texto">
+                  <span id="hora-relativa"></span>
+                  <span id="hora-data"></span>
                 </div>
-              </li>
-            </ol>
-          </div>
-
-          <div class="cartao" id="cartao-porbase" hidden>
-            <div class="cartao-topo">
-              <h2>Por base</h2>
-              <span class="dica" id="porbase-dica"></span>
+                <div class="atalhos" id="atalhos-hora">
+                  <button type="button" data-minutos="0">agora</button>
+                  <button type="button" data-minutos="15">+15min</button>
+                  <button type="button" data-minutos="30">+30min</button>
+                  <button type="button" data-minutos="60">+60min</button>
+                  <button type="button" data-hora="10:00">10:00</button>
+                  <button type="button" data-hora="14:30">14:30</button>
+                </div>
+              </div>
             </div>
-            <div class="tabela-scroll">
-              <table class="tabela">
-                <thead>
-                  <tr><th>Base</th><th>Template</th><th class="num">Contatos</th><th class="num">Tempo</th><th>Status</th></tr>
-                </thead>
-                <tbody id="porbase"></tbody>
-              </table>
+
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>O que criar no dashboard</h2>
+                <span class="dica">por padrão cria as três, nesta ordem</span>
+              </div>
+              <div class="opcoes">
+                <label class="opcao">
+                  <input type="checkbox" class="fase" value="campanha" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Campanha</span>
+                </label>
+                <label class="opcao">
+                  <input type="checkbox" class="fase" value="lista" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Lista de distribuição</span>
+                </label>
+                <label class="opcao">
+                  <input type="checkbox" class="fase" value="transmissao" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Transmissão</span>
+                </label>
+              </div>
             </div>
+
+            <details class="cartao recolhivel" id="bloco-geracao">
+              <summary>Período e geração (padrão)</summary>
+              <div class="opcoes">
+                <label class="opcao">
+                  <input type="checkbox" id="gerar-base" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Gerar base antes de disparar</span>
+                </label>
+                <label class="opcao">
+                  <input type="checkbox" id="com-relatorio" checked>
+                  <span class="marca-check" aria-hidden="true"></span>
+                  <span>Relatório Excel</span>
+                </label>
+                <label class="opcao periodo">
+                  <span>Período</span>
+                  <input type="date" id="data-inicio" aria-label="Data de início">
+                  <span class="ate">→</span>
+                  <input type="date" id="data-fim" aria-label="Data de fim">
+                </label>
+                <button type="button" class="opcao acionavel" id="btn-filtro">
+                  <span>Filtro manual</span>
+                  <strong id="filtro-resumo">carregando...</strong>
+                </button>
+              </div>
+            </details>
+
           </div>
 
-          <div class="cartao" id="cartao-arquivos" hidden>
-            <div class="cartao-topo"><h2>Arquivos desta execução</h2></div>
-            <div class="opcoes" id="arquivos"></div>
-          </div>
-
-          <details class="cartao recolhivel" id="bloco-log">
-            <summary>Log técnico</summary>
-            <div class="conteudo"><pre class="log" id="log"></pre></div>
-          </details>
-
-          <div class="acoes-fim" id="acoes-fim" hidden>
-            <button type="button" class="botao-principal" data-ir="preparar"><span>Novo disparo</span></button>
-            <button type="button" class="botao-fantasma" data-ir="historico">Ver no histórico</button>
-          </div>
+          <aside class="coluna-lateral">
+            <div class="cartao resumo">
+              <div class="resumo-total">
+                <strong id="resumo-contatos">0</strong>
+                <span id="resumo-bases">nenhuma base carregada</span>
+              </div>
+              <dl class="resumo-lista" id="resumo-lista"></dl>
+              <button type="button" class="botao-principal" id="btn-revisar">
+                <span>Revisar e disparar</span>
+                <small id="btn-revisar-nota"></small>
+              </button>
+              <button type="button" class="botao-fantasma largo" id="btn-previa">Pré-visualizar sem gravar</button>
+              <p class="dica centro">A pré-visualização gera as contagens sem escrever CSV nem enviar nada.</p>
+            </div>
+          </aside>
         </div>
+      </section>
 
-        <aside class="coluna-lateral">
-          <div class="cartao" id="cartao-metricas" hidden>
-            <div class="cartao-topo"><h2>Métricas da geração</h2></div>
-            <ul class="metricas" id="metricas"></ul>
-          </div>
-          <div class="cartao" id="cartao-tempos" hidden>
-            <div class="cartao-topo"><h2>Tempo por fase</h2></div>
-            <ul class="metricas" id="tempos-fase"></ul>
-          </div>
-        </aside>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================================================== AGENDA ===================================================== -->
-  <section class="view" id="view-agenda" hidden>
-    <div class="colunas">
-      <div class="coluna-principal">
+      <!-- ===================================================== TEMPLATES ===================================================== -->
+      <section class="view" id="view-templates" hidden>
         <div class="cartao">
           <div class="cartao-topo">
-            <h2>Disparos agendados</h2>
-            <span class="dica" id="agenda-dica">o servidor dispara sozinho nos horários abaixo</span>
+            <h2>Templates por segmento</h2>
+            <span class="dica" id="dica-templates">um número por grupo · prefixo fixo por base</span>
           </div>
+          <p class="tpl-intro">
+            Cada segmento sai com um número de template; cada base guarda o próprio prefixo. O que for
+            salvo aqui grava <code>template_numero</code> em <code>dispatches.json</code> e vale tanto
+            para o disparo manual quanto para a Agenda.
+          </p>
+          <div class="tpl-grid" id="templates-grupos"></div>
+        </div>
+
+        <div class="acoes-fim" id="tpl-acoes" hidden>
+          <button type="button" class="botao-principal" id="tpl-salvar"><span>Salvar templates</span></button>
+          <button type="button" class="botao-fantasma" id="tpl-descartar">Descartar mudanças</button>
+          <span class="dica" id="tpl-estado"></span>
+        </div>
+      </section>
+
+      <!-- ===================================================== MONITORAR ===================================================== -->
+      <section class="view" id="view-monitorar" hidden>
+        <div class="vazio-aba" id="monitorar-vazio">
+          <strong>Nenhuma execução ainda</strong>
+          <span>Monte o disparo em <button type="button" class="link" data-ir="preparar">Preparar</button>. O andamento aparece aqui e continua disponível depois que terminar.</span>
+        </div>
+
+        <div id="monitorar-conteudo" hidden>
+          <div class="barra-execucao">
+            <span class="cronometro" id="cronometro">00:00</span>
+            <span class="barra-execucao-texto">
+              <strong id="execucao-titulo">Execução em andamento</strong>
+              <span id="execucao-sub"></span>
+            </span>
+            <span class="espaco"></span>
+            <button type="button" class="botao-fantasma perigo" id="btn-cancelar" hidden>Cancelar execução</button>
+          </div>
+          <div class="progresso-fita"><i id="progresso-fita"></i></div>
+
+          <div class="colunas">
+            <div class="coluna-principal">
+
+              <div class="resultado" id="resultado" hidden>
+                <span class="resultado-icone" id="resultado-icone" aria-hidden="true"></span>
+                <span class="resultado-texto">
+                  <strong id="resultado-titulo"></strong>
+                  <span id="resultado-sub"></span>
+                </span>
+              </div>
+
+              <div class="cartao">
+                <ol class="trilha" id="trilha">
+                  <li data-passo="vpn">
+                    <span class="bolha"></span>
+                    <div class="texto"><strong>Conferindo a VPN</strong><em></em></div>
+                  </li>
+                  <li data-passo="base">
+                    <span class="bolha"></span>
+                    <div class="texto"><strong>Gerando a base</strong><em></em></div>
+                  </li>
+                  <li data-passo="disparo">
+                    <span class="bolha"></span>
+                    <div class="texto">
+                      <strong>Disparando no dashboard</strong><em></em>
+                      <ul class="subbases" id="subbases"></ul>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+
+              <div class="cartao" id="cartao-porbase" hidden>
+                <div class="cartao-topo">
+                  <h2>Por base</h2>
+                  <span class="dica" id="porbase-dica"></span>
+                </div>
+                <div class="tabela-scroll">
+                  <table class="tabela">
+                    <thead>
+                      <tr><th>Base</th><th>Template</th><th class="num">Contatos</th><th class="num">Tempo</th><th>Status</th></tr>
+                    </thead>
+                    <tbody id="porbase"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="cartao" id="cartao-arquivos" hidden>
+                <div class="cartao-topo"><h2>Arquivos desta execução</h2></div>
+                <div class="opcoes" id="arquivos"></div>
+              </div>
+
+              <details class="cartao recolhivel" id="bloco-log">
+                <summary>Log técnico</summary>
+                <div class="conteudo-recolhivel"><pre class="log" id="log"></pre></div>
+              </details>
+
+              <div class="acoes-fim" id="acoes-fim" hidden>
+                <button type="button" class="botao-principal" data-ir="preparar"><span>Novo disparo</span></button>
+                <button type="button" class="botao-fantasma" data-ir="historico">Ver no histórico</button>
+              </div>
+            </div>
+
+            <aside class="coluna-lateral">
+              <div class="cartao" id="cartao-metricas" hidden>
+                <div class="cartao-topo"><h2>Métricas da geração</h2></div>
+                <ul class="metricas" id="metricas"></ul>
+              </div>
+              <div class="cartao" id="cartao-tempos" hidden>
+                <div class="cartao-topo"><h2>Tempo por fase</h2></div>
+                <ul class="metricas" id="tempos-fase"></ul>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== AGENDA ===================================================== -->
+      <section class="view" id="view-agenda" hidden>
+        <div class="colunas">
+          <div class="coluna-principal">
+            <div class="cartao">
+              <div class="cartao-topo">
+                <h2>Disparos agendados</h2>
+                <span class="dica" id="agenda-dica">o servidor dispara sozinho nos horários abaixo</span>
+              </div>
+              <div class="filtros">
+                <input type="date" id="agenda-data" aria-label="Data do disparo">
+                <input type="time" id="agenda-hora" step="60" aria-label="Horário do disparo">
+                <span class="agenda-tpl-add" id="agenda-add-tpl"></span>
+                <button type="button" class="botao-fantasma" id="agenda-add">Adicionar horário</button>
+              </div>
+              <div class="tabela-scroll">
+                <table class="tabela">
+                  <thead>
+                    <tr><th>Data</th><th>Hora</th><th>Templates</th><th>Situação</th><th>Detalhe</th><th class="acoes-col"></th></tr>
+                  </thead>
+                  <tbody id="agenda-linhas"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="acoes-fim" id="agenda-acoes" hidden>
+              <button type="button" class="botao-principal" id="agenda-salvar"><span>Salvar agenda</span></button>
+              <button type="button" class="botao-fantasma" id="agenda-descartar">Descartar mudanças</button>
+            </div>
+          </div>
+
+          <aside class="coluna-lateral">
+            <div class="cartao resumo">
+              <div class="agenda-modo">
+                <span class="rotulo">Modo dos disparos automáticos</span>
+                <div class="segmento" id="agenda-segmento-modo" role="group" aria-label="Modo dos disparos automáticos">
+                  <button type="button" data-modo="teste">Teste</button>
+                  <button type="button" data-modo="producao">Produção</button>
+                </div>
+                <p class="agenda-aviso-modo" id="agenda-aviso-modo" hidden>Cada horário envia para os <strong>clientes reais</strong> da base gerada.</p>
+              </div>
+              <div class="resumo-total">
+                <strong id="agenda-proximo-hora">—</strong>
+                <span id="agenda-proximo-quando">nenhum disparo agendado</span>
+              </div>
+              <dl class="resumo-lista" id="agenda-status-lista"></dl>
+              <p class="dica centro">Só acontece com <code>python -m app.server</code> rodando nesta máquina e a VPN ligada.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===================================================== HISTÓRICO ===================================================== -->
+      <section class="view" id="view-historico" hidden>
+        <div class="cartao">
           <div class="filtros">
-            <input type="date" id="agenda-data" aria-label="Data do disparo">
-            <input type="time" id="agenda-hora" step="60" aria-label="Horário do disparo">
-            <span class="agenda-tpl-add" id="agenda-add-tpl"></span>
-            <button type="button" class="botao-fantasma" id="agenda-add">Adicionar horário</button>
+            <input type="search" id="historico-busca" placeholder="Buscar por base...">
+            <select id="historico-status" aria-label="Status">
+              <option value="">Todos os status</option>
+              <option value="ok">OK</option>
+              <option value="erro">Erro</option>
+              <option value="pulado">Pulado</option>
+            </select>
+            <select id="historico-modo" aria-label="Tipo de envio">
+              <option value="">Agendado e imediato</option>
+              <option value="agendado">Agendado</option>
+              <option value="imediato">Imediato</option>
+            </select>
+            <select id="historico-limite" aria-label="Quantidade">
+              <option value="50">Últimas 50</option>
+              <option value="200" selected>Últimas 200</option>
+              <option value="1000">Tudo</option>
+            </select>
+            <div class="contadores" id="historico-contadores"></div>
           </div>
+
           <div class="tabela-scroll">
             <table class="tabela">
               <thead>
-                <tr><th>Data</th><th>Hora</th><th>Templates</th><th>Situação</th><th>Detalhe</th><th class="acoes-col"></th></tr>
+                <tr><th>Data</th><th>Alvo</th><th>Base</th><th>Envio</th><th>Executado</th><th>Status</th><th>Detalhe</th></tr>
               </thead>
-              <tbody id="agenda-linhas"></tbody>
+              <tbody id="historico"></tbody>
             </table>
           </div>
         </div>
+      </section>
 
-        <div class="acoes-fim" id="agenda-acoes" hidden>
-          <button type="button" class="botao-principal" id="agenda-salvar"><span>Salvar agenda</span></button>
-          <button type="button" class="botao-fantasma" id="agenda-descartar">Descartar mudanças</button>
-        </div>
-      </div>
-
-      <aside class="coluna-lateral">
-        <div class="cartao resumo">
-          <div class="agenda-modo">
-            <span class="rotulo">Modo dos disparos automáticos</span>
-            <div class="segmento" id="agenda-segmento-modo" role="group" aria-label="Modo dos disparos automáticos">
-              <button type="button" data-modo="teste">Teste</button>
-              <button type="button" data-modo="producao">Produção</button>
-            </div>
-            <p class="agenda-aviso-modo" id="agenda-aviso-modo" hidden>Cada horário envia para os <strong>clientes reais</strong> da base gerada.</p>
-          </div>
-          <div class="resumo-total">
-            <strong id="agenda-proximo-hora">—</strong>
-            <span id="agenda-proximo-quando">nenhum disparo agendado</span>
-          </div>
-          <dl class="resumo-lista" id="agenda-status-lista"></dl>
-          <p class="dica centro">Só acontece com <code>python -m app.server</code> rodando nesta máquina e a VPN ligada.</p>
-        </div>
-      </aside>
     </div>
-  </section>
-
-  <!-- ===================================================== HISTÓRICO ===================================================== -->
-  <section class="view" id="view-historico" hidden>
-    <div class="cartao">
-      <div class="filtros">
-        <input type="search" id="historico-busca" placeholder="Buscar por base...">
-        <select id="historico-status" aria-label="Status">
-          <option value="">Todos os status</option>
-          <option value="ok">OK</option>
-          <option value="erro">Erro</option>
-          <option value="pulado">Pulado</option>
-        </select>
-        <select id="historico-modo" aria-label="Tipo de envio">
-          <option value="">Agendado e imediato</option>
-          <option value="agendado">Agendado</option>
-          <option value="imediato">Imediato</option>
-        </select>
-        <select id="historico-limite" aria-label="Quantidade">
-          <option value="50">Últimas 50</option>
-          <option value="200" selected>Últimas 200</option>
-          <option value="1000">Tudo</option>
-        </select>
-        <div class="contadores" id="historico-contadores"></div>
-      </div>
-
-      <div class="tabela-scroll">
-        <table class="tabela">
-          <thead>
-            <tr><th>Data</th><th>Alvo</th><th>Base</th><th>Envio</th><th>Executado</th><th>Status</th><th>Detalhe</th></tr>
-          </thead>
-          <tbody id="historico"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</main>
+  </main>
+</div>
 
 <!-- ===================================================== PAINEL DE REVISÃO ===================================================== -->
 <div class="painel-fundo" id="painel-revisao" hidden>

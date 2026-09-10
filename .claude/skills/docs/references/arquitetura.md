@@ -2,8 +2,8 @@
 
 ## O que o projeto faz
 
-Cobrança da Porto por WhatsApp. Uma rodada de disparo produz cinco bases de contatos, cria lista de
-distribuição + campanha + transmissão para cada uma no dashboard Jabuti, e agenda as mensagens
+Cobrança da Porto por WhatsApp. Uma rodada de disparo produz cinco bases de contatos, cria campanha +
+lista de distribuição + transmissão para cada uma no dashboard Jabuti, e agenda as mensagens
 (sempre agendadas, nunca enviadas na hora). O repo cobre a rodada inteira: do banco de dados até a
 transmissão criada.
 
@@ -42,7 +42,7 @@ As metades se falam por arquivo e por stdout, nunca por import. O que atravessa 
 
 ## Fluxo de uma rodada (caminho normal, pela tela)
 
-1. Operador abre `http://127.0.0.1:8000`, ajusta o número do template de cada base e o horário.
+1. Operador abre `http://127.0.0.1:8000`, ajusta o número do template por segmento (rota Templates) e o horário.
 2. Tela chama `GET /api/executar` (SSE) e vira tela de progresso.
 3. **VPN** — socket direto nos dois bancos; sem VPN para aqui, com mensagem legível.
 4. **Base** — roda `gerar_base.gerar()` in-process, capturando o stdout como evento de log.
