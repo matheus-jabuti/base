@@ -162,7 +162,7 @@ def test_escrever_filtro_removidos_grava_csv_com_grupo(tmp_path):
     }
 
     arquivo = escrever_filtro_removidos(tmp_path, date(2026, 8, 25), removidos_por_grupo)
-    linhas = list(csv.reader(arquivo.open(encoding="utf-8")))
+    linhas = list(csv.reader(arquivo.open(encoding="utf-8"), delimiter=";"))
 
     assert arquivo.name == "filtro_removidos_20260825.csv"
     assert linhas[0] == ["telefone", "nome", "grupo"]

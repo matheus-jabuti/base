@@ -18,9 +18,9 @@ O Python escreve, o Node lê, e ninguém valida a correspondência em tempo de e
 **Adicionar, remover ou renomear uma base exige tocar os cinco.** Faltando `auto/bases/`, o modo teste
 quebra com "CSV nao encontrado"; faltando em `OUTPUT_FILES`, produção quebra do mesmo jeito.
 
-Formato do arquivo, invariante: UTF-8, cabeçalho literal `phonenumber,name`, uma linha por contato,
-telefone só com dígitos. `escrever_grupos` grava **todos** os arquivos, inclusive vazios — o
-`dispatch.js` exige que existam, e trata CSV sem contato como `pulado`, não como erro.
+Formato do arquivo, invariante: UTF-8, cabeçalho literal `phonenumber;name`, separador `;`, uma
+linha por contato, telefone só com dígitos. `escrever_grupos` grava **todos** os arquivos, inclusive
+vazios — o `dispatch.js` exige que existam, e trata CSV sem contato como `pulado`, não como erro.
 
 A **Operação B** tem o conjunto próprio, com a mesma regra dos cinco lugares e o mesmo formato de
 arquivo:

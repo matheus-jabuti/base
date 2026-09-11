@@ -8,7 +8,7 @@ Generates the WhatsApp dispatch bases for Porto debt collection and fires them o
 dashboard. Three halves that chain into one pipeline:
 
 1. **Generation** (Python, repo root) — reads two Postgres databases, applies eligibility rules,
-   writes five two-column CSVs (`phonenumber,name`) to `out/` and an Excel report.
+   writes five two-column CSVs (`phonenumber;name`) to `out/` and an Excel report.
 2. **Dispatch** (Node + Playwright, `auto/`) — takes those CSVs and drives the dashboard UI to
    create distribution list → campaign → broadcast, per base. Has its own `auto/CLAUDE.md`
    — **read it before touching anything under `auto/`**.

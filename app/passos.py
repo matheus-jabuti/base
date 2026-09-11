@@ -287,7 +287,7 @@ def contagens_previa(modo: str, grupos_previa: dict[str, int]) -> list[dict]:
 
 
 def _nomes_da_base(pasta: Path) -> dict[str, str]:
-    """Mapa telefone -> nome, lido dos CSVs de disparo (phonenumber,name) ja gerados.
+    """Mapa telefone -> nome, lido dos CSVs de disparo (phonenumber;name) ja gerados.
 
     So serve pra exibir o nome de quem esta no filtro quando o contato tambem
     esta na base atual; sem cadastro correspondente, o nome fica vazio. Nao
@@ -301,7 +301,7 @@ def _nomes_da_base(pasta: Path) -> dict[str, str]:
 
     for arquivo in pasta.glob("*.csv"):
         with arquivo.open(encoding="utf-8", newline="") as f:
-            for linha in csv.DictReader(f):
+            for linha in csv.DictReader(f, delimiter=";"):
                 telefone = (linha.get("phonenumber") or "").strip()
                 if telefone:
                     nomes[telefone] = (linha.get("name") or "").strip()

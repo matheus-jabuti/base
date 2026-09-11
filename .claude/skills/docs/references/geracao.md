@@ -166,7 +166,8 @@ desligar — se `filtros/` está vazia, é um no-op.
   estruturado `[METRICA]` `filtro` (ver `contratos.md`), que carrega o breakdown por grupo.
 - Fora de dry-run, os removidos também são gravados em
   `relatorio/filtro_removidos_AAAAMMDD[_N].csv` (`escrever_filtro_removidos`, colunas
-  `telefone,nome,grupo`) — mesmo padrão incremental do `gravar_relatorio`, nunca sobrescreve. A tela
+  `telefone;nome;grupo`, separador `;`) — mesmo padrão incremental do `gravar_relatorio`, nunca
+  sobrescreve. A tela
   serve o mais recente via `GET /api/filtro/ultimo-removido` (ver `app.md`).
 - `CSV_PARA_GRUPO` (`contatos.py`) é o dict inverso de `OUTPUT_FILES` (nome do csv → grupo). Existe só
   para a tela conseguir mapear `auto/config/dispatches.json`'s `csv` de volta a um grupo em memória, no

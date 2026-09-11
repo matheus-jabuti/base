@@ -35,7 +35,7 @@ Regra completa em `SKILL.md` → "Operação A vs. Operação B" e em `CLAUDE.md
 ```
 
 1. **Geração** (Python, raiz) — lê dois Postgres, aplica as regras de elegibilidade, escreve cinco
-   CSVs de duas colunas (`phonenumber,name`) em `out/`, mais um Excel de conferência.
+   CSVs de duas colunas (`phonenumber;name`) em `out/`, mais um Excel de conferência.
    Detalhes: `geracao.md`.
 2. **Disparo** (Node + Playwright, `auto/`) — lê esses CSVs e opera o dashboard pela interface.
    Detalhes: `disparo.md`.

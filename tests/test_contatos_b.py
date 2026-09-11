@@ -141,4 +141,4 @@ def test_escreve_as_cinco_planilhas_mesmo_vazias(tmp_path):
         assert (tmp_path / arquivo).exists()
 
     with (tmp_path / OUTPUT_FILES_B[GROUP_AMIGAVEL_D]).open(encoding="utf-8") as f:
-        assert list(csv.reader(f)) == [["phonenumber", "name"], ["47999998888", "Ana"]]
+        assert list(csv.reader(f, delimiter=";")) == [["phonenumber", "name"], ["47999998888", "Ana"]]

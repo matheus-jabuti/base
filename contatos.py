@@ -283,7 +283,7 @@ def escrever_filtro_removidos(
         arquivo = pasta / f"{nome}_{contador}.csv"
 
     with arquivo.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, delimiter=";")
         writer.writerow(["telefone", "nome", "grupo"])
         for grupo, linhas in removidos_por_grupo.items():
             for telefone, nome_contato in linhas:
@@ -307,7 +307,7 @@ def clear_output_folder(output_dir: Path) -> None:
 
 def write_csv(file_path: Path, data: Iterable[tuple[str, str]]) -> None:
     with file_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, delimiter=";")
         writer.writerow(["phonenumber", "name"])
         writer.writerows(data)
 
