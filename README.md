@@ -109,10 +109,14 @@ plataforma).
 ## Operacao B
 
 Uma segunda operacao de disparo, separada da normal (chamada de Operacao A no
-codigo) em tudo: consulta propria, pasta de saida propria (`out_b/`), cinco
-planilhas proprias, templates proprios e rota propria na tela. Uma nao mexe na
-outra — trocar template, gerar base ou disparar de um lado nao altera nada do
-outro.
+codigo) em tudo: fonte de dados propria, pasta de saida propria (`out_b/`),
+cinco planilhas proprias, templates proprios e rota propria na tela. Uma nao
+mexe na outra — trocar template, gerar base ou disparar de um lado nao altera
+nada do outro.
+
+A fonte de dados e uma planilha xlsx solta em `in_b/` (nome do arquivo pode
+mudar a cada rodada), com as colunas `phone_number`, `nome` e `prioridade` —
+por enquanto nao vem mais do banco.
 
 A diferenca de regra esta na classificacao: o contencioso, que na Operacao A e
 uma categoria so, aqui e separado por valor.
@@ -136,18 +140,17 @@ operacao B ele vem preenchido em todos os registros e e so o primeiro nome
 com o nome `Cliente` — ao contrario da Operacao A, que descarta o registro sem
 nome.
 
-Nao ha periodo: a consulta ja devolve a base fechada de quem esta marcado como
-`operacao = 'B'`. O cadastro guarda o historico do cliente (varias linhas por
-telefone, e o rating muda conforme o atraso e o saldo andam), entao a consulta
-fica sempre com a **linha mais recente** de cada telefone — e o mesmo cliente
-cai sempre na mesma planilha. Tambem nao ha relatorio Excel nem agenda
-automatica — o agendamento acontece no dashboard, como no disparo normal.
+Nao ha periodo: a planilha ja e a base fechada da rodada. Tambem nao ha
+relatorio Excel nem agenda automatica — o agendamento acontece no dashboard,
+como no disparo normal.
 
 **Deduplicacao em duas camadas** (mantem sempre um so):
 
 - **telefone repetido** — o mesmo numero recebe um disparo so;
 - **CPF repetido** — a mesma pessoa (mesmo CPF) com varios numeros no cadastro
-  recebe um disparo so. Fica o numero do cadastro mais recente.
+  recebe um disparo so. Fica o numero do cadastro mais recente. A planilha de
+  `in_b/` nao traz CPF, entao essa camada fica inerte (sempre 0) por enquanto —
+  o codigo continua pronto pra ela caso a coluna volte a existir na fonte.
 
 O resumo da geracao mostra quantos cairam em cada camada (ex.: `Deduplicacao: 0
 por telefone repetido, 426 por CPF repetido`).
@@ -157,8 +160,9 @@ O filtro manual de `filtros/` vale para as duas operacoes, sem separacao.
 **Como reconhecer no dashboard.** Campanha, lista e transmissao criadas pela Operacao B saem
 marcadas nos dois campos visiveis:
 
-- nome: `Operacao B - <planilha> - DD/MM/AAAA - HHhMM` (ex.: `Operacao B - Contencioso menor 500 -
-  10/09/2026 - 14H30`) — ordenando a listagem por nome, os cinco ficam juntos;
+- nome: `Operacao B <planilha> - DD/MM/AAAA - HHHMM` (ex.: `Operacao B Contencioso <500 -
+  10/09/2026 - 14H30`) — ordenando a listagem por nome, os cinco ficam juntos; nomes ficam ate 50
+  caracteres no total (limite do campo no dashboard) — `<500`/`>500` no lugar de "menor/maior 500";
 - descricao: `by automação · Operação B`, em vez do `by automação` da operacao normal.
 
 Renomear um item na mao nao apaga a marca: a descricao continua dizendo de qual operacao ele veio.
@@ -297,7 +301,7 @@ Telefone com menos de 10 digitos e descartado, porque nao e discavel.
 | `gerar_base.py` | Pipeline banco -> CSV |
 | `extract.py` | Pipeline Excel -> CSV |
 | `contatos.py` | Normalizacao, rating, deduplicacao, filtro manual e escrita dos CSVs |
-| `gerar_base_b.py` | Pipeline da Operacao B: banco -> `out_b/` |
+| `gerar_base_b.py` | Pipeline da Operacao B: planilha de `in_b/` -> `out_b/` |
 | `contatos_b.py` | Classificacao por rating e escrita dos CSVs da Operacao B |
 | `banco.py` | Engines e consultas |
 | `config.py` | Caminhos e leitura do `.env` |

@@ -205,50 +205,41 @@ Caminho manual, para quando a planilha chega pronta.
 
 Uma segunda operação de disparo, paralela à descrita acima (chamada de Operação A quando as duas
 precisam ser distinguidas). **Não compartilha regra de negócio com a A** — o que compartilha é só
-mecânica pura: `normalize_phone`, `write_csv`, `clear_output_folder` e o filtro manual, todos
-importados de `contatos.py`.
+mecânica pura: `normalize_phone`, `write_csv`, `clear_output_folder`, `normalize_header` e o filtro
+manual, todos importados de `contatos.py`.
 
-### `consulta_operacao_b.sql` (b2bcustomers-db)
+### Fonte de dados — planilha em `in_b/` (temporário, não é mais o banco)
 
-Uma consulta só, sem parâmetro e sem cruzamento com o messagesdb:
-`WHERE attributes->'campos'->>'operacao' = 'B'`, com `DISTINCT ON (phone_number)` — já devolve a
-base fechada, um registro por telefone. Colunas: `telefone`, `nome`, `cpf`, `bucket`, `rating`.
+**Por enquanto** a base não vem mais de `consulta_operacao_b.sql`/`b2bcustomers-db` — vem de uma
+planilha xlsx solta em `in_b/` (`config.INPUT_DIR_B`). O nome do arquivo pode mudar a cada rodada;
+`gerar_base_b.find_input_excels_b` pega **todos** os `*.xlsx` da pasta (glob, ordenado), então mais
+de um arquivo presente é lido e concatenado, não é erro.
 
-Os campos têm nomes próprios, diferentes dos da Operação A: telefone em
-`campos->>'phone_number'` (não `attributes->>'phone_number'`), `des_cpf` no lugar de `des_regis`,
-`segmentacao` no lugar do bucket derivado por dias de atraso, `prioridade` no lugar de
-`cod_indicador->RAT_AMIG`, e **`nome` no lugar de `nom_clien`** — `nom_clien` não existe em nenhum
-registro da operação B. O `nome` foi acrescentado à consulta original, que não o trazia: sem ele a
-planilha sairia sem a coluna `name`.
-
-**A tabela guarda histórico**: o mesmo telefone aparece em várias linhas (uma por atualização do
-cadastro), e uma fatia relevante delas troca de `prioridade` ao longo do tempo — o cliente muda de
-faixa conforme os dias de atraso e o saldo andam. A consulta tem **duas etapas** por causa disso:
-
-1. **Subconsulta** — `DISTINCT ON (phone_number)` com `ORDER BY phone_number, created_at DESC, id DESC`:
-   um registro por telefone, a linha mais recente (o estado atual da dívida; `id` só como critério
-   final de estabilidade). Sem o desempate o Postgres escolhe uma linha arbitrária e o mesmo cliente
-   cai numa planilha diferente a cada execução. `updated_at` é sempre nulo nesses registros — não
-   serve de critério.
-2. **Consulta externa** — `ORDER BY created_at DESC, id DESC` sobre o resultado. A dedup por CPF
-   acontece no Python (`contatos_b.py`) mantendo a primeira ocorrência, então as linhas precisam
-   chegar da mais recente para a mais antiga: assim o telefone que sobra de cada CPF é o do cadastro
-   mais atual.
-
-Note que `consulta_novos.sql` (Operação A) filtra `operacao is null`, então as duas bases não se
-sobrepõem no banco.
+- `gerar_base_b.ler_planilha_b(path)` lê a primeira aba do arquivo, cabeçalho na **linha 1**, dados a
+  partir da **linha 2**. Colunas esperadas (comparação por `normalize_header`, case-insensitive, em
+  qualquer ordem): `phone_number`, `nome`, `prioridade` — viram `RegistroB.telefone`/`.nome`/
+  `.rating`. Falta de qualquer uma levanta `ValueError` nomeando o que faltou e o cabeçalho
+  encontrado. Linha com telefone e nome ambos vazios é pulada.
+- Não há coluna de CPF na planilha — `RegistroB.cpf` sempre chega `None` daqui, o que deixa a camada
+  de dedup por CPF (`contatos_b.py`) inerte (CPF vazio não deduplica, ver abaixo) sem precisar tocar
+  nela. Se a fonte voltar a trazer CPF, basta popular `RegistroB(cpf=...)` em `ler_planilha_b`.
+- `sql/consulta_operacao_b.sql` e `banco.consultar_operacao_b` continuam no repo, só não são mais
+  chamados por `gerar_base_b.gerar()` — histórico de como a consulta funcionava (colunas, as duas
+  etapas de `DISTINCT ON`/dedup por `created_at`) fica preservado ali para quando a fonte voltar a
+  ser o banco.
+- Nenhum arquivo de `in_b/` é apagado depois de processado (diferente de `in/`, que `extract.py`
+  apaga por padrão) — a planilha some da pasta só se alguém tirar na mão.
 
 ### Regras de contato — `contatos_b.py`
 
 - **Dedup em duas camadas**, ambas mantendo a primeira ocorrência (contadas separado):
   - **Telefone** (`duplicados_telefone`): o mesmo número recebe um disparo só, mesmo em ratings
-    diferentes — igual à A. Hoje some sozinho na subconsulta SQL, o set aqui é rede de segurança.
+    diferentes — igual à A.
   - **CPF** (`duplicados_cpf`): a mesma pessoa (mesmo `des_cpf`, só dígitos) recebe um disparo só,
-    mesmo com vários números no cadastro. É o corte que sobra depois do telefone — na base atual são
-    ~426 contatos (13.317 telefones para 12.891 CPFs; um CPF chega a 6 números). CPF vazio **não**
-    deduplica (cada telefone fica por si). Como a consulta entrega o mais recente primeiro, o número
-    mantido é o do cadastro mais atual; nos poucos casos de rating divergente entre os números do
-    mesmo CPF, vale o rating desse cadastro mais recente.
+    mesmo com vários números no cadastro. CPF vazio **não** deduplica (cada telefone fica por si).
+    **Inerte enquanto a fonte for a planilha de `in_b/`** (ver seção acima) — ela não traz coluna de
+    CPF, então `RegistroB.cpf` chega sempre `None` e essa camada nunca dispara (`duplicados_cpf`
+    sempre 0). Continua no código pronta pra quando a fonte trouxer CPF de novo.
   - `resultado.duplicados` é a soma das duas.
 - **Nome**: `normalize_name_b` capitaliza (`MARIA DAS DORES` → `Maria Das Dores`) e, **sem nome,
   devolve `Cliente`** em vez de descartar a linha — é a diferença de comportamento mais importante
@@ -269,8 +260,10 @@ sobrepõem no banco.
 
 `gerar_base_b.gerar(dry_run, deve_cancelar)` — mesma forma da `gerar()` da A (imprime em stdout,
 emite `[METRICA]`, levanta `OperacaoCancelada` nos pontos de checagem), com três diferenças: não
-tem período, **não gera relatório Excel — permanentemente, de propósito** (a consulta já é a base
-fechada; não existe `com_relatorio` e não deve passar a existir), e por isso não tem esse parâmetro.
+tem período, **não gera relatório Excel — permanentemente, de propósito** (a planilha de `in_b/` já
+é a base fechada; não existe `com_relatorio` e não deve passar a existir), e por isso não tem esse
+parâmetro. Sem nenhum `*.xlsx` em `in_b/`, `gerar()` levanta `FileNotFoundError` em vez de seguir
+com base vazia.
 Métricas emitidas: `registros_operacao_b`, `contatos_validos`, `duplicados_telefone`,
 `duplicados_cpf`, `sem_nome`, `filtro` (ver `contratos.md` §2b).
 A única coisa que ainda pode ir pra `relatorio/` é o CSV de auditoria do filtro manual

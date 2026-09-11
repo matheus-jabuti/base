@@ -12,6 +12,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 SQL_DIR = BASE_DIR / "sql"
 INPUT_DIR = BASE_DIR / "in"
+# Planilha de entrada da Operacao B (nome do arquivo pode variar, sempre xlsx
+# com as colunas phone_number/nome/prioridade). Pasta propria, separada de in/.
+INPUT_DIR_B = BASE_DIR / "in_b"
 OUTPUT_DIR = BASE_DIR / "out"
 # A Operacao B tem pasta propria: as duas operacoes limpam e reescrevem a pasta
 # inteira ao gerar, entao dividir a mesma pasta apagaria a base da outra.
