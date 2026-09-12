@@ -160,9 +160,11 @@ O filtro manual de `filtros/` vale para as duas operacoes, sem separacao.
 **Como reconhecer no dashboard.** Campanha, lista e transmissao criadas pela Operacao B saem
 marcadas nos dois campos visiveis:
 
-- nome: `Operacao B <planilha> - DD/MM/AAAA - HHHMM` (ex.: `Operacao B Contencioso <500 -
+- nome: `Op. B <planilha> - DD/MM/AAAA - HHHMM` (ex.: `Op. B Contencioso Menor 500 -
   10/09/2026 - 14H30`) — ordenando a listagem por nome, os cinco ficam juntos; nomes ficam ate 50
-  caracteres no total (limite do campo no dashboard) — `<500`/`>500` no lugar de "menor/maior 500";
+  caracteres no total (limite do campo no dashboard); o `campaignAlias` da API rejeita
+  `\ < > " % : &`, entao nunca usar `<500`/`>500` (foi a causa de um erro 422 em producao) —
+  "Menor 500"/"Maior 500" por extenso, com prefixo `Op. B` (em vez de `Operacao B`) pra caber;
 - descricao: `by automação · Operação B`, em vez do `by automação` da operacao normal.
 
 Renomear um item na mao nao apaga a marca: a descricao continua dizendo de qual operacao ele veio.

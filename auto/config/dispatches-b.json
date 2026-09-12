@@ -1,35 +1,35 @@
 [
   {
     "key": "b_amigavel_a",
-    "nome": "Operacao B - Amigavel A",
+    "nome": "Op. B Amigavel A",
     "csv": "b_amigavel_A.csv",
     "grupo": "b_amigavel_a",
     "template_prefix": "WPP_A_E_B"
   },
   {
     "key": "b_amigavel_d",
-    "nome": "Operacao B - Amigavel D",
+    "nome": "Op. B Amigavel D",
     "csv": "b_amigavel_D.csv",
     "grupo": "b_amigavel_d",
     "template_prefix": "Wpp_rating_d_e"
   },
   {
     "key": "b_contencioso_menor_500",
-    "nome": "Operacao B - Contencioso menor 500",
+    "nome": "Op. B Contencioso Menor 500",
     "csv": "b_contencioso_menor_500.csv",
     "grupo": "b_contencioso_menor_500",
     "template_prefix": "WPP_contencioso"
   },
   {
     "key": "b_contencioso_maior_500",
-    "nome": "Operacao B - Contencioso maior 500",
+    "nome": "Op. B Contencioso Maior 500",
     "csv": "b_contencioso_maior_500.csv",
     "grupo": "b_contencioso_maior_500",
     "template_prefix": "WPP_contencioso"
   },
   {
     "key": "b_outros",
-    "nome": "Operacao B - Outros",
+    "nome": "Op. B Outros",
     "csv": "b_outros.csv",
     "grupo": "b_outros",
     "template_prefix": "WPP_A_E_B"

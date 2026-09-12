@@ -37,8 +37,11 @@ Passo a passo literal de cada etapa (URLs, seletores, ordem exata): `.claude/doc
   (`bases-b/` for test mode). The `plano` event carries `operacao` so the UI can label the run.
   There is no scheduler for it — Operação B is dispatched from the UI or the CLI only.
   **Every item it creates is marked as Operação B on the dashboard, in both visible fields**: the
-  name (`Operacao B - <planilha> - <data> - <HHhMM>`, from `nome` in `dispatches-b.json` — which also
-  groups all of them together when the listing is sorted by name) and the description
+  name (`Op. B <planilha> - <data> - <HHhMM>`, from `nome` in `dispatches-b.json` — which also
+  groups all of them together when the listing is sorted by name; names stay under 50 chars total,
+  the dashboard field's limit, and the broker's `campaignAlias` validation rejects
+  `\ < > " % : &` — so `nome` uses `Op. B` (not `Operacao B`) as prefix and "Menor 500"/"Maior 500"
+  spelled out, never `<500`/`>500` (caused a real 422 in production)) and the description
   (`by automação · Operação B`, from the `DESCRICAO` map, passed through `createList`/
   `createCampaign`/`createBroadcast`). Keep both: the name is what you read in a listing, the
   description is what survives someone renaming an item.
